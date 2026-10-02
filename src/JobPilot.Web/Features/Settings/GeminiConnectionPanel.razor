@@ -1,0 +1,124 @@
+@using JobPilot.Web.Infrastructure.Llm
+@using Microsoft.Extensions.Options
+@implements IDisposable
+@inject IOptionsMonitor<GeminiOptions> GeminiOptions
+@inject ConnectionTestHandler Handler
+@inject LlmSettingsStore Settings
+
+<MudStack Spacing="3">
+    @if (HasApiKey)
+    {
+        <MudAlert Severity="Severity.Success" data-testid="api-key-status">
+            La API key de Gemini está configurada. Por seguridad no se muestra.
+        </MudAlert>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Warning" data-testid="api-key-status">
+            No hay API key de Gemini configurada. Desde la carpeta del repositorio ejecutá
+            <code>dotnet user-secrets set "Gemini:ApiKey" "TU_API_KEY" --project src/JobPilot.Web</code>
+            y reiniciá la app. También podés usar la variable de entorno <code>GEMINI_API_KEY</code>.
+        </MudAlert>
+    }
+
+    <MudText Typo="Typo.h6">Probar conexión</MudText>
+    <MudText>
+        Envía un pedido mínimo, sin datos personales, para verificar la API key, el modelo y la salida estructurada.
+        La llamada queda en el registro con su costo estimado.
+    </MudText>
+
+    @if (_test is not null && _model is not null)
+    {
+        <LlmPayloadPreview Prompt="_test.Prompt" Model="@_model" />
+    }
+
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_running || !HasApiKey)" OnClick="RunAsync">
+            Probar conexión
+        </MudButton>
+        @if (_running)
+        {
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+            <MudText Typo="Typo.body2">Esperando la respuesta de Gemini…</MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+        }
+    </MudStack>
+
+    @if (_cancelled)
+    {
+        <MudAlert Severity="Severity.Info">Prueba cancelada.</MudAlert>
+    }
+    else if (_result is { IsSuccess: true })
+    {
+        <MudAlert Severity="Severity.Success" data-testid="connection-result">
+            Conexión correcta con <strong>@_result.Model</strong>. Gemini devolvió el JSON esperado.
+            <br />@LlmFormat.Usage(_result.Usage) · @LlmFormat.Latency(_result.LatencyMs) · @LlmFormat.Cost(_result.EstimatedCostUsd)
+            @if (_result.Attempts > 1)
+            {
+                <br />@($"Hicieron falta {_result.Attempts} intentos.")
+            }
+        </MudAlert>
+    }
+    else if (_result?.Error is { } error)
+    {
+        <MudAlert Severity="Severity.Error" data-testid="connection-result">
+            @error.Message
+            @if (error.Detail is not null)
+            {
+                <br /><MudText Typo="Typo.caption">Detalle: @error.Detail</MudText>
+            }
+        </MudAlert>
+    }
+</MudStack>
+
+@code {
+    private PreparedConnectionTest? _test;
+    private string? _model;
+    private bool _running;
+    private bool _cancelled;
+    private LlmResult<ConnectionTestResponse>? _result;
+    private CancellationTokenSource? _cts;
+
+    private bool HasApiKey => GeminiOptions.CurrentValue.HasApiKey;
+
+    protected override async Task OnInitializedAsync() => await PrepareAsync();
+
+    private async Task PrepareAsync()
+    {
+        _test = Handler.Prepare();
+        _model = (await Settings.ResolveAsync(LlmUseCases.ConnectionTest, CancellationToken.None)).Model;
+    }
+
+    private async Task RunAsync()
+    {
+        if (_test is null)
+        {
+            return;
+        }
+
+        _running = true;
+        _cancelled = false;
+        _result = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            _result = await Handler.RunAsync(_test, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _cancelled = true;
+        }
+        finally
+        {
+            _running = false;
+            _cts.Dispose();
+            _cts = null;
+        }
+
+        await PrepareAsync();
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

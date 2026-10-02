@@ -1,0 +1,83 @@
+@using JobPilot.Domain.Llm
+@using JobPilot.Web.Infrastructure.Llm
+@inject DbLlmCallLog CallLog
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        @if (_summary is not null)
+        {
+            <MudChip T="string">@_summary.Calls llamadas</MudChip>
+            <MudChip T="string" Color="@(_summary.Failed > 0 ? Color.Warning : Color.Default)">@_summary.Failed con error o canceladas</MudChip>
+            <MudChip T="string">@LlmFormat.Tokens(_summary.InputTokens) tokens de entrada</MudChip>
+            <MudChip T="string">@LlmFormat.Tokens(_summary.OutputTokens) tokens de salida</MudChip>
+            <MudChip T="string" Color="Color.Primary">Costo estimado: @LlmFormat.Cost(_summary.EstimatedCostUsd)</MudChip>
+            @if (_summary.CallsWithoutPrice > 0)
+            {
+                <MudChip T="string" Color="Color.Warning">@_summary.CallsWithoutPrice sin precio configurado</MudChip>
+            }
+        }
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" OnClick="LoadAsync">Actualizar</MudButton>
+    </MudStack>
+
+    <MudTable Items="_calls" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true">
+        <NoRecordsContent>
+            <MudText>Todavía no hay llamadas registradas.</MudText>
+        </NoRecordsContent>
+        <HeaderContent>
+            <MudTh>Fecha</MudTh>
+            <MudTh>Caso de uso</MudTh>
+            <MudTh>Modelo</MudTh>
+            <MudTh>Prompt</MudTh>
+            <MudTh>Intento</MudTh>
+            <MudTh>Estado</MudTh>
+            <MudTh>Tokens (entrada / salida / razonamiento)</MudTh>
+            <MudTh>Latencia</MudTh>
+            <MudTh>Costo estimado</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Fecha">@LlmFormat.LocalTime(context.StartedAtUtc)</MudTd>
+            <MudTd DataLabel="Caso de uso">@context.UseCase</MudTd>
+            <MudTd DataLabel="Modelo">@context.Model</MudTd>
+            <MudTd DataLabel="Prompt"><code>@context.PromptId</code></MudTd>
+            <MudTd DataLabel="Intento">@context.Attempt</MudTd>
+            <MudTd DataLabel="Estado">
+                @if (context.Outcome == LlmCallOutcome.Success)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Correcta</MudChip>
+                }
+                else
+                {
+                    <MudTooltip Text="@(context.ErrorMessage ?? string.Empty)">
+                        <MudChip T="string" Size="Size.Small" Color="@(context.Outcome == LlmCallOutcome.Cancelled ? Color.Default : Color.Error)">
+                            @LlmFormat.ErrorKind(context.ErrorKind)
+                        </MudChip>
+                    </MudTooltip>
+                }
+            </MudTd>
+            <MudTd DataLabel="Tokens">
+                @LlmFormat.Tokens(context.PromptTokens + context.ToolUsePromptTokens) / @LlmFormat.Tokens(context.OutputTokens) / @LlmFormat.Tokens(context.ThoughtsTokens)
+            </MudTd>
+            <MudTd DataLabel="Latencia">@LlmFormat.Latency(context.LatencyMs)</MudTd>
+            <MudTd DataLabel="Costo estimado">@LlmFormat.Cost(context.EstimatedCostUsd)</MudTd>
+        </RowTemplate>
+    </MudTable>
+    <MudText Typo="Typo.caption">
+        Se muestran las últimas @MaxRows llamadas. Los costos se estiman con los precios de <code>Llm:Pricing</code>; revisalos cuando
+        Google cambie sus tarifas.
+    </MudText>
+</MudStack>
+
+@code {
+    private const int MaxRows = 200;
+    private IReadOnlyList<LlmCallRecord> _calls = [];
+    private LlmCallSummary? _summary;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _calls = await CallLog.GetRecentAsync(MaxRows, CancellationToken.None);
+        _summary = await CallLog.GetSummaryAsync(CancellationToken.None);
+    }
+}

@@ -34,13 +34,19 @@ Scope, phases and acceptance criteria: [`docs/PLAN.md`](docs/PLAN.md).
 ```bash
 dotnet build JobPilot.slnx                       # warnings are errors
 dotnet test --solution JobPilot.slnx             # Microsoft.Testing.Platform runner (see global.json)
-dotnet run --project src/JobPilot.Web            # http://localhost:5080 (loopback only)
+dotnet run --project src/JobPilot.Web            # http://localhost:5080 (loopback only); applies migrations on start
 bash scripts/check-no-personal-data.sh           # same check CI runs
 git config core.hooksPath .githooks              # optional: run the check on every commit
+
+# Gemini API key (never committed)
+dotnet user-secrets set "Gemini:ApiKey" "<key>" --project src/JobPilot.Web   # or env var GEMINI_API_KEY
+
+# EF Core migrations (dotnet-ef is a local tool: dotnet-tools.json)
+dotnet tool restore
+dotnet ef migrations add <Name> --project src/JobPilot.Web --output-dir Infrastructure/Persistence/Migrations
 ```
 
-Phase 1 will add: `dotnet ef migrations add <Name> --project src/JobPilot.Web` and the user-secrets
-command for the Gemini API key.
+A test fails when the model changes without a migration (`HasPendingModelChanges`).
 
 ## Layout
 
@@ -53,9 +59,13 @@ src/JobPilot.Domain/         pure domain: no project or package references (enfo
 src/JobPilot.Web/
   Program.cs                 composition root; Kestrel bound to localhost only
   Components/                App, Routes, Layout (MainLayout, NavMenu, AppSections), Shared, Pages
-  Features/<Feature>/        one folder per module (vertical slice): pages, handlers, prompts, schemas
-  Infrastructure/            (phase 1+) EF Core, Gemini client, job sources, exporters
-  Prompts/                   (phase 1+) <use-case>.v<N>.md, one per use case
+  Features/<Feature>/        one folder per module (vertical slice): pages, handlers, response records
+  Infrastructure/
+    JobPilotOptions.cs       port and data directory (DataPaths)
+    Persistence/             JobPilotDbContext, migrations, auto-migrate on startup
+    Llm/                     ILlmClient, GeminiLlmClient, LlmJson (schema), PromptLibrary, LlmSettingsStore,
+                             DbLlmCallLog, LlmUseCases catalog, DI registration
+  Prompts/                   <use-case>.v<N>.md, one per use case (copied to the output folder)
 tests/JobPilot.Domain.Tests/ xUnit v3
 tests/JobPilot.Web.Tests/    xUnit v3 + WebApplicationFactory smoke tests + bUnit
 scripts/                     repo tooling (personal data check)
@@ -69,8 +79,17 @@ docs/PLAN.md                 approved plan
 - **Routes** are Spanish (`/perfil`, `/ofertas`, …). Sections are declared once in
   `Components/Layout/AppSections.cs`; navigation and tests read from there.
 - **Pages** render their title as `<MudText Typo="Typo.h4" HtmlTag="h1">` (focus-on-navigate targets `h1`).
-- **Feature slices:** a feature owns its pages, handlers (plain classes, no MediatR), DTOs, prompt files
-  and schemas. Shared domain rules go to `JobPilot.Domain`.
+- **Feature slices:** a feature owns its pages, handlers (plain classes, no MediatR) and the response
+  records sent as JSON schema. Shared domain rules go to `JobPilot.Domain`.
+- **Adding an LLM use case:** (1) add it to `LlmUseCases.All`; (2) write `Prompts/<use-case>.v1.md` with
+  `## system` / `## user` sections, `{{name}}` for owner data and `{{untrusted:name}}` for third-party text;
+  (3) define the response as a C# record with `[Description]` on properties (copied into the schema);
+  (4) a handler renders the prompt, shows it with `<LlmPayloadPreview>` before sending, calls
+  `ILlmClient.GenerateAsync` with a `Validate` delegate for domain rules; (5) optional defaults in
+  `appsettings.json` → `Llm:UseCases:<use-case>`; (6) test with `FakeLlmClient`. To change a prompt, add a
+  new version file instead of editing a released one (the version is logged with each call).
+- **LLM results:** never throw for provider errors; check `LlmResult.IsSuccess` and show `Error.Message`
+  (Spanish, user-facing). Never fill gaps with app-made data.
 - **Configuration:** model names, LLM parameters, prices and source settings live in configuration, never
   in code. Secrets via user-secrets (`UserSecretsId=jobpilot-web-local`) or environment variables.
 - **Local data** (phase 1+): default directory `Environment.SpecialFolder.LocalApplicationData/JobPilot`
@@ -92,6 +111,14 @@ docs/PLAN.md                 approved plan
   (Development) or `dotnet publish`.
 - Razor HTML-encodes non-ASCII characters (`ó` → `&#243;`); decode HTML before asserting on text.
 - Stopping the app: the process is the apphost `bin/Debug/net10.0/JobPilot.Web`, not only `dotnet run`.
+- MudBlazor 9 ships analyzers that turn removed parameters into build errors (e.g. `MudTabs.PanelClass` →
+  `TabPanelsClass`; `MudTextField` has no `OnFocus`). Read the MUD0002 message: it names the replacement.
+- Gemini returns an invalid API key as **400 INVALID_ARGUMENT** with `details[].reason = API_KEY_INVALID`,
+  not 401; the client maps it to `Authentication`.
+- The standard resilience handler validates `CircuitBreaker.SamplingDuration` ≥ 0.5 s and ≥ 2 × attempt
+  timeout; it is set to `max(30 s, 2 × attempt timeout)`.
+- User secrets are loaded in every environment (local app), not only Development.
+- Tests that cancel must cancel after the request reaches the fake handler, not after a fixed delay.
 
 ## Decision log
 
@@ -106,6 +133,15 @@ docs/PLAN.md                 approved plan
 | 2026-10-02 | xUnit v3 on Microsoft.Testing.Platform | Current xUnit; required runner on .NET 10 SDK. |
 | 2026-10-02 | Repo treated as public; CI personal data check + optional pre-commit hook with a local `.pii-denylist` | Protect the owner's data regardless of repo visibility. |
 | 2026-10-02 | Gemini paid tier, model per use case in config | Free tier allows Google to use content for product improvement. |
+| 2026-10-02 | Gemini via REST `v1beta/models/{model}:generateContent`, structured output in `generationConfig.responseFormat.text` (`mimeType: APPLICATION_JSON`, `schema`); legacy `responseMimeType` + `responseJsonSchema` selectable with `Gemini:StructuredOutputMode` | Shape taken from the API discovery document; `responseJsonSchema` is marked deprecated there. |
+| 2026-10-02 | API key sent in the `x-goog-api-key` header, never in the URL | Keeps the key out of URLs and HTTP logs. |
+| 2026-10-02 | JSON schema generated from C# records with `JsonSchemaExporter` and sanitized to Gemini's supported keywords; strict deserialization (required members, nullability, no unknown properties, numbers as numbers) | One source of truth for schema and parsing; invalid output never reaches the app. |
+| 2026-10-02 | HTTP retries (429/5xx/timeouts, `Retry-After`) in `AddStandardResilienceHandler`; one extra attempt for invalid output, sending the model its previous answer and the reasons | Transient errors and malformed output are different failures. |
+| 2026-10-02 | One `LlmCalls` row per request sent (each attempt), including failures and cancellations; cost `null` when the model has no configured price | Faithful cost tracking; never invent prices. |
+| 2026-10-02 | Model parameters: DB override (UI) → `Llm:UseCases` → `Llm:DefaultModel` | Editable from the app, defaults in configuration, nothing in code. |
+| 2026-10-02 | `IDbContextFactory` + migrations applied on startup; data in `LocalApplicationData/JobPilot` | Blazor Server needs short-lived contexts; zero-setup local app. |
+| 2026-10-02 | Prompts as `Prompts/<use-case>.v<N>.md`, highest version active; untrusted text auto-wrapped and announced in the system instruction | Versioned, reviewable prompts; prompt-injection defence in one place. |
+| 2026-10-02 | `ILlmClient.ChatAsync` deferred to phase 7; `GenerateAsync` already supports multi-turn contents internally | No consumer before the interview/negotiation simulators. |
 
 ## Verified external facts (re-check when they matter)
 
@@ -115,7 +151,15 @@ Checked on 2026-10-02:
   `gemini-3.1-pro-preview`; 2.5 is legacy. Paid prices per 1M tokens: 3.8 Flash $0.75 in / $3.75 out
   until end of 2026 (doubles in 2027); 3.5 Flash-Lite $0.30 / $2.50. Search grounding: 5,000 free
   requests/month, then $14 per 1,000. Gemini 3 supports structured output combined with built-in tools
-  (Google Search, URL context). The REST shape for structured output must be confirmed in phase 1.
+  (Google Search, URL context). REST: `POST v1beta/models/{model}:generateContent`; structured output in
+  `generationConfig.responseFormat.text {mimeType: APPLICATION_JSON, schema}` (`responseJsonSchema` deprecated);
+  supported schema keywords: `$id $defs $ref $anchor type format title description enum items prefixItems
+  minItems maxItems minimum maximum anyOf oneOf properties additionalProperties required propertyOrdering`;
+  thinking via `generationConfig.thinkingConfig.thinkingLevel` (MINIMAL/LOW/MEDIUM/HIGH, Gemini 3+);
+  usage in `usageMetadata` (`promptTokenCount`, `candidatesTokenCount`, `thoughtsTokenCount`,
+  `cachedContentTokenCount`, `toolUsePromptTokenCount`). Source: API discovery document
+  `https://generativelanguage.googleapis.com/$discovery/rest?version=v1beta`.
+  Pending: confirm with the owner's key that a real call with `responseFormat` succeeds.
 - Job source terms: Remotive (attribution + link, ≤ 4 requests/day recommended, > 2/min blocked,
   24 h delay); Remote OK (attribution + link, no logo); Himalayas (attribution, no resubmission to
   aggregators, server-side only, 20 jobs/request); Jobicy (keep source and canonical URL, ≤ 1 request/hour);
@@ -127,7 +171,7 @@ Checked on 2026-10-02:
 ## Status
 
 - [x] Phase 0 — Skeleton
-- [ ] Phase 1 — Domain, persistence, Gemini
+- [x] Phase 1 — Domain, persistence, Gemini (pending: real-key check by the owner)
 - [ ] Phase 2 — Profile and master CV
 - [ ] Phase 3 — Ingestion and analysis
 - [ ] Phase 4 — Tailored CV and cover letter

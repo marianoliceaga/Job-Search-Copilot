@@ -1,10 +1,10 @@
 using System.Net;
 using JobPilot.Web.Components.Layout;
-using Microsoft.AspNetCore.Mvc.Testing;
+using JobPilot.Web.Tests.TestSupport;
 
 namespace JobPilot.Web.Tests;
 
-public class AppSmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class AppSmokeTests(JobPilotWebFactory factory) : IClassFixture<JobPilotWebFactory>
 {
     public static TheoryData<string, string> Sections()
     {

@@ -1,3 +1,17 @@
 @page "/configuracion"
 
-<PendingSection Section="AppSections.Settings" />
+<PageTitle>Configuración · JobPilot</PageTitle>
+
+<MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Configuración</MudText>
+
+<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4">
+    <MudTabPanel Text="Conexión con Gemini">
+        <GeminiConnectionPanel />
+    </MudTabPanel>
+    <MudTabPanel Text="Modelos por caso de uso">
+        <UseCaseModelsPanel />
+    </MudTabPanel>
+    <MudTabPanel Text="Registro de llamadas">
+        <LlmCallLogPanel />
+    </MudTabPanel>
+</MudTabs>

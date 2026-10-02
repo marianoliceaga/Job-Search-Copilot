@@ -45,7 +45,7 @@ cohesive without Clean Architecture ceremony, and the logic that matters most (r
 "never invent") lives in a pure, easily tested domain. No MediatR (commercial license since 2025):
 plain handler classes.
 
-Gemini client: `ILlmClient` (`GenerateStructuredAsync<T>`, `ChatAsync`) implemented with a typed
+Gemini client: `ILlmClient` (`GenerateAsync<T>`; `ChatAsync` arrives with its first consumer in phase 7) implemented with a typed
 `HttpClient` + `Microsoft.Extensions.Http.Resilience` (retry with jitter on 429/5xx honouring
 `Retry-After`, timeout, circuit breaker). JSON schema generated from C# records with
 `JsonSchemaExporter`, adapted to the subset Gemini accepts. Two-step validation (strict
@@ -71,7 +71,7 @@ Every phase closes with: `dotnet build` with 0 warnings, tests green, commit + p
 - CI green.
 
 ### Phase 1 — Domain, persistence, Gemini
-EF Core + SQLite + migrations; base entities (`Profile`, `AppSettings`, `LlmCallLog`). Gemini client
+EF Core + SQLite + migrations; base entities (`Profile`, `LlmUseCaseSetting` for UI overrides, `LlmCallRecord`). Gemini client
 with structured output, versioned prompt loader, cost calculation. Settings page: model per use case,
 API key status (never displayed), "Probar conexión", LLM call log. Confirm the current REST syntax for
 structured output.

@@ -6,7 +6,7 @@ and MudBlazor**, using the **Gemini API** as its only LLM.
 JobPilot prepares, analyses and drafts; you approve. It never sends an application, e-mail or message on
 your behalf. All data stays on your machine.
 
-> **Status:** phase 0 (skeleton) of 8. See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
+> **Status:** phase 1 of 8 (persistence, Gemini client, settings page). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
 > acceptance criteria per phase. The UI is in Spanish.
 
 ## Planned features
@@ -50,10 +50,44 @@ Warnings are treated as errors. Tests use xUnit v3 on Microsoft.Testing.Platform
 
 ## Configuration
 
-Coming in phase 1: the Gemini API key will be read from
-[user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) or an environment
-variable, never from a committed file. Model names and parameters are set in configuration. Database
-migrations will also be documented here.
+### Gemini API key
+
+Store it with [user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) (outside the
+repository), then restart the app:
+
+```bash
+dotnet user-secrets set "Gemini:ApiKey" "<your key>" --project src/JobPilot.Web
+```
+
+Alternatively set the `GEMINI_API_KEY` (or `Gemini__ApiKey`) environment variable. The key is sent in an HTTP
+header and is never shown in the UI or written to logs. Check it in **Configuración → Conexión con Gemini →
+Probar conexión**.
+
+### Models, parameters and prices
+
+`src/JobPilot.Web/appsettings.json`:
+
+- `Llm:DefaultModel` and `Llm:UseCases:<use-case>` (model, thinking level, temperature, max output tokens).
+  They can be overridden from **Configuración → Modelos por caso de uso** (stored in the local database).
+- `Llm:Pricing:<model>` in USD per million tokens, used for cost estimates. Update it when Google changes its
+  prices; models without a price show "sin precio configurado".
+- `Gemini:*`: base URL, retries and timeouts.
+
+### Local data
+
+The SQLite database lives in `%LocalAppData%\JobPilot` (Windows), `~/.local/share/JobPilot` (Linux) or
+`~/Library/Application Support/JobPilot` (macOS). Change it with `JobPilot:DataDirectory`.
+Migrations are applied automatically on startup. To create a new one (developers):
+
+```bash
+dotnet tool restore
+dotnet ef migrations add <Name> --project src/JobPilot.Web --output-dir Infrastructure/Persistence/Migrations
+```
+
+### LLM call log
+
+Every request sent to Gemini (including retries, failures and cancellations) is recorded with its use case,
+model, prompt version, tokens, latency and estimated cost: **Configuración → Registro de llamadas**.
 
 ## Privacy
 
