@@ -1,3 +1,183 @@
 @page "/pipeline"
+@using JobPilot.Domain.Pipeline
+@inject ApplicationStore Store
+@inject PipelineSettingsStore Settings
+@inject CalendarExport Calendar
+@inject TimeProvider Time
+@inject IJSRuntime JS
 
-<PendingSection Section="AppSections.Pipeline" />
+<PageTitle>@AppSections.Pipeline.Title · JobPilot</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        <MudText Typo="Typo.h4" HtmlTag="h1">@AppSections.Pipeline.Title</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Event" OnClick="ExportCalendarAsync" Disabled="_cards.Count == 0">
+            Exportar calendario (.ics)
+        </MudButton>
+    </MudStack>
+    <MudText Typo="Typo.body2">
+        Arrastrá cada postulación a su etapa (o usá el menú de la tarjeta). Cada cambio queda en su línea de tiempo. Los recordatorios
+        de follow-up se calculan al abrir esta página; el calendario exportado incluye entrevistas agendadas y recordatorios.
+    </MudText>
+
+    @if (_message is not null)
+    {
+        <MudAlert Severity="Severity.Info" ShowCloseIcon="true" CloseIconClicked="() => _message = null">@_message</MudAlert>
+    }
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_cards.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+            Todavía no hay postulaciones. Abrí una oferta en <MudLink Href="/ofertas">Ofertas</MudLink> y usá <strong>Agregar al pipeline</strong>.
+        </MudAlert>
+    }
+    else
+    {
+        <MudDropContainer T="PipelineCard" @ref="_container" Items="_cards" ItemsSelector="@((card, zone) => card.Stage.ToString() == zone)"
+                          ItemDropped="OnDroppedAsync" CanDropClass="jp-can-drop" ApplyDropClassesOnDragStarted="true" Class="jp-board">
+            <ChildContent>
+                @foreach (var stage in Enum.GetValues<ApplicationStage>())
+                {
+                    <MudPaper Class="jp-column pa-2" Elevation="0" Outlined="true" data-testid="@($"column-{stage}")">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                            <MudText Typo="Typo.subtitle1"><strong>@PipelineFormat.Label(stage)</strong></MudText>
+                            <MudChip T="string" Size="Size.Small">@_cards.Count(c => c.Stage == stage)</MudChip>
+                        </MudStack>
+                        <MudDropZone T="PipelineCard" Identifier="@stage.ToString()" Class="jp-zone" />
+                    </MudPaper>
+                }
+            </ChildContent>
+            <ItemRenderer>
+                <MudCard Outlined="true" Class="pa-2" data-testid="pipeline-card">
+                    <MudStack Spacing="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="0">
+                            <MudLink Href="@($"/pipeline/{context.Id}")" Typo="Typo.body1"><strong>@context.Title</strong></MudLink>
+                            <MudSpacer />
+                            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true" AriaLabel="Mover a otra etapa">
+                                @foreach (var target in Enum.GetValues<ApplicationStage>().Where(s => s != context.Stage))
+                                {
+                                    <MudMenuItem OnClick="() => MoveAsync(context, target)">Mover a @PipelineFormat.Label(target)</MudMenuItem>
+                                }
+                            </MudMenu>
+                        </MudStack>
+                        <MudText Typo="Typo.body2">@context.Company</MudText>
+                        <MudText Typo="Typo.caption">En esta etapa desde el @PipelineFormat.Date(context.StageChangedAtUtc)</MudText>
+                        @if (context.NextInterviewUtc is { } interview)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Icon="@Icons.Material.Filled.Event">@PipelineFormat.LocalDateTime(interview)</MudChip>
+                        }
+                        @if (context.Reminder is { } reminder)
+                        {
+                            <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.Alarm"
+                                     Color="@(reminder.IsDue(_now) ? Color.Warning : Color.Default)">@PipelineFormat.ReminderText(reminder, _now)</MudChip>
+                        }
+                    </MudStack>
+                </MudCard>
+            </ItemRenderer>
+        </MudDropContainer>
+    }
+
+    <MudExpansionPanels Outlined="true" Elevation="0">
+        <MudExpansionPanel Text="Reglas de seguimiento">
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.body2">
+                    Cuándo recordarte un follow-up. Enviar un follow-up o registrar una respuesta reinicia la cuenta; si elegís una fecha
+                    en una postulación, esa fecha reemplaza la regla.
+                </MudText>
+                <MudStack Row="true" Wrap="Wrap.Wrap">
+                    <MudNumericField T="int" @bind-Value="_afterApplied" Label="Días sin novedades después de postularte" Min="1" Max="365" Immediate="true" Style="max-width: 300px" />
+                    <MudNumericField T="int" @bind-Value="_afterInterview" Label="Días sin novedades después de una entrevista" Min="1" Max="365" Immediate="true" Style="max-width: 300px" />
+                    <MudNumericField T="int" @bind-Value="_maxFollowUps" Label="Follow-ups por etapa antes de sugerir cerrarla" Min="0" Max="10" Immediate="true" Style="max-width: 300px" />
+                </MudStack>
+                @foreach (var problem in _policyProblems)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true">@problem</MudAlert>
+                }
+                <div><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePolicyAsync">Guardar reglas</MudButton></div>
+            </MudStack>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+</MudStack>
+
+@code {
+    private MudDropContainer<PipelineCard>? _container;
+    private List<PipelineCard> _cards = [];
+    private bool _loading = true;
+    private DateTime _now;
+    private string? _message;
+    private int _afterApplied;
+    private int _afterInterview;
+    private int _maxFollowUps;
+    private IReadOnlyList<string> _policyProblems = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var policy = await Settings.GetAsync(CancellationToken.None);
+        (_afterApplied, _afterInterview, _maxFollowUps) = (policy.AfterAppliedDays, policy.AfterInterviewDays, policy.MaxFollowUps);
+        await LoadAsync();
+        _loading = false;
+    }
+
+    private bool _refreshBoard;
+
+    private async Task LoadAsync()
+    {
+        _now = Time.GetUtcNow().UtcDateTime;
+        _cards = (await Store.GetBoardAsync(CancellationToken.None)).ToList();
+        _refreshBoard = true;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // The drop container keeps its own item placement: refresh it once it has received the reloaded cards.
+        if (_refreshBoard && _container is not null)
+        {
+            _refreshBoard = false;
+            _container.Refresh();
+        }
+    }
+
+    private async Task OnDroppedAsync(MudItemDropInfo<PipelineCard> drop)
+    {
+        if (drop.Item is { } card && Enum.TryParse<ApplicationStage>(drop.DropzoneIdentifier, out var stage))
+        {
+            await MoveAsync(card, stage);
+        }
+    }
+
+    private async Task MoveAsync(PipelineCard card, ApplicationStage stage)
+    {
+        if (card.Stage == stage)
+        {
+            return;
+        }
+
+        await Store.MoveAsync(card.Id, stage, null, CancellationToken.None);
+        _message = $"«{card.Title}» pasó a {PipelineFormat.Label(stage)}.";
+        await LoadAsync();
+    }
+
+    private async Task SavePolicyAsync()
+    {
+        _policyProblems = await Settings.SaveAsync(new FollowUpPolicy(_afterApplied, _afterInterview, _maxFollowUps), CancellationToken.None);
+        if (_policyProblems.Count == 0)
+        {
+            _message = "Reglas guardadas.";
+            await LoadAsync();
+        }
+    }
+
+    private async Task ExportCalendarAsync()
+    {
+        var (fileName, content, count) = await Calendar.ExportAsync(null, CancellationToken.None);
+        using var stream = new MemoryStream(content);
+        using var reference = new DotNetStreamReference(stream);
+        await JS.InvokeVoidAsync("jobPilot.downloadFile", fileName, CalendarExport.ContentType, reference);
+        _message = count == 0 ? "No hay entrevistas próximas ni recordatorios: el calendario está vacío." : $"Calendario exportado con {count} evento(s).";
+    }
+}

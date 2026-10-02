@@ -35,3 +35,29 @@ h1:focus {
     text-decoration: line-through;
     border-radius: 2px;
 }
+
+.jp-board {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    align-items: flex-start;
+}
+
+.jp-column {
+    flex: 0 0 240px;
+    min-height: 200px;
+    background: var(--mud-palette-background-gray);
+}
+
+.jp-zone {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 160px;
+}
+
+.jp-zone.jp-can-drop {
+    outline: 2px dashed var(--mud-palette-primary);
+    outline-offset: 2px;
+}

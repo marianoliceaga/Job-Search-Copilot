@@ -1,0 +1,45 @@
+@using JobPilot.Domain.Pipeline
+@inject ApplicationStore Store
+@* Adds an offer to the pipeline, or shows its stage when it is already there. *@
+
+@if (_applicationId is { } id)
+{
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ViewKanban" Href="@($"/pipeline/{id}")">
+        En el pipeline: @PipelineFormat.Label(_stage)
+    </MudButton>
+}
+else if (_loaded)
+{
+    <MudMenu Label="Agregar al pipeline" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ViewKanban" Dense="true">
+        @foreach (var stage in new[] { ApplicationStage.Detected, ApplicationStage.Interested, ApplicationStage.Applied })
+        {
+            <MudMenuItem OnClick="() => AddAsync(stage)">En «@PipelineFormat.Label(stage)»</MudMenuItem>
+        }
+    </MudMenu>
+}
+
+@code {
+    private Guid? _applicationId;
+    private ApplicationStage _stage;
+    private bool _loaded;
+
+    [Parameter, EditorRequired]
+    public Guid PostingId { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _applicationId = await Store.FindByPostingAsync(PostingId, CancellationToken.None);
+        if (_applicationId is { } id)
+        {
+            _stage = (await Store.GetAsync(id, CancellationToken.None))!.Application.Stage;
+        }
+
+        _loaded = true;
+    }
+
+    private async Task AddAsync(ApplicationStage stage)
+    {
+        _applicationId = await Store.StartAsync(PostingId, stage, CancellationToken.None);
+        _stage = stage;
+    }
+}

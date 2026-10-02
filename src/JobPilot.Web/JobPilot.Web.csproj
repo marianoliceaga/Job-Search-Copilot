@@ -13,6 +13,7 @@
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Ical.Net" />
     <PackageReference Include="PdfPig" />
     <PackageReference Include="QuestPDF" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />

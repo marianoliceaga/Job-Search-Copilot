@@ -119,6 +119,8 @@ Ical.Net (MIT). Dashboard with metrics including LLM usage and cost.
 
 - Every status change appears in the timeline.
 - Tests for follow-up rules and metric calculations; the `.ics` round-trips without errors.
+- Notes: follow-up drafts are a new LLM use case (`follow-up-email`); sent documents keep a snapshot of what was sent;
+  defaults 7/3 days and 2 follow-ups per stage, editable in the UI.
 
 ### Phase 6 — Companies and outreach (5.5, 5.7)
 Company profile using Google Search grounding; every fact stores its URL; facts whose URL is not in the

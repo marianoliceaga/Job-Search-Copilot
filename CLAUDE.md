@@ -78,9 +78,14 @@ src/JobPilot.Web/
                              TailoringHandler (cv-tailoring / cover-letter), TailoringContext (CV with short refs,
                              validator), TailoredDocumentStore (drafts, approval), TracedTextEditor (sources, diff, flags),
                              Export/ (DocumentContentBuilder, DocxWriter, PdfWriter, DocumentExporter)
+  Features/Pipeline/         PipelinePage (/pipeline Kanban, MudDropContainer), ApplicationPage (/pipeline/{id}: stage,
+                             reminder, timeline, contacts, sent documents, interviews, follow-up), PipelineButton (offer
+                             page), ApplicationStore, PipelineSettingsStore (follow-up rule), CalendarExport (Ical.Net),
+                             FollowUpHandler + FollowUpPanel (follow-up-email drafts), PipelineFormat (labels)
+  Features/Dashboard/        DashboardPage (/), DashboardService (offers, pipeline metrics, reminders, interviews, LLM cost)
   Seed/                      profile, job-search preferences, followed companies (verified boards),
                              technology-terms.txt (technology names checked in generated texts)
-  wwwroot/app.js             jobPilot.downloadFile (browser download of exported files)
+  wwwroot/app.js             jobPilot.downloadFile (browser download of exported files), jobPilot.copyText (clipboard)
   Infrastructure/Text/       HtmlText: third-party HTML → plain text (source HTML is never rendered)
 tests/JobPilot.Domain.Tests/ xUnit v3
 tests/JobPilot.Web.Tests/    xUnit v3 + WebApplicationFactory smoke tests + bUnit; TestSupport/ (LlmTestHost with
@@ -159,6 +164,12 @@ docs/PLAN.md                 approved plan
   with `Append`. `OpenXmlValidator` is used in tests to catch invalid documents.
 - `pdftoppm` (poppler) is available in the container to rasterize exported PDFs for visual checks.
 - The technology catalog must not contain ambiguous English words ("Go", "REST"): they flag ordinary sentences.
+- `MudDropContainer` keeps its own item placement: after reloading `Items` (e.g. a move from a menu), call `Refresh()`
+  in `OnAfterRender`, not right after `StateHasChanged()` (it would refresh with the old items).
+- MudBlazor 9 `MudIconButton` has no `AriaLabel` parameter (MUD0002): use the `aria-label` attribute.
+- Playwright: `text=Entrevistas` also matches the navigation menu; target tabs with `.mud-tab:has-text(...)`.
+- `pkill -f <pattern>` can match the shell running it; stop the app by PID (`ps -eo pid,args | grep ...`).
+- Ical.Net 5: all-day events use `new CalDateTime(DateOnly)`; UTC times use `new CalDateTime(value, CalDateTime.UtcTzId, true)`.
 - Do not hit the real job sources in tests or repeatedly while developing: their terms limit request rates
   (Remotive ≈ 4/day). Fixtures under `tests/**/Fixtures/Sources` are fictional and mirror the real shapes.
 
@@ -205,6 +216,12 @@ docs/PLAN.md                 approved plan
 | 2026-10-02 | Cover letter: the model writes body paragraphs only; greeting ("Dear {Company} hiring team,") and sign-off come from the app | Fewer places to invent; consistent format. |
 | 2026-10-02 | HN "Who is hiring?" not implemented in phase 3 | Optional in the plan; can be added as another `IJobSource`. |
 | 2026-10-02 | `ILlmClient.ChatAsync` deferred to phase 7; `GenerateAsync` already supports multi-turn contents internally | No consumer before the interview/negotiation simulators. |
+| 2026-10-02 | Pipeline: one `JobApplication` per offer (unique), stages Detectada → Descartada; every change goes through domain methods that append an `ApplicationEvent`; only notes and scheduled interviews can be deleted | "Every status change appears in the timeline" enforced in one place. |
+| 2026-10-02 | Sent documents: only approved tailored documents of the same offer; the event stores a snapshot (kind, master CV version, JSON) and downloads are rebuilt from it | Later edits never rewrite what was sent. |
+| 2026-10-02 | Follow-up rule (`FollowUpPolicy`, default 7 days after applying / 3 after an interview / 2 follow-ups per stage) evaluated on load from the timeline; a custom date replaces it until a follow-up or response is recorded; no background process | Simple, testable, nothing runs unattended. |
+| 2026-10-02 | Metrics: applied = reached Postulada/Entrevista/Oferta; response = interview, offer, rejection or recorded response after applying; time per stage only from completed stays | Clear definitions; no estimates. |
+| 2026-10-02 | Follow-up drafts (`follow-up-email`): model writes subject and paragraphs, app adds greeting/sign-off; placeholders rejected; numbers/technologies checked against CV, application facts, owner instructions/notes and posting (role title and company ignored); owner copies and marks as sent | Never invent; the app never sends messages. |
+| 2026-10-02 | `.ics` via Ical.Net 5.2.3 (MIT): upcoming interviews (UTC) and the next reminder (all-day, owner's time zone), stable UIDs; generated on demand and downloaded | Import into any calendar without OAuth (phase 8 still pending). |
 
 ## Verified external facts (re-check when they matter)
 
@@ -242,7 +259,7 @@ Checked on 2026-10-02:
 - [x] Phase 2 — Profile and master CV (pending: real import of the owner's CV)
 - [x] Phase 3 — Ingestion and analysis (pending: a real analysis with the owner's key)
 - [x] Phase 4 — Tailored CV and cover letter (pending: real generation with the owner's key)
-- [ ] Phase 5 — Pipeline, reminders and dashboard
+- [x] Phase 5 — Pipeline, reminders and dashboard (pending: a real follow-up draft with the owner's key)
 - [ ] Phase 6 — Companies and outreach
 - [ ] Phase 7 — Interviews and negotiation
 - [ ] Phase 8 — Google integration (pending decision)

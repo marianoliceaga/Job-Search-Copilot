@@ -6,7 +6,7 @@ and MudBlazor**, using the **Gemini API** as its only LLM.
 JobPilot prepares, analyses and drafts; you approve. It never sends an application, e-mail or message on
 your behalf. All data stays on your machine.
 
-> **Status:** phase 4 of 8 (tailored CV and cover letter with DOCX/PDF export). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
+> **Status:** phase 5 of 8 (pipeline, follow-up reminders and dashboard). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
 > acceptance criteria per phase. The UI is in Spanish.
 
 ## Planned features
@@ -110,6 +110,22 @@ master CV elements it comes from; numbers and technologies that cannot be traced
 one retry with the reasons first). Company, titles and dates always come from the master CV. Review the differences,
 edit, and approve; flagged texts must be fixed, removed or explicitly confirmed by you. After approval you can download
 ATS-friendly **DOCX** (one column, no tables or images) and **PDF** (embedded font, selectable text) files.
+
+### Pipeline and reminders
+
+On an offer page, **Agregar al pipeline** adds it to the **Pipeline** Kanban (Detectada, Interesa, Postulada, Entrevista,
+Oferta, Rechazada, Descartada). Drag cards between columns or use their menu; every change is recorded in the application's
+timeline, together with notes, contacts, interviews and which approved CV and cover letter you sent (a copy of what was
+sent is kept and can be downloaded again). Follow-up reminders are computed when you open the app (by default 7 days
+without news after applying, 3 after an interview, at most 2 follow-ups per stage; editable in **Reglas de seguimiento**),
+or on a date you choose. **Follow-up** drafts a short e-mail with Gemini from your CV and the application's facts; you
+review it, copy it and send it yourself, then mark it as sent. **Exportar calendario (.ics)** downloads upcoming interviews
+and reminders for any calendar app.
+
+### Dashboard
+
+**Panel** shows offers detected, applications, response rate, average time to the first response and per stage, pending
+follow-ups, upcoming interviews and the estimated LLM cost by use case.
 
 ### LLM call log
 

@@ -11,6 +11,8 @@ public interface ILlmCallLog
 
 public sealed record LlmCallSummary(int Calls, int Failed, long InputTokens, long OutputTokens, decimal EstimatedCostUsd, int CallsWithoutPrice);
 
+public sealed record LlmUseCaseUsage(string UseCase, LlmCallSummary Summary);
+
 public sealed partial class DbLlmCallLog(IDbContextFactory<JobPilotDbContext> dbFactory, ILogger<DbLlmCallLog> logger) : ILlmCallLog
 {
     /// <summary>
@@ -40,22 +42,39 @@ public sealed partial class DbLlmCallLog(IDbContextFactory<JobPilotDbContext> db
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<LlmCallSummary> GetSummaryAsync(CancellationToken cancellationToken)
+    public Task<LlmCallSummary> GetSummaryAsync(CancellationToken cancellationToken) => GetSummaryAsync(null, cancellationToken);
+
+    /// <param name="sinceUtc">Only calls started at or after this time; null for all.</param>
+    public async Task<LlmCallSummary> GetSummaryAsync(DateTime? sinceUtc, CancellationToken cancellationToken) =>
+        Summarize(await LoadAsync(sinceUtc, cancellationToken));
+
+    public async Task<IReadOnlyList<LlmUseCaseUsage>> GetUsageByUseCaseAsync(DateTime? sinceUtc, CancellationToken cancellationToken) =>
+        (await LoadAsync(sinceUtc, cancellationToken))
+            .GroupBy(r => r.UseCase)
+            .Select(g => new LlmUseCaseUsage(g.Key, Summarize(g.ToList())))
+            .OrderByDescending(u => u.Summary.EstimatedCostUsd).ThenByDescending(u => u.Summary.Calls)
+            .ToList();
+
+    private async Task<List<LlmCallRecord>> LoadAsync(DateTime? sinceUtc, CancellationToken cancellationToken)
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         // Aggregated in memory: SQLite cannot sum decimals and the table is small (single user).
-        var rows = await db.LlmCalls.AsNoTracking()
-            .Select(c => new { c.Outcome, c.PromptTokens, c.ToolUsePromptTokens, c.OutputTokens, c.ThoughtsTokens, c.EstimatedCostUsd })
-            .ToListAsync(cancellationToken);
+        var query = db.LlmCalls.AsNoTracking();
+        if (sinceUtc is { } since)
+        {
+            query = query.Where(c => c.StartedAtUtc >= since);
+        }
 
-        return new LlmCallSummary(
-            Calls: rows.Count,
-            Failed: rows.Count(r => r.Outcome != LlmCallOutcome.Success),
-            InputTokens: rows.Sum(r => (long)r.PromptTokens + r.ToolUsePromptTokens),
-            OutputTokens: rows.Sum(r => (long)r.OutputTokens + r.ThoughtsTokens),
-            EstimatedCostUsd: rows.Sum(r => r.EstimatedCostUsd ?? 0m),
-            CallsWithoutPrice: rows.Count(r => r.EstimatedCostUsd is null && r.PromptTokens + r.OutputTokens > 0));
+        return await query.ToListAsync(cancellationToken);
     }
+
+    private static LlmCallSummary Summarize(IReadOnlyCollection<LlmCallRecord> rows) => new(
+        Calls: rows.Count,
+        Failed: rows.Count(r => r.Outcome != LlmCallOutcome.Success),
+        InputTokens: rows.Sum(r => (long)r.PromptTokens + r.ToolUsePromptTokens),
+        OutputTokens: rows.Sum(r => (long)r.OutputTokens + r.ThoughtsTokens),
+        EstimatedCostUsd: rows.Sum(r => r.EstimatedCostUsd ?? 0m),
+        CallsWithoutPrice: rows.Count(r => r.EstimatedCostUsd is null && r.PromptTokens + r.OutputTokens > 0));
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Could not persist the LLM call record for use case {UseCase}.")]
     private partial void LogPersistFailed(Exception exception, string useCase);

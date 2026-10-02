@@ -1,24 +1,170 @@
 @page "/"
+@using JobPilot.Domain.Pipeline
+@using JobPilot.Web.Features.Pipeline
+@using JobPilot.Web.Infrastructure.Llm
+@inject DashboardService Dashboard
+@inject TimeProvider Time
 
-<PendingSection Section="AppSections.Dashboard">
-    <MudText Typo="Typo.h6" Class="mt-8 mb-2">Hoja de ruta</MudText>
-    <MudSimpleTable Dense="true" Hover="true" Elevation="0">
-        <thead>
-            <tr>
-                <th>Sección</th>
-                <th>Fase</th>
-                <th>Alcance</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var section in AppSections.All.OrderBy(s => s.Phase))
+<PageTitle>@AppSections.Dashboard.Title · JobPilot</PageTitle>
+
+<MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">@AppSections.Dashboard.Title</MudText>
+
+@if (_data is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    var pipeline = _data.Pipeline;
+    <MudStack Spacing="4">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Outlined="true" Class="pa-3" data-testid="metric-offers">
+                    <MudText Typo="Typo.caption">Ofertas detectadas</MudText>
+                    <MudText Typo="Typo.h5">@_data.Offers.Total</MudText>
+                    <MudText Typo="Typo.body2">@_data.Offers.Last7Days en 7 días · @_data.Offers.Last30Days en 30 días · @_data.Offers.Analyzed analizadas</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Outlined="true" Class="pa-3" data-testid="metric-applications">
+                    <MudText Typo="Typo.caption">Postulaciones</MudText>
+                    <MudText Typo="Typo.h5">@pipeline.Applied</MudText>
+                    <MudText Typo="Typo.body2">@pipeline.Total en el pipeline · @pipeline.ByStage[ApplicationStage.Offer] con oferta</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Outlined="true" Class="pa-3" data-testid="metric-response-rate">
+                    <MudText Typo="Typo.caption">Tasa de respuesta</MudText>
+                    <MudText Typo="Typo.h5">@PipelineFormat.Percent(pipeline.ResponseRate)</MudText>
+                    <MudText Typo="Typo.body2">
+                        @pipeline.Responded de @pipeline.Applied · primera respuesta en @PipelineFormat.Days(pipeline.AverageDaysToFirstResponse) (promedio)
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Outlined="true" Class="pa-3" data-testid="metric-llm">
+                    <MudText Typo="Typo.caption">Costo estimado del LLM</MudText>
+                    <MudText Typo="Typo.h5">@LlmFormat.Cost(_data.LlmTotal.EstimatedCostUsd)</MudText>
+                    <MudText Typo="Typo.body2">
+                        @_data.LlmTotal.Calls llamadas · últimos 30 días: @LlmFormat.Cost(_data.LlmLast30Days.EstimatedCostUsd)
+                    </MudText>
+                    @if (_data.LlmTotal.CallsWithoutPrice > 0)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Warning">@_data.LlmTotal.CallsWithoutPrice llamadas sin precio configurado no suman costo.</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <MudPaper Outlined="true" Class="pa-3" Style="height: 100%" data-testid="due-reminders">
+                    <MudText Typo="Typo.h6">Follow-ups pendientes</MudText>
+                    @if (_data.DueReminders.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2">Nada pendiente hoy.</MudText>
+                    }
+                    @foreach (var card in _data.DueReminders)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Class="my-1">
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning">@PipelineFormat.ReminderText(card.Reminder!, _now)</MudChip>
+                            <MudLink Href="@($"/pipeline/{card.Id}")">@card.Title — @card.Company</MudLink>
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudPaper Outlined="true" Class="pa-3" Style="height: 100%" data-testid="upcoming-interviews">
+                    <MudText Typo="Typo.h6">Entrevistas en los próximos @DashboardService.UpcomingDays días</MudText>
+                    @if (_data.UpcomingInterviews.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2">No hay entrevistas agendadas.</MudText>
+                    }
+                    @foreach (var card in _data.UpcomingInterviews)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Class="my-1">
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary">@PipelineFormat.LocalDateTime(card.NextInterviewUtc)</MudChip>
+                            <MudLink Href="@($"/pipeline/{card.Id}")">@card.Title — @card.Company</MudLink>
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Outlined="true" Class="pa-3">
+            <MudText Typo="Typo.h6">Etapas</MudText>
+            <MudSimpleTable Dense="true" Elevation="0" data-testid="stages">
+                <thead><tr><th>Etapa</th><th>Postulaciones</th><th style="width: 35%"></th><th>Tiempo promedio en la etapa</th></tr></thead>
+                <tbody>
+                    @foreach (var stage in Enum.GetValues<ApplicationStage>())
+                    {
+                        var count = pipeline.ByStage[stage];
+                        var time = pipeline.TimeInStage.First(t => t.Stage == stage);
+                        <tr>
+                            <td>@PipelineFormat.Label(stage)</td>
+                            <td>@count</td>
+                            <td><MudProgressLinear Value="@(pipeline.Total == 0 ? 0 : 100.0 * count / pipeline.Total)" Color="@PipelineFormat.Color(stage)" Rounded="true" /></td>
+                            <td>@PipelineFormat.Days(time.AverageDays)@(time.Visits > 0 ? $" ({time.Visits} paso(s) completo(s))" : string.Empty)</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+            <MudText Typo="Typo.caption">
+                El tiempo promedio solo cuenta las veces que una postulación salió de la etapa. La tasa de respuesta considera respuesta a una
+                entrevista, una oferta, un rechazo o una respuesta registrada después de postularte.
+            </MudText>
+        </MudPaper>
+
+        <MudPaper Outlined="true" Class="pa-3">
+            <MudText Typo="Typo.h6">Uso del LLM por caso de uso</MudText>
+            @if (_data.LlmByUseCase.Count == 0)
             {
-                <tr>
-                    <td><MudLink Href="@section.Href">@section.Title</MudLink></td>
-                    <td>@section.Phase</td>
-                    <td>@section.Description</td>
-                </tr>
+                <MudText Typo="Typo.body2">Todavía no hay llamadas a Gemini.</MudText>
             }
-        </tbody>
-    </MudSimpleTable>
-</PendingSection>
+            else
+            {
+                <MudSimpleTable Dense="true" Elevation="0" data-testid="llm-usage">
+                    <thead><tr><th>Caso de uso</th><th>Llamadas</th><th>Con error</th><th>Tokens (entrada / salida)</th><th>Costo estimado</th></tr></thead>
+                    <tbody>
+                        @foreach (var usage in _data.LlmByUseCase)
+                        {
+                            <tr>
+                                <td>@(LlmUseCases.All.FirstOrDefault(u => u.Name == usage.UseCase)?.Label ?? usage.UseCase)</td>
+                                <td>@usage.Summary.Calls</td>
+                                <td>@usage.Summary.Failed</td>
+                                <td>@LlmFormat.Tokens(usage.Summary.InputTokens) / @LlmFormat.Tokens(usage.Summary.OutputTokens)</td>
+                                <td>@LlmFormat.Cost(usage.Summary.EstimatedCostUsd)@(usage.Summary.CallsWithoutPrice > 0 ? " (+ llamadas sin precio)" : string.Empty)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+            <MudLink Href="/configuracion" Typo="Typo.body2">Ver el registro de llamadas</MudLink>
+        </MudPaper>
+
+        <MudExpansionPanels Outlined="true" Elevation="0">
+            <MudExpansionPanel Text="Hoja de ruta">
+                <MudSimpleTable Dense="true" Hover="true" Elevation="0">
+                    <thead><tr><th>Sección</th><th>Fase</th><th>Alcance</th></tr></thead>
+                    <tbody>
+                        @foreach (var section in AppSections.All.OrderBy(s => s.Phase))
+                        {
+                            <tr><td><MudLink Href="@section.Href">@section.Title</MudLink></td><td>@section.Phase</td><td>@section.Description</td></tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    </MudStack>
+}
+
+@code {
+    private DashboardData? _data;
+    private DateTime _now;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _now = Time.GetUtcNow().UtcDateTime;
+        _data = await Dashboard.GetAsync(CancellationToken.None);
+    }
+}

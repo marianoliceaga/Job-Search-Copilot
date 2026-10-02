@@ -30,6 +30,16 @@ public class AppSmokeTests(JobPilotWebFactory factory) : IClassFixture<JobPilotW
     }
 
     [Fact]
+    public async Task Unknown_application_shows_a_message()
+    {
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync($"/pipeline/{Guid.NewGuid()}", TestContext.Current.CancellationToken);
+
+        Assert.Contains("Postulación no encontrada", WebUtility.HtmlDecode(html), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Unknown_route_returns_not_found()
     {
         using var client = factory.CreateClient();

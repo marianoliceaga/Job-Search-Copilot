@@ -123,4 +123,17 @@ public class TraceabilityValidatorTests
         Assert.Null(_index.KeyOf("E9"));
         Assert.Equal(["Blazor", "C#", "Azure"], _index.Vocabulary);
     }
+
+    [Fact]
+    public void Texts_without_sources_may_be_allowed_but_numbers_and_technologies_are_still_checked()
+    {
+        var line = new TraceableText { Text = "Following up on my application from 12 September." };
+        var invented = new TraceableText { Text = "I have 9 years of Kubernetes experience." };
+
+        Assert.Contains("No cita ningún elemento del CV maestro.", _validator.Check(line));
+        Assert.Empty(_validator.Check(line, allowedExtraText: "Applied on 12 September", requireSources: false));
+        var problems = _validator.Check(invented, requireSources: false);
+        Assert.Equal(2, problems.Count);
+        Assert.Contains(problems, p => p.Contains("Kubernetes", StringComparison.Ordinal));
+    }
 }

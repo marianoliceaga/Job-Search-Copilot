@@ -36,6 +36,7 @@ else
                 <MudChip T="string">@posting.EmploymentType</MudChip>
             }
             <MudSpacer />
+            <JobPilot.Web.Features.Pipeline.PipelineButton PostingId="posting.Id" />
             <MudButton Variant="Variant.Text" OnClick="ToggleDiscardAsync">@(posting.IsDiscarded ? "Restaurar" : "Descartar")</MudButton>
         </MudStack>
 

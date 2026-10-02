@@ -261,6 +261,125 @@ namespace JobPilot.Web.Infrastructure.Persistence.Migrations
                     b.ToTable("LlmUseCaseSettings");
                 });
 
+            modelBuilder.Entity("JobPilot.Domain.Pipeline.ApplicationContact", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ApplicationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(320)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProfileUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId");
+
+                    b.ToTable("ApplicationContacts");
+                });
+
+            modelBuilder.Entity("JobPilot.Domain.Pipeline.ApplicationEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ApplicationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("DocumentId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DocumentSnapshot")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FromStage")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ScheduledAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(20000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ToStage")
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId", "OccurredAtUtc");
+
+                    b.ToTable("ApplicationEvents");
+                });
+
+            modelBuilder.Entity("JobPilot.Domain.Pipeline.JobApplication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("JobPostingId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ReminderAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Stage")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StageChangedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobPostingId")
+                        .IsUnique();
+
+                    b.ToTable("Applications", (string)null);
+                });
+
             modelBuilder.Entity("JobPilot.Domain.Profiles.Profile", b =>
                 {
                     b.Property<int>("Id")
@@ -524,6 +643,33 @@ namespace JobPilot.Web.Infrastructure.Persistence.Migrations
                     b.ToTable("TailoredDocuments", (string)null);
                 });
 
+            modelBuilder.Entity("JobPilot.Domain.Pipeline.ApplicationContact", b =>
+                {
+                    b.HasOne("JobPilot.Domain.Pipeline.JobApplication", null)
+                        .WithMany("Contacts")
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("JobPilot.Domain.Pipeline.ApplicationEvent", b =>
+                {
+                    b.HasOne("JobPilot.Domain.Pipeline.JobApplication", null)
+                        .WithMany("Events")
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("JobPilot.Domain.Pipeline.JobApplication", b =>
+                {
+                    b.HasOne("JobPilot.Domain.Jobs.JobPosting", null)
+                        .WithMany()
+                        .HasForeignKey("JobPostingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.JobAnalysisRecord", b =>
                 {
                     b.HasOne("JobPilot.Domain.Jobs.JobPosting", null)
@@ -540,6 +686,13 @@ namespace JobPilot.Web.Infrastructure.Persistence.Migrations
                         .HasForeignKey("JobPostingId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("JobPilot.Domain.Pipeline.JobApplication", b =>
+                {
+                    b.Navigation("Contacts");
+
+                    b.Navigation("Events");
                 });
 #pragma warning restore 612, 618
         }

@@ -31,7 +31,9 @@ public sealed class TraceabilityValidator
 
     /// <param name="experienceId">For CV bullets: sources must belong to this experience.</param>
     /// <param name="allowedExtraText">Text whose numbers may also be used (e.g. the posting in a cover letter).</param>
-    public IReadOnlyList<string> Check(TraceableText text, Guid? experienceId = null, string? allowedExtraText = null)
+    /// <param name="requireSources">False for texts that may say nothing about the candidate (e.g. a follow-up line); numbers and
+    /// technologies are still checked.</param>
+    public IReadOnlyList<string> Check(TraceableText text, Guid? experienceId = null, string? allowedExtraText = null, bool requireSources = true)
     {
         ArgumentNullException.ThrowIfNull(text);
         var problems = new List<string>();
@@ -40,7 +42,7 @@ public sealed class TraceabilityValidator
             return ["El texto está vacío."];
         }
 
-        if (text.Sources.Count == 0)
+        if (text.Sources.Count == 0 && requireSources)
         {
             problems.Add("No cita ningún elemento del CV maestro.");
         }

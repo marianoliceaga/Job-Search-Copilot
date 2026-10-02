@@ -19,7 +19,7 @@ public static class AppSections
 
     public static readonly AppSection Jobs = new(
         "Ofertas", "/ofertas", Icons.Material.Filled.Work, 3,
-        "Búsqueda en fuentes permitidas, alta manual, filtros, análisis y ranking. CV y carta a medida en la fase 4.");
+        "Búsqueda en fuentes permitidas, alta manual, filtros, análisis, ranking, y CV y carta a medida.");
 
     public static readonly AppSection Pipeline = new(
         "Pipeline", "/pipeline", Icons.Material.Filled.ViewKanban, 5,
