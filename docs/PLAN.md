@@ -123,12 +123,15 @@ Ical.Net (MIT). Dashboard with metrics including LLM usage and cost.
   defaults 7/3 days and 2 follow-ups per stage, editable in the UI.
 
 ### Phase 6 — Companies and outreach (5.5, 5.7)
-Company profile using Google Search grounding; every fact stores its URL; facts whose URL is not in the
-grounding metadata returned by Gemini are marked "no verificado". Outreach drafts with tone and length
-variants; LinkedIn headline/About review. Copy to clipboard only; the app never sends anything.
+Company profile built with Gemini's URL context tool from public URLs the owner chooses, plus pasted texts; every fact
+stores its source URL and a quote; facts whose URL Gemini did not report as read (or whose quote is not in the pasted
+text, or whose numbers are not in the quote) are marked "no verificado". Outreach drafts with tone and length variants;
+LinkedIn headline/About review. Copy to clipboard only; the app never sends anything.
 
 - Test for the "no verificado" rule.
 - No code path sends messages.
+- Change agreed with the owner on 2026-10-02: Grounding with Google Search was replaced by URL context because its terms
+  forbid storing, analysing or modifying grounded results (see the decision log in `CLAUDE.md`).
 
 ### Phase 7 — Interviews and negotiation (5.6, 5.9)
 Question bank per offer; STAR stories traceable to the master CV. Mock interview chat (one question at a

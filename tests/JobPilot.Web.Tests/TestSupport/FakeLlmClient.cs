@@ -13,6 +13,12 @@ public sealed class FakeLlmClient : ILlmClient
     /// <summary>Problems reported by the use case's validator for the scripted values.</summary>
     public List<string> ValidationProblems { get; } = [];
 
+    /// <summary>Whether each request enabled the URL context tool.</summary>
+    public List<bool> UrlContextFlags { get; } = [];
+
+    /// <summary>URLs reported as read by the URL context tool on successful results.</summary>
+    public List<LlmRetrievedUrl> RetrievedUrls { get; } = [];
+
     public FakeLlmClient Returns(object value)
     {
         _responses.Enqueue(value);
@@ -31,6 +37,7 @@ public sealed class FakeLlmClient : ILlmClient
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
         Prompts.Add(request.Prompt);
+        UrlContextFlags.Add(request.UseUrlContext);
 
         var next = _responses.Dequeue();
         if (next is LlmError error)
@@ -43,7 +50,7 @@ public sealed class FakeLlmClient : ILlmClient
         ValidationProblems.AddRange(problems);
         var review = request.Review?.Invoke(value) ?? [];
         return Task.FromResult(problems.Count == 0
-            ? LlmResult<T>.Success(value) with { Model = "fake", Attempts = 1, Warnings = review }
+            ? LlmResult<T>.Success(value) with { Model = "fake", Attempts = 1, Warnings = review, RetrievedUrls = request.UseUrlContext ? RetrievedUrls.ToList() : [] }
             : new LlmResult<T> { Error = new LlmError(Domain.Llm.LlmErrorKind.InvalidOutput, "invalid", string.Join("; ", problems)), Model = "fake", Attempts = 1 });
     }
 }

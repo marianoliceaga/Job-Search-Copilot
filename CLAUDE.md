@@ -83,6 +83,11 @@ src/JobPilot.Web/
                              page), ApplicationStore, PipelineSettingsStore (follow-up rule), CalendarExport (Ical.Net),
                              FollowUpHandler + FollowUpPanel (follow-up-email drafts), PipelineFormat (labels)
   Features/Dashboard/        DashboardPage (/), DashboardService (offers, pipeline metrics, reminders, interviews, LLM cost)
+  Features/Companies/        CompaniesPage (/empresas), CompanyPage (/empresas/{id}: sources, research, facts, notes, offers),
+                             CompanyButton (offer page), CompanyStore (sources, JSON columns), CompanyResearchHandler
+                             (company-research with URL context + CompanyFactVerifier)
+  Features/Outreach/         OutreachPage (/outreach: Mensajes / Perfil de LinkedIn), OutreachHandler (outreach-message, three
+                             tones), OutreachStore (history, mark as sent → pipeline timeline), LinkedInReviewHandler
   Seed/                      profile, job-search preferences, followed companies (verified boards),
                              technology-terms.txt (technology names checked in generated texts)
   wwwroot/app.js             jobPilot.downloadFile (browser download of exported files), jobPilot.copyText (clipboard)
@@ -169,6 +174,13 @@ docs/PLAN.md                 approved plan
 - MudBlazor 9 `MudIconButton` has no `AriaLabel` parameter (MUD0002): use the `aria-label` attribute.
 - Playwright: `text=Entrevistas` also matches the navigation menu; target tabs with `.mud-tab:has-text(...)`.
 - `pkill -f <pattern>` can match the shell running it; stop the app by PID (`ps -eo pid,args | grep ...`).
+- Prompt placeholders only accept `[a-z][a-z0-9_]*` (`{{headline_max}}`, not `{{headlineMax}}`); an unmatched name fails
+  as "Values not used".
+- Gemini docs pages now show the Interactions API (`v1beta/interactions`, `tools: [{"type": "google_search"}]`); the app
+  uses `generateContent`, whose tool shape (`tools: [{"urlContext": {}}]`) comes from the discovery document.
+- URL context returns `candidates[].urlContextMetadata.urlMetadata[{retrievedUrl, urlRetrievalStatus}]`
+  (`URL_RETRIEVAL_STATUS_SUCCESS|ERROR|PAYWALL|UNSAFE`); the retrieved URL can differ in scheme, `www.` or trailing slash,
+  so URLs are compared with `CompanyFactVerifier.UrlKey`.
 - Ical.Net 5: all-day events use `new CalDateTime(DateOnly)`; UTC times use `new CalDateTime(value, CalDateTime.UtcTzId, true)`.
 - Do not hit the real job sources in tests or repeatedly while developing: their terms limit request rates
   (Remotive ≈ 4/day). Fixtures under `tests/**/Fixtures/Sources` are fictional and mirror the real shapes.
@@ -221,6 +233,11 @@ docs/PLAN.md                 approved plan
 | 2026-10-02 | Follow-up rule (`FollowUpPolicy`, default 7 days after applying / 3 after an interview / 2 follow-ups per stage) evaluated on load from the timeline; a custom date replaces it until a follow-up or response is recorded; no background process | Simple, testable, nothing runs unattended. |
 | 2026-10-02 | Metrics: applied = reached Postulada/Entrevista/Oferta; response = interview, offer, rejection or recorded response after applying; time per stage only from completed stays | Clear definitions; no estimates. |
 | 2026-10-02 | Follow-up drafts (`follow-up-email`): model writes subject and paragraphs, app adds greeting/sign-off; placeholders rejected; numbers/technologies checked against CV, application facts, owner instructions/notes and posting (role title and company ignored); owner copies and marks as sent | Never invent; the app never sends messages. |
+| 2026-10-02 | Company profiles use Gemini's URL context tool on URLs the owner chooses (plus pasted texts) instead of Grounding with Google Search, agreed with the owner | The grounding terms forbid storing, analysing or modifying Grounded Results and require showing Google's Search Suggestions with them, which conflicts with stored, verified, reusable profiles. |
+| 2026-10-02 | "No verificado" rule: a fact needs an existing source reference and a quote; URL facts are verified when Gemini reports the URL as read successfully (the quote cannot be checked locally), pasted-text facts when the quote is in the text; numbers in the statement must be in the quote | Deterministic check of every stored fact; unverified ones are kept, marked and never sent to outreach prompts. |
+| 2026-10-02 | Outreach: one call returns three tones (formal, cordial, directo); greeting/sign-off from the app; channels LinkedIn invitation note (limit in config, default 200 = free accounts), LinkedIn message, e-mail; only verified facts are used; drafts stored, "Ya lo envié" records the sent text and adds it to the offer's timeline | Variants without extra calls; nothing is sent by the app. |
+| 2026-10-02 | LinkedIn review works on headline/About pasted by the owner (LinkedIn is never accessed); proposals cite the CV and are checked by `TraceabilityValidator`; the last review is stored as a settings document | No scraping; "never invent". |
+| 2026-10-02 | `NoSendingTests` fail if the app references mail libraries or contains sending APIs (`SmtpClient`, `mailto:`, LinkedIn/Gmail send endpoints) | "No code path sends messages" is enforced, not just documented. |
 | 2026-10-02 | `.ics` via Ical.Net 5.2.3 (MIT): upcoming interviews (UTC) and the next reminder (all-day, owner's time zone), stable UIDs; generated on demand and downloaded | Import into any calendar without OAuth (phase 8 still pending). |
 
 ## Verified external facts (re-check when they matter)
@@ -252,6 +269,16 @@ Checked on 2026-10-02:
   WWR RSS with `<region>`/`<country>`, Greenhouse escaped HTML `content`, Lever `salaryRange`, Ashby
   `compensation.summaryComponents`). Followed companies seed: 11 boards verified with .NET postings.
 
+Checked on 2026-10-02 (phase 6):
+
+- Gemini API terms, "Grounding with Google Search": Grounded Results must be shown with their Search Suggestions; they
+  may not be cached, stored (except limited cases such as the end user's chat history), analysed, modified or used to
+  build a database; Google keeps prompts and output 30 days. Source: `https://ai.google.dev/gemini-api/terms`.
+- URL context tool: up to 20 URLs per request, public pages only (no login, paywall, localhost), content counts as
+  tool-use input tokens; no extra terms section. Source: `https://ai.google.dev/gemini-api/docs/url-context`.
+- LinkedIn limits (secondary sources, kept in configuration): invitation note 200 characters on free accounts and 300 on
+  Premium; headline 220; About 2,600.
+
 ## Status
 
 - [x] Phase 0 — Skeleton
@@ -260,6 +287,6 @@ Checked on 2026-10-02:
 - [x] Phase 3 — Ingestion and analysis (pending: a real analysis with the owner's key)
 - [x] Phase 4 — Tailored CV and cover letter (pending: real generation with the owner's key)
 - [x] Phase 5 — Pipeline, reminders and dashboard (pending: a real follow-up draft with the owner's key)
-- [ ] Phase 6 — Companies and outreach
+- [x] Phase 6 — Companies and outreach (pending: real research, outreach and LinkedIn review with the owner's key)
 - [ ] Phase 7 — Interviews and negotiation
 - [ ] Phase 8 — Google integration (pending decision)

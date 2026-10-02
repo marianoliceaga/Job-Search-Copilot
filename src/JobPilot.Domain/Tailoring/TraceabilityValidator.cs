@@ -33,7 +33,9 @@ public sealed class TraceabilityValidator
     /// <param name="allowedExtraText">Text whose numbers may also be used (e.g. the posting in a cover letter).</param>
     /// <param name="requireSources">False for texts that may say nothing about the candidate (e.g. a follow-up line); numbers and
     /// technologies are still checked.</param>
-    public IReadOnlyList<string> Check(TraceableText text, Guid? experienceId = null, string? allowedExtraText = null, bool requireSources = true)
+    /// <param name="allowedTechnologyText">Text whose technologies may be named (e.g. a verified fact about the company's stack).</param>
+    public IReadOnlyList<string> Check(TraceableText text, Guid? experienceId = null, string? allowedExtraText = null, bool requireSources = true,
+        string? allowedTechnologyText = null)
     {
         ArgumentNullException.ThrowIfNull(text);
         var problems = new List<string>();
@@ -78,7 +80,8 @@ public sealed class TraceabilityValidator
         var unknownTech = Enumerable.Range(0, _technologies.Length)
             .Where(i => _technologies[i].Matches(text.Text)
                         && !_vocabulary.Contains(TextNormalizer.Normalize(_technologyNames[i]))
-                        && !_technologies[i].Matches(sourceText))
+                        && !_technologies[i].Matches(sourceText)
+                        && !_technologies[i].Matches(allowedTechnologyText ?? string.Empty))
             .Select(i => _technologyNames[i])
             .ToList();
         if (unknownTech.Count > 0)

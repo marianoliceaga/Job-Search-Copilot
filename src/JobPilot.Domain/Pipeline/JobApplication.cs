@@ -24,6 +24,7 @@ public enum ApplicationEventKind
     FollowUpSent,
     ResponseReceived,
     ReminderSet,
+    MessageSent,
 }
 
 public static class ApplicationStageRules
@@ -194,6 +195,10 @@ public sealed class JobApplication
         ReminderAtUtc = null;
         return Append(new ApplicationEvent { Kind = ApplicationEventKind.FollowUpSent, Text = Clean(text), OccurredAtUtc = nowUtc });
     }
+
+    /// <summary>The owner sent an outreach message themselves (the app never sends). Does not restart the follow-up clock.</summary>
+    public ApplicationEvent RecordMessageSent(string text, DateTime nowUtc) =>
+        Append(new ApplicationEvent { Kind = ApplicationEventKind.MessageSent, Text = Required(text, nameof(text)), OccurredAtUtc = nowUtc });
 
     /// <summary>The company answered without a stage change (e.g. "we'll get back to you next week").</summary>
     public ApplicationEvent RecordResponse(string? text, DateTime nowUtc)

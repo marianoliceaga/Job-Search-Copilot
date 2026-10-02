@@ -55,6 +55,7 @@ public static class PipelineFormat
             ApplicationEventKind.FollowUpDrafted => "Borrador de follow-up generado",
             ApplicationEventKind.FollowUpSent => "Follow-up enviado (por vos)",
             ApplicationEventKind.ResponseReceived => "Respuesta recibida",
+            ApplicationEventKind.MessageSent => "Mensaje de outreach enviado (por vos)",
             ApplicationEventKind.ReminderSet => item.ScheduledAtUtc is null ? "Recordatorio personalizado quitado" : $"Recordatorio para el {Date(item.ScheduledAtUtc)}",
             _ => item.Kind.ToString(),
         };
@@ -71,6 +72,7 @@ public static class PipelineFormat
         ApplicationEventKind.FollowUpDrafted => MudBlazor.Icons.Material.Filled.EditNote,
         ApplicationEventKind.FollowUpSent => MudBlazor.Icons.Material.Filled.MarkEmailRead,
         ApplicationEventKind.ResponseReceived => MudBlazor.Icons.Material.Filled.MarkEmailUnread,
+        ApplicationEventKind.MessageSent => MudBlazor.Icons.Material.Filled.Send,
         _ => MudBlazor.Icons.Material.Filled.Alarm,
     };
 

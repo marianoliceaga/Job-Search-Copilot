@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Text;
-using System.Text.RegularExpressions;
 using JobPilot.Domain.Pipeline;
 using JobPilot.Domain.Prompts;
 using JobPilot.Domain.Tailoring;
@@ -34,7 +33,7 @@ public sealed record FollowUpResult(LlmError? Error, FollowUpDraft? Draft);
 /// Drafts a follow-up e-mail for an application. The draft is recorded in the timeline and shown to the owner, who edits,
 /// copies and sends it themselves: the app never sends messages.
 /// </summary>
-public sealed partial class FollowUpHandler(
+public sealed class FollowUpHandler(
     ApplicationStore store,
     TailoringContextFactory contexts,
     PromptLibrary prompts,
@@ -164,9 +163,9 @@ public sealed partial class FollowUpHandler(
 
         foreach (var text in response.Paragraphs.Select(p => p.Text).Prepend(response.Subject))
         {
-            if (PlaceholderRegex().Match(text ?? string.Empty) is { Success: true } placeholder)
+            if (DraftChecks.FindPlaceholder(text) is { } placeholder)
             {
-                problems.Add($"\"{placeholder.Value}\" is a placeholder: leave unknown details out instead.");
+                problems.Add($"\"{placeholder}\" is a placeholder: leave unknown details out instead.");
             }
         }
 
@@ -200,7 +199,4 @@ public sealed partial class FollowUpHandler(
     private static string Day(DateTime utc) => utc.ToString("d MMMM yyyy", English);
 
     private static string Short(string text) => text.Length <= 60 ? text : text[..60] + "…";
-
-    [GeneratedRegex(@"\[[^\]\n]{1,40}\]|\{\{?[^}\n]{1,40}\}\}?|<[A-Za-z][^>\n]{0,40}>")]
-    private static partial Regex PlaceholderRegex();
 }

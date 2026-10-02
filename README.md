@@ -6,7 +6,7 @@ and MudBlazor**, using the **Gemini API** as its only LLM.
 JobPilot prepares, analyses and drafts; you approve. It never sends an application, e-mail or message on
 your behalf. All data stays on your machine.
 
-> **Status:** phase 5 of 8 (pipeline, follow-up reminders and dashboard). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
+> **Status:** phase 6 of 8 (company profiles and outreach drafts). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
 > acceptance criteria per phase. The UI is in Spanish.
 
 ## Planned features
@@ -121,6 +121,22 @@ without news after applying, 3 after an interview, at most 2 follow-ups per stag
 or on a date you choose. **Follow-up** drafts a short e-mail with Gemini from your CV and the application's facts; you
 review it, copy it and send it yourself, then mark it as sent. **Exportar calendario (.ics)** downloads upcoming interviews
 and reminders for any calendar app.
+
+### Company profiles
+
+**Empresas** keeps a profile per company, built only from sources you choose: public URLs (Gemini reads them with its URL
+context tool) and texts you paste. Every fact keeps its source URL and a verbatim quote. A fact is **verificado** when
+Gemini reports reading its URL or its quote is in your pasted text; otherwise it is shown as **no verificado** with the
+reason (including numbers that are not in the quote). Grounding with Google Search is not used: its terms do not allow
+storing or annotating its results. The profile links to the company's offers.
+
+### Outreach
+
+**Outreach → Mensajes** drafts a LinkedIn invitation note (200 characters by default, `Outreach:ConnectionNoteMaxLength`),
+a LinkedIn message or an e-mail for a recruiter or hiring manager, in three tones. Claims about you must come from your
+master CV and claims about the company from verified facts or the posting; anything else is flagged. Copy the text, send
+it yourself and mark it as sent (it is added to the offer's timeline). **Perfil de LinkedIn** reviews the headline and
+About you paste and proposes versions that cite your CV. JobPilot never sends messages and never accesses LinkedIn.
 
 ### Dashboard
 

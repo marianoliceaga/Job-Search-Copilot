@@ -27,7 +27,7 @@ public static class AppSections
 
     public static readonly AppSection Companies = new(
         "Empresas", "/empresas", Icons.Material.Filled.Business, 6,
-        "Fichas de empresas con fuentes citadas y datos no verificados marcados como tales.");
+        "Fichas de empresas armadas con las URLs y textos que elegís; cada dato cita su fuente y los no verificados se marcan.");
 
     public static readonly AppSection Outreach = new(
         "Outreach", "/outreach", Icons.Material.Filled.Send, 6,

@@ -1,0 +1,32 @@
+@inject CompanyStore Store
+@inject NavigationManager Navigation
+@* On an offer page: opens the company profile, or creates it. *@
+
+@if (_companyId is { } id)
+{
+    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Business" Href="@($"/empresas/{id}")">Ficha de la empresa</MudButton>
+}
+else if (_loaded)
+{
+    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Business" OnClick="CreateAsync">Crear ficha de la empresa</MudButton>
+}
+
+@code {
+    private Guid? _companyId;
+    private bool _loaded;
+
+    [Parameter, EditorRequired]
+    public required string Company { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _companyId = (await Store.FindByCompanyAsync(Company, CancellationToken.None))?.Id;
+        _loaded = true;
+    }
+
+    private async Task CreateAsync()
+    {
+        var id = await Store.CreateAsync(Company, null, CancellationToken.None);
+        Navigation.NavigateTo($"/empresas/{id}");
+    }
+}

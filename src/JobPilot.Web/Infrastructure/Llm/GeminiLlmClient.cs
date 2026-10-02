@@ -54,13 +54,14 @@ public sealed partial class GeminiLlmClient(
         var contents = new List<JsonObject> { Turn("user", prompt.UserMessage) };
         var maxAttempts = 1 + Math.Max(0, llmOptions.CurrentValue.MaxInvalidOutputRetries);
 
+        var retrieved = new List<LlmRetrievedUrl>();
         var totalUsage = LlmUsage.None;
         decimal? totalCost = pricing is null ? null : 0m;
         long totalLatency = 0;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            var body = BuildBody(prompt, contents, resolved, schema, gemini.StructuredOutputMode);
+            var body = BuildBody(prompt, contents, resolved, schema, gemini.StructuredOutputMode, request.UseUrlContext);
             var record = new LlmCallRecord
             {
                 StartedAtUtc = time.GetUtcNow().UtcDateTime,
@@ -77,6 +78,7 @@ public sealed partial class GeminiLlmClient(
             totalUsage = Add(totalUsage, reply.Usage);
             totalCost += cost;
             totalLatency += record.LatencyMs;
+            retrieved.AddRange(reply.RetrievedUrls.Where(r => !retrieved.Contains(r)));
 
             LlmResult<T> Finish(LlmResult<T> result) => result with
             {
@@ -85,6 +87,7 @@ public sealed partial class GeminiLlmClient(
                 EstimatedCostUsd = totalCost,
                 LatencyMs = totalLatency,
                 Attempts = attempt,
+                RetrievedUrls = retrieved,
             };
 
             if (reply.Error is not null)
@@ -191,7 +194,7 @@ public sealed partial class GeminiLlmClient(
 
             if (!response.IsSuccessStatusCode)
             {
-                return new Reply(null, LlmUsage.None, MapHttpError(response.StatusCode, json));
+                return new Reply(null, LlmUsage.None, MapHttpError(response.StatusCode, json), []);
             }
 
             return ReadReply(json, record);
@@ -205,7 +208,7 @@ public sealed partial class GeminiLlmClient(
         catch (Exception ex) when (TryMapException(ex, cancellationToken, out var error))
         {
             record.LatencyMs = (long)time.GetElapsedTime(started).TotalMilliseconds;
-            return new Reply(null, LlmUsage.None, error);
+            return new Reply(null, LlmUsage.None, error, []);
         }
     }
 
@@ -218,7 +221,7 @@ public sealed partial class GeminiLlmClient(
         }
         catch (JsonException ex)
         {
-            return new Reply(null, LlmUsage.None, new LlmError(LlmErrorKind.InvalidOutput, "Gemini devolvió una respuesta ilegible.", ex.Message));
+            return new Reply(null, LlmUsage.None, new LlmError(LlmErrorKind.InvalidOutput, "Gemini devolvió una respuesta ilegible.", ex.Message), []);
         }
 
         var usage = response?.UsageMetadata is { } u
@@ -233,21 +236,25 @@ public sealed partial class GeminiLlmClient(
 
         if (response?.PromptFeedback?.BlockReason is { } blockReason)
         {
-            return new Reply(null, usage, new LlmError(LlmErrorKind.Blocked, "Gemini bloqueó el pedido por sus filtros de seguridad.", blockReason));
+            return new Reply(null, usage, new LlmError(LlmErrorKind.Blocked, "Gemini bloqueó el pedido por sus filtros de seguridad.", blockReason), []);
         }
 
         var candidate = response?.Candidates?.FirstOrDefault();
         record.FinishReason = candidate?.FinishReason;
         var text = string.Concat((candidate?.Content?.Parts ?? []).Where(p => p.Thought != true).Select(p => p.Text));
+        var urls = (candidate?.UrlContextMetadata?.UrlMetadata ?? [])
+            .Where(u => !string.IsNullOrWhiteSpace(u.RetrievedUrl))
+            .Select(u => new LlmRetrievedUrl(u.RetrievedUrl!, u.UrlRetrievalStatus ?? "URL_RETRIEVAL_STATUS_UNSPECIFIED"))
+            .ToList();
 
         return candidate?.FinishReason switch
         {
             "MAX_TOKENS" => new Reply(null, usage, new LlmError(LlmErrorKind.Truncated,
-                "La respuesta se cortó por el límite de tokens de salida. Subí MaxOutputTokens para este caso de uso.")),
+                "La respuesta se cortó por el límite de tokens de salida. Subí MaxOutputTokens para este caso de uso."), urls),
             "SAFETY" or "PROHIBITED_CONTENT" or "BLOCKLIST" or "SPII" or "RECITATION" => new Reply(null, usage,
-                new LlmError(LlmErrorKind.Blocked, "Gemini bloqueó la respuesta por sus filtros de seguridad.", candidate.FinishReason)),
-            _ when string.IsNullOrWhiteSpace(text) => new Reply(string.Empty, usage, null),
-            _ => new Reply(text, usage, null),
+                new LlmError(LlmErrorKind.Blocked, "Gemini bloqueó la respuesta por sus filtros de seguridad.", candidate.FinishReason), urls),
+            _ when string.IsNullOrWhiteSpace(text) => new Reply(string.Empty, usage, null, urls),
+            _ => new Reply(text, usage, null, urls),
         };
     }
 
@@ -291,7 +298,7 @@ public sealed partial class GeminiLlmClient(
         return firstNewLine > 0 && lastFence > firstNewLine ? trimmed[(firstNewLine + 1)..lastFence].Trim() : trimmed;
     }
 
-    private static JsonObject BuildBody(RenderedPrompt prompt, List<JsonObject> contents, ResolvedLlmSettings resolved, JsonNode schema, GeminiStructuredOutputMode mode)
+    private static JsonObject BuildBody(RenderedPrompt prompt, List<JsonObject> contents, ResolvedLlmSettings resolved, JsonNode schema, GeminiStructuredOutputMode mode, bool urlContext)
     {
         var generationConfig = new JsonObject();
         if (mode == GeminiStructuredOutputMode.ResponseFormat)
@@ -322,12 +329,19 @@ public sealed partial class GeminiLlmClient(
             generationConfig["thinkingConfig"] = new JsonObject { ["thinkingLevel"] = thinkingLevel };
         }
 
-        return new JsonObject
+        var body = new JsonObject
         {
             ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = prompt.SystemInstruction }) },
             ["contents"] = new JsonArray(contents.Select(c => (JsonNode)c.DeepClone()).ToArray()),
             ["generationConfig"] = generationConfig,
         };
+        if (urlContext)
+        {
+            // Built-in tool (Tool.urlContext in the discovery document); Gemini 3 combines it with structured output.
+            body["tools"] = new JsonArray(new JsonObject { ["urlContext"] = new JsonObject() });
+        }
+
+        return body;
     }
 
     private static JsonObject Turn(string role, string text) => new()
@@ -408,7 +422,7 @@ public sealed partial class GeminiLlmClient(
         a.CachedTokens + b.CachedTokens,
         a.ToolUsePromptTokens + b.ToolUsePromptTokens);
 
-    private sealed record Reply(string? Text, LlmUsage Usage, LlmError? Error);
+    private sealed record Reply(string? Text, LlmUsage Usage, LlmError? Error, IReadOnlyList<LlmRetrievedUrl> RetrievedUrls);
 
     [GeneratedRegex(@"^[a-z0-9][a-z0-9.\-]{0,99}$")]
     private static partial Regex ModelNameRegex();

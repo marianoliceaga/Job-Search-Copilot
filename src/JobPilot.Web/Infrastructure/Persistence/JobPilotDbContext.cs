@@ -1,4 +1,5 @@
 using System.Text.Json;
+using JobPilot.Domain.Companies;
 using JobPilot.Domain.Jobs;
 using JobPilot.Domain.Llm;
 using JobPilot.Domain.Pipeline;
@@ -38,6 +39,10 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
     public DbSet<ApplicationEvent> ApplicationEvents => Set<ApplicationEvent>();
 
     public DbSet<ApplicationContact> ApplicationContacts => Set<ApplicationContact>();
+
+    public DbSet<CompanyProfile> Companies => Set<CompanyProfile>();
+
+    public DbSet<OutreachRecord> OutreachMessages => Set<OutreachRecord>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -177,6 +182,35 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
             contact.Property(c => c.Notes).HasMaxLength(4000);
         });
 
+        modelBuilder.Entity<CompanyProfile>(company =>
+        {
+            company.ToTable("Companies");
+            company.HasIndex(c => c.NameKey).IsUnique();
+            company.Property(c => c.Name).HasMaxLength(300);
+            company.Property(c => c.NameKey).HasMaxLength(300);
+            company.Property(c => c.Website).HasMaxLength(2000);
+            company.Property(c => c.Notes).HasMaxLength(10000);
+            company.Property(c => c.PromptId).HasMaxLength(150);
+            company.Property(c => c.Model).HasMaxLength(100);
+            company.Property(c => c.Sources).HasConversion(JsonList<CompanySource>(), JsonListComparer<CompanySource>());
+            company.Property(c => c.Facts).HasConversion(JsonList<CompanyFact>(), JsonListComparer<CompanyFact>());
+            company.Property(c => c.Gaps).HasConversion(JsonList<string>(), JsonListComparer<string>());
+        });
+
+        modelBuilder.Entity<OutreachRecord>(message =>
+        {
+            message.ToTable("OutreachMessages");
+            message.HasIndex(m => m.CreatedAtUtc);
+            message.HasOne<CompanyProfile>().WithMany().HasForeignKey(m => m.CompanyId).OnDelete(DeleteBehavior.SetNull);
+            message.HasOne<JobPosting>().WithMany().HasForeignKey(m => m.JobPostingId).OnDelete(DeleteBehavior.SetNull);
+            message.Property(m => m.Channel).HasConversion<string>().HasMaxLength(30);
+            message.Property(m => m.Length).HasConversion<string>().HasMaxLength(20);
+            message.Property(m => m.RecipientName).HasMaxLength(200);
+            message.Property(m => m.RecipientRole).HasMaxLength(200);
+            message.Property(m => m.PromptId).HasMaxLength(150);
+            message.Property(m => m.Model).HasMaxLength(100);
+        });
+
         modelBuilder.Entity<SettingsDocument>(document =>
         {
             document.HasKey(d => d.Key);
@@ -191,6 +225,17 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
             setting.Property(s => s.ThinkingLevel).HasMaxLength(20);
         });
     }
+
+    /// <summary>A list stored as one JSON column (enums as names, like other domain documents).</summary>
+    private static ValueConverter<List<T>, string> JsonList<T>() => new(
+        value => JsonSerializer.Serialize(value, DomainJson.Options),
+        json => JsonSerializer.Deserialize<List<T>>(json, DomainJson.Options) ?? new List<T>());
+
+    /// <summary>Compares JSON lists by content, so changes inside the list (e.g. an edited item) are saved.</summary>
+    private static ValueComparer<List<T>> JsonListComparer<T>() => new(
+        (a, b) => JsonSerializer.Serialize(a, DomainJson.Options) == JsonSerializer.Serialize(b, DomainJson.Options),
+        list => JsonSerializer.Serialize(list, DomainJson.Options).GetHashCode(StringComparison.Ordinal),
+        list => JsonSerializer.Deserialize<List<T>>(JsonSerializer.Serialize(list, DomainJson.Options), DomainJson.Options)!);
 
     private sealed class UtcDateTimeConverter() : ValueConverter<DateTime, DateTime>(
         value => value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime(),

@@ -35,6 +35,20 @@ public sealed record LlmRequest<T>(RenderedPrompt Prompt)
     /// returned anyway with the problems in <see cref="LlmResult{T}.Warnings"/> so the UI can flag them.
     /// </summary>
     public Func<T, IReadOnlyList<string>>? Review { get; init; }
+
+    /// <summary>
+    /// Enables Gemini's URL context tool: the model may read the public URLs written in the prompt. The URLs it read are
+    /// returned in <see cref="LlmResult{T}.RetrievedUrls"/>.
+    /// </summary>
+    public bool UseUrlContext { get; init; }
+}
+
+/// <param name="Status">Gemini's retrieval status, e.g. <c>URL_RETRIEVAL_STATUS_SUCCESS</c>.</param>
+public sealed record LlmRetrievedUrl(string Url, string Status)
+{
+    public const string SuccessStatus = "URL_RETRIEVAL_STATUS_SUCCESS";
+
+    public bool Succeeded => Status == SuccessStatus;
 }
 
 public sealed record LlmError(LlmErrorKind Kind, string Message, string? Detail = null);
@@ -49,6 +63,9 @@ public sealed record LlmResult<T>
 
     /// <summary>Problems found by <see cref="LlmRequest{T}.Review"/> on the value that was finally returned.</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    /// <summary>URLs the URL context tool tried to read in any attempt of this request (empty when the tool was off).</summary>
+    public IReadOnlyList<LlmRetrievedUrl> RetrievedUrls { get; init; } = [];
 
     public string Model { get; init; } = string.Empty;
 

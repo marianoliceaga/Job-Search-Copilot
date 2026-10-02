@@ -56,6 +56,19 @@ public sealed class TailoringContextFactory(
         var profile = await profiles.GetAsync(cancellationToken);
         return (new TailoringContext(posting, cv, version, profile, catalog.Terms), null);
     }
+
+    /// <summary>The current master CV without an offer (outreach, LinkedIn review).</summary>
+    public async Task<(CvContext? Context, string? Error)> CreateForCvAsync(CancellationToken cancellationToken)
+    {
+        var current = await cvs.GetAsync(cancellationToken);
+        if (current is null)
+        {
+            return (null, "Primero importá tu CV maestro (Perfil y CV maestro): todo lo que se genera sale de él.");
+        }
+
+        var profile = await profiles.GetAsync(cancellationToken);
+        return (new CvContext(current.Cv, current.Version, profile, catalog.Terms), null);
+    }
 }
 
 public sealed record TailoredDocumentSummary(long Id, TailoredKind Kind, TailoredStatus Status, int MasterCvVersion, DateTime CreatedAtUtc, DateTime? ApprovedAtUtc);

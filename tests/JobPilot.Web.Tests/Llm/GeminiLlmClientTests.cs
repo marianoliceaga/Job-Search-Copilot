@@ -45,6 +45,45 @@ public sealed class GeminiLlmClientTests
     }
 
     [Fact]
+    public async Task Url_context_adds_the_tool_and_returns_the_urls_gemini_read()
+    {
+        await using var host = await LlmTestHost.CreateAsync();
+        host.Handler.Respond(HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(new
+        {
+            candidates = new[]
+            {
+                new
+                {
+                    content = new { role = "model", parts = new[] { new { text = "{\"answer\":\"a\",\"score\":1}" } } },
+                    finishReason = "STOP",
+                    urlContextMetadata = new
+                    {
+                        urlMetadata = new[]
+                        {
+                            new { retrievedUrl = "https://contoso.example.com/about", urlRetrievalStatus = "URL_RETRIEVAL_STATUS_SUCCESS" },
+                            new { retrievedUrl = "https://contoso.example.com/blog", urlRetrievalStatus = "URL_RETRIEVAL_STATUS_PAYWALL" },
+                        },
+                    },
+                },
+            },
+            usageMetadata = new { promptTokenCount = 10, candidatesTokenCount = 5, toolUsePromptTokenCount = 900, totalTokenCount = 915 },
+        }));
+        host.Handler.RespondJson(new { answer = "b", score = 2 });
+
+        var withTool = await host.Client.GenerateAsync(new LlmRequest<Sample>(Prompt) { UseUrlContext = true }, Ct);
+        var withoutTool = await host.Client.GenerateAsync(new LlmRequest<Sample>(Prompt), Ct);
+
+        Assert.Equal("{}", host.Handler.Requests[0].Json["tools"]![0]!["urlContext"]!.ToJsonString());
+        Assert.Null(host.Handler.Requests[1].Json["tools"]);
+        Assert.Equal(
+            [new LlmRetrievedUrl("https://contoso.example.com/about", LlmRetrievedUrl.SuccessStatus), new LlmRetrievedUrl("https://contoso.example.com/blog", "URL_RETRIEVAL_STATUS_PAYWALL")],
+            withTool.RetrievedUrls);
+        Assert.True(withTool.RetrievedUrls[0].Succeeded);
+        Assert.Equal(900, withTool.Usage.ToolUsePromptTokens);
+        Assert.Empty(withoutTool.RetrievedUrls);
+    }
+
+    [Fact]
     public async Task Logs_every_call_with_usage_latency_and_cost()
     {
         await using var host = await LlmTestHost.CreateAsync();

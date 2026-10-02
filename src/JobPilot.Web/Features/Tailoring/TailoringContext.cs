@@ -9,11 +9,17 @@ using ProfileEntity = JobPilot.Domain.Profiles.Profile;
 namespace JobPilot.Web.Features.Tailoring;
 
 /// <summary>Everything needed to generate or check tailored content for one offer against one master CV version.</summary>
-public sealed class TailoringContext
+public sealed class TailoringContext(JobPosting posting, MasterCv cv, int cvVersion, ProfileEntity profile, IEnumerable<string> technologyCatalog)
+    : CvContext(cv, cvVersion, profile, technologyCatalog)
 {
-    public TailoringContext(JobPosting posting, MasterCv cv, int cvVersion, ProfileEntity profile, IEnumerable<string> technologyCatalog)
+    public JobPosting Posting { get; } = posting;
+}
+
+/// <summary>The master CV with its short references and traceability validator, independent of any offer.</summary>
+public class CvContext
+{
+    public CvContext(MasterCv cv, int cvVersion, ProfileEntity profile, IEnumerable<string> technologyCatalog)
     {
-        Posting = posting;
         Cv = cv;
         CvVersion = cvVersion;
         Profile = profile;
@@ -21,8 +27,6 @@ public sealed class TailoringContext
         Index = new CvSourceIndex(cv, ProfileText);
         Validator = new TraceabilityValidator(Index, technologyCatalog);
     }
-
-    public JobPosting Posting { get; }
 
     public MasterCv Cv { get; }
 

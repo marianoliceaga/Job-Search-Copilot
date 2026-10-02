@@ -11,11 +11,14 @@ public static partial class JobFingerprint
 
     public static string Compute(string company, string title)
     {
-        var companyWords = Words(company).Where(w => !CompanySuffixes.Contains(w));
         var cleanTitle = JobCodeRegex().Replace(TextNormalizer.Normalize(title), " ");
         cleanTitle = RemoteMarkerRegex().Replace(cleanTitle, " ");
-        return string.Join(' ', companyWords) + "|" + string.Join(' ', Words(cleanTitle));
+        return CompanyKey(company) + "|" + string.Join(' ', Words(cleanTitle));
     }
+
+    /// <summary>Normalized company name without legal suffixes ("Contoso, Inc." → "contoso").</summary>
+    public static string CompanyKey(string company) =>
+        string.Join(' ', Words(company).Where(w => !CompanySuffixes.Contains(w)));
 
     private static IEnumerable<string> Words(string text) =>
         WordRegex().Matches(TextNormalizer.Normalize(text)).Select(m => m.Value.TrimEnd('.'));

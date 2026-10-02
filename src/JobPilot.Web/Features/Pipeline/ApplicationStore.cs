@@ -112,6 +112,9 @@ public sealed class ApplicationStore(IDbContextFactory<JobPilotDbContext> dbFact
     public Task RecordFollowUpSentAsync(Guid id, string? text, CancellationToken cancellationToken) =>
         UpdateAsync(id, (a, now) => a.RecordFollowUpSent(Limit(text), now), cancellationToken);
 
+    public Task RecordMessageSentAsync(Guid id, string text, CancellationToken cancellationToken) =>
+        UpdateAsync(id, (a, now) => a.RecordMessageSent(Limit(text)!, now), cancellationToken);
+
     public Task RecordResponseAsync(Guid id, string? text, CancellationToken cancellationToken) =>
         UpdateAsync(id, (a, now) => a.RecordResponse(Limit(text), now), cancellationToken);
 

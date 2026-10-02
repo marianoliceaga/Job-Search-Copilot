@@ -10,7 +10,11 @@ internal sealed record GeminiGenerateContentResponse(
     string? ModelVersion,
     string? ResponseId);
 
-internal sealed record GeminiCandidate(GeminiContent? Content, string? FinishReason);
+internal sealed record GeminiCandidate(GeminiContent? Content, string? FinishReason, GeminiUrlContextMetadata? UrlContextMetadata);
+
+internal sealed record GeminiUrlContextMetadata(List<GeminiUrlMetadata>? UrlMetadata);
+
+internal sealed record GeminiUrlMetadata(string? RetrievedUrl, string? UrlRetrievalStatus);
 
 internal sealed record GeminiContent(string? Role, List<GeminiPart>? Parts);
 
