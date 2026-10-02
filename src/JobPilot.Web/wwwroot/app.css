@@ -61,3 +61,65 @@ h1:focus {
     outline: 2px dashed var(--mud-palette-primary);
     outline-offset: 2px;
 }
+
+.jp-score-chart {
+    margin: 0;
+    max-width: 720px;
+}
+
+.jp-score-chart svg {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.jp-score-chart .jp-grid {
+    stroke: var(--mud-palette-lines-default);
+    stroke-width: 1;
+}
+
+.jp-score-chart .jp-axis {
+    fill: var(--mud-palette-text-secondary);
+    font-size: 11px;
+}
+
+.jp-score-chart .jp-value {
+    fill: var(--mud-palette-text-primary);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.jp-score-chart .jp-line {
+    fill: none;
+    stroke: var(--mud-palette-primary);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.jp-score-chart .jp-dot {
+    fill: var(--mud-palette-primary);
+    stroke: var(--mud-palette-surface);
+    stroke-width: 2;
+}
+
+.jp-score-chart .jp-hit {
+    fill: transparent;
+    cursor: default;
+}
+
+.jp-chat-coach {
+    background: var(--mud-palette-background-gray);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    max-width: 80%;
+}
+
+.jp-chat-candidate {
+    background: rgba(89, 74, 226, 0.12);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    max-width: 80%;
+    margin-left: auto;
+    white-space: pre-wrap;
+}

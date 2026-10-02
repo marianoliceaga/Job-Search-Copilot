@@ -31,10 +31,19 @@ public sealed class FakeLlmClient : ILlmClient
         return this;
     }
 
+    /// <summary>History received by each call (empty for single-turn requests).</summary>
+    public List<IReadOnlyList<LlmTurn>> Histories { get; } = [];
+
     public Task<LlmResult<T>> GenerateAsync<T>(LlmRequest<T> request, CancellationToken cancellationToken)
+        where T : class =>
+        ChatAsync(request, [], cancellationToken);
+
+    public Task<LlmResult<T>> ChatAsync<T>(LlmRequest<T> request, IReadOnlyList<LlmTurn> history, CancellationToken cancellationToken)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(request);
+        LlmTurn.EnsureValidHistory(history);
+        Histories.Add(history.ToList());
         cancellationToken.ThrowIfCancellationRequested();
         Prompts.Add(request.Prompt);
         UrlContextFlags.Add(request.UseUrlContext);

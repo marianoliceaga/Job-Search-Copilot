@@ -1,6 +1,8 @@
 using System.Text.Json;
 using JobPilot.Domain.Companies;
 using JobPilot.Domain.Jobs;
+using JobPilot.Domain.Negotiation;
+using JobPilot.Domain.Practice;
 using JobPilot.Domain.Llm;
 using JobPilot.Domain.Pipeline;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -43,6 +45,14 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
     public DbSet<CompanyProfile> Companies => Set<CompanyProfile>();
 
     public DbSet<OutreachRecord> OutreachMessages => Set<OutreachRecord>();
+
+    public DbSet<InterviewQuestionSetRecord> InterviewQuestionSets => Set<InterviewQuestionSetRecord>();
+
+    public DbSet<StarStoryRecord> StarStories => Set<StarStoryRecord>();
+
+    public DbSet<PracticeSession> PracticeSessions => Set<PracticeSession>();
+
+    public DbSet<CompensationOffer> CompensationOffers => Set<CompensationOffer>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -211,6 +221,61 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
             message.Property(m => m.Model).HasMaxLength(100);
         });
 
+        modelBuilder.Entity<InterviewQuestionSetRecord>(set =>
+        {
+            set.ToTable("InterviewQuestionSets");
+            set.HasIndex(q => new { q.JobPostingId, q.CreatedAtUtc });
+            set.HasOne<JobPosting>().WithMany().HasForeignKey(q => q.JobPostingId).OnDelete(DeleteBehavior.Cascade);
+            set.Property(q => q.PromptId).HasMaxLength(150);
+            set.Property(q => q.Model).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<StarStoryRecord>(story =>
+        {
+            story.ToTable("StarStories");
+            story.HasOne<JobPosting>().WithMany().HasForeignKey(s => s.JobPostingId).OnDelete(DeleteBehavior.SetNull);
+            story.Property(s => s.PromptId).HasMaxLength(150);
+            story.Property(s => s.Model).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<CompensationOffer>(offer =>
+        {
+            offer.ToTable("CompensationOffers");
+            offer.HasOne<JobPosting>().WithMany().HasForeignKey(o => o.JobPostingId).OnDelete(DeleteBehavior.SetNull);
+            offer.Property(o => o.Company).HasMaxLength(300);
+            offer.Property(o => o.Role).HasMaxLength(300);
+            offer.Property(o => o.Currency).HasMaxLength(10);
+            offer.Property(o => o.Period).HasConversion<string>().HasMaxLength(10);
+            offer.Property(o => o.Model).HasConversion<string>().HasMaxLength(20);
+            offer.Property(o => o.Notes).HasMaxLength(4000);
+            // SQLite cannot compare decimals in SQL; amounts are only read and written.
+            offer.Property(o => o.BaseAmount).HasConversion<double>();
+            offer.Property(o => o.HoursPerMonth).HasConversion<double>();
+            offer.Property(o => o.AnnualBonus).HasConversion<double>();
+            offer.Property(o => o.AnnualBenefits).HasConversion<double>();
+            offer.Property(o => o.AnnualEquity).HasConversion<double>();
+        });
+
+        modelBuilder.Entity<PracticeSession>(session =>
+        {
+            session.ToTable("PracticeSessions");
+            session.HasIndex(p => p.StartedAtUtc);
+            session.HasOne<JobPosting>().WithMany().HasForeignKey(p => p.JobPostingId).OnDelete(DeleteBehavior.SetNull);
+            session.HasOne<CompensationOffer>().WithMany().HasForeignKey(p => p.OfferId).OnDelete(DeleteBehavior.SetNull);
+            session.Property(p => p.Mode).HasConversion<string>().HasMaxLength(20);
+            session.Property(p => p.Focus).HasConversion<string>().HasMaxLength(20);
+            session.Property(p => p.Status).HasConversion<string>().HasMaxLength(20);
+            session.Property(p => p.PromptId).HasMaxLength(150);
+            session.Property(p => p.Model).HasMaxLength(100);
+            session.Property(p => p.Turns).HasConversion(JsonList<PracticeTurn>(), JsonListComparer<PracticeTurn>());
+            session.Property(p => p.Feedback).HasConversion(JsonValue<PracticeFeedback>(), JsonValueComparer<PracticeFeedback>());
+            session.Ignore(p => p.CurrentQuestion);
+            session.Ignore(p => p.FollowUpsOnCurrent);
+            session.Ignore(p => p.AwaitingAnswer);
+            session.Ignore(p => p.AwaitingCoach);
+            session.Ignore(p => p.HasAnswers);
+        });
+
         modelBuilder.Entity<SettingsDocument>(document =>
         {
             document.HasKey(d => d.Key);
@@ -230,6 +295,17 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
     private static ValueConverter<List<T>, string> JsonList<T>() => new(
         value => JsonSerializer.Serialize(value, DomainJson.Options),
         json => JsonSerializer.Deserialize<List<T>>(json, DomainJson.Options) ?? new List<T>());
+
+    private static ValueConverter<T?, string?> JsonValue<T>()
+        where T : class => new(
+        value => value == null ? null : JsonSerializer.Serialize(value, DomainJson.Options),
+        json => json == null ? null : JsonSerializer.Deserialize<T>(json, DomainJson.Options));
+
+    private static ValueComparer<T?> JsonValueComparer<T>()
+        where T : class => new(
+        (a, b) => JsonSerializer.Serialize(a, DomainJson.Options) == JsonSerializer.Serialize(b, DomainJson.Options),
+        value => JsonSerializer.Serialize(value, DomainJson.Options).GetHashCode(StringComparison.Ordinal),
+        value => value == null ? null : JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(value, DomainJson.Options), DomainJson.Options));
 
     /// <summary>Compares JSON lists by content, so changes inside the list (e.g. an edited item) are saved.</summary>
     private static ValueComparer<List<T>> JsonListComparer<T>() => new(

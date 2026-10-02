@@ -35,11 +35,11 @@ public static class AppSections
 
     public static readonly AppSection Interviews = new(
         "Entrevistas", "/entrevistas", Icons.Material.Filled.RecordVoiceOver, 7,
-        "Banco de preguntas, historias STAR y simulacros en inglés con feedback por rúbrica.");
+        "Banco de preguntas por oferta, historias STAR basadas en tu CV y simulacros en inglés con feedback por rúbrica.");
 
     public static readonly AppSection Negotiation = new(
         "Negociación", "/negociacion", Icons.Material.Filled.Handshake, 7,
-        "Comparador de ofertas en USD anuales, guion de negociación y simulacro con el LLM como recruiter.");
+        "Comparador de ofertas en USD anuales con tus tipos de cambio y costos, guion de negociación y simulacro con el recruiter.");
 
     public static readonly AppSection Settings = new(
         "Configuración", "/configuracion", Icons.Material.Filled.Settings, 1,

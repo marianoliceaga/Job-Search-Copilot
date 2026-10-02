@@ -141,6 +141,9 @@ Negotiation script and recruiter-role chat simulation.
 
 - Conversation and persistence tests with the fake LLM.
 - Rubric validation and comparator calculation tests.
+- Notes: the simulators share one engine (`PracticeSession`, `ILlmClient.ChatAsync`); the app enforces one question per
+  message and the follow-up limit, and computes the overall score from the rubric; the recruiter's room to move is a
+  practice parameter chosen by the owner.
 
 ### Phase 8 — Google integration (only if confirmed)
 Local-app OAuth with minimal scopes. Gmail: read threads linked to applications and create drafts, never

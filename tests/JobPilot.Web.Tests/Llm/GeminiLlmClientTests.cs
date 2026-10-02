@@ -84,6 +84,22 @@ public sealed class GeminiLlmClientTests
     }
 
     [Fact]
+    public async Task Chat_sends_the_history_after_the_first_user_message()
+    {
+        await using var host = await LlmTestHost.CreateAsync();
+        host.Handler.RespondJson(new { answer = "next", score = 2 });
+
+        var result = await host.Client.ChatAsync(new LlmRequest<Sample>(Prompt),
+            [new LlmTurn(LlmRole.Model, "{\"answer\":\"q1\",\"score\":1}"), new LlmTurn(LlmRole.User, "My answer.")], Ct);
+
+        Assert.True(result.IsSuccess, result.Error?.ToString());
+        var contents = host.Handler.Requests[0].Json["contents"]!.AsArray();
+        Assert.Equal(["user", "model", "user"], contents.Select(c => (string?)c!["role"]));
+        Assert.Equal("My answer.", (string?)contents[2]!["parts"]![0]!["text"]);
+        await Assert.ThrowsAsync<ArgumentException>(() => host.Client.ChatAsync(new LlmRequest<Sample>(Prompt), [new LlmTurn(LlmRole.User, "x")], Ct));
+    }
+
+    [Fact]
     public async Task Logs_every_call_with_usage_latency_and_cost()
     {
         await using var host = await LlmTestHost.CreateAsync();

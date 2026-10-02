@@ -86,6 +86,12 @@ src/JobPilot.Web/
   Features/Companies/        CompaniesPage (/empresas), CompanyPage (/empresas/{id}: sources, research, facts, notes, offers),
                              CompanyButton (offer page), CompanyStore (sources, JSON columns), CompanyResearchHandler
                              (company-research with URL context + CompanyFactVerifier)
+  Features/Interviews/       InterviewsPage (/entrevistas: Preparación / Simulacros / Historias STAR), PracticeSessionPage
+                             (/practica/{id}, shared chat page for interviews and negotiations), InterviewPrep (question bank +
+                             STAR stories, store and handlers), PracticeHandler + PracticeStore (ChatAsync, rubric feedback),
+                             ScoreChart (inline SVG), StarStoryCard
+  Features/Negotiation/      NegotiationPage (/negociacion: Comparador / Guion / Simulacro), OfferStore (owner-entered offers,
+                             contractor costs, facts text), NegotiationScriptHandler
   Features/Outreach/         OutreachPage (/outreach: Mensajes / Perfil de LinkedIn), OutreachHandler (outreach-message, three
                              tones), OutreachStore (history, mark as sent → pipeline timeline), LinkedInReviewHandler
   Seed/                      profile, job-search preferences, followed companies (verified boards),
@@ -181,6 +187,8 @@ docs/PLAN.md                 approved plan
 - URL context returns `candidates[].urlContextMetadata.urlMetadata[{retrievedUrl, urlRetrievalStatus}]`
   (`URL_RETRIEVAL_STATUS_SUCCESS|ERROR|PAYWALL|UNSAFE`); the retrieved URL can differ in scheme, `www.` or trailing slash,
   so URLs are compared with `CompanyFactVerifier.UrlKey`.
+- System.Text.Json escapes `'` as `\u0027` in request bodies: a fake server matching prompt text must avoid apostrophes.
+- Razor reserves `<text>` inside code blocks (RZ1023): SVG `<text>` elements inside loops are emitted as `MarkupString`.
 - Ical.Net 5: all-day events use `new CalDateTime(DateOnly)`; UTC times use `new CalDateTime(value, CalDateTime.UtcTzId, true)`.
 - Do not hit the real job sources in tests or repeatedly while developing: their terms limit request rates
   (Remotive ≈ 4/day). Fixtures under `tests/**/Fixtures/Sources` are fictional and mirror the real shapes.
@@ -227,7 +235,13 @@ docs/PLAN.md                 approved plan
 | 2026-10-02 | Exports: DOCX with Open XML (single column, real list bullets, styles, no tables/images/text boxes/headers) and PDF with QuestPDF (US Letter, Lato embedded, no tables/images); files are generated on demand and downloaded, not stored | ATS compatibility; nothing personal written to disk besides the local DB. |
 | 2026-10-02 | Cover letter: the model writes body paragraphs only; greeting ("Dear {Company} hiring team,") and sign-off come from the app | Fewer places to invent; consistent format. |
 | 2026-10-02 | HN "Who is hiring?" not implemented in phase 3 | Optional in the plan; can be added as another `IJobSource`. |
-| 2026-10-02 | `ILlmClient.ChatAsync` deferred to phase 7; `GenerateAsync` already supports multi-turn contents internally | No consumer before the interview/negotiation simulators. |
+| 2026-10-02 | `ILlmClient.ChatAsync(request, history)`: the prompt's user message is the first turn, the history alternates model/user and ends with a user turn; `GenerateAsync` = chat with an empty history | One code path for validation, retries and logging in single and multi-turn calls. |
+| 2026-10-02 | Practice sessions (interview and negotiation) store the system instruction and first message they started with; coach turns are structured (`Question`/`FollowUp`/`Closing` + number) and `PracticeSession.Check` enforces one question per message, numbering, the follow-up limit (`Practice:MaxFollowUps`) and closing only after the last question | Conversation rules are deterministic; later turns use the same context even if the CV changes. |
+| 2026-10-02 | Feedback with fixed rubrics (5 criteria for interviews, 5 for negotiation), scores 1-5 validated (`Rubrics.Validate`); the overall 0-100 is computed by the app; model answers cite the CV and are checked by `TraceabilityValidator`; the transcript is sent as untrusted data | The model cannot inflate or skip criteria; score history is comparable. |
+| 2026-10-02 | Question bank: each question quotes the posting sentence that motivates it, checked with `EvidenceCheck`; STAR stories are `TraceableText` parts citing the CV, editable with the same flags/confirmation as tailored documents | "Never invent" applied to interview prep. |
+| 2026-10-02 | Offer comparator: owner-entered offers (base per year/month/hour, bonus, own valuation of benefits/equity, contract model) → annual USD with the owner's exchange rates; contractor costs (fixed per month, % of gross, unpaid days for hourly) from the owner; missing rates leave the offer uncompared | "Never estimate"; comparable numbers. |
+| 2026-10-02 | Negotiation script and recruiter roleplay use only the owner's numbers (facts text with plain numbers); numbers not in the facts or cited CV elements are flagged; the roleplay's room to move is a practice parameter, labelled as such | No invented market data. |
+| 2026-10-02 | Score evolution chart as a single-series inline SVG (2px line, ringed markers, 0-100 axis, hover titles) with a table view | No chart dependency; accessible. |
 | 2026-10-02 | Pipeline: one `JobApplication` per offer (unique), stages Detectada → Descartada; every change goes through domain methods that append an `ApplicationEvent`; only notes and scheduled interviews can be deleted | "Every status change appears in the timeline" enforced in one place. |
 | 2026-10-02 | Sent documents: only approved tailored documents of the same offer; the event stores a snapshot (kind, master CV version, JSON) and downloads are rebuilt from it | Later edits never rewrite what was sent. |
 | 2026-10-02 | Follow-up rule (`FollowUpPolicy`, default 7 days after applying / 3 after an interview / 2 follow-ups per stage) evaluated on load from the timeline; a custom date replaces it until a follow-up or response is recorded; no background process | Simple, testable, nothing runs unattended. |
@@ -288,5 +302,5 @@ Checked on 2026-10-02 (phase 6):
 - [x] Phase 4 — Tailored CV and cover letter (pending: real generation with the owner's key)
 - [x] Phase 5 — Pipeline, reminders and dashboard (pending: a real follow-up draft with the owner's key)
 - [x] Phase 6 — Companies and outreach (pending: real research, outreach and LinkedIn review with the owner's key)
-- [ ] Phase 7 — Interviews and negotiation
+- [x] Phase 7 — Interviews and negotiation (pending: real practice sessions with the owner's key)
 - [ ] Phase 8 — Google integration (pending decision)

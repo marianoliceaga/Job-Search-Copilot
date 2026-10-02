@@ -13,6 +13,43 @@ public interface ILlmClient
     /// </summary>
     Task<LlmResult<T>> GenerateAsync<T>(LlmRequest<T> request, CancellationToken cancellationToken)
         where T : class;
+
+    /// <summary>
+    /// Continues a conversation: the prompt's user message is the first turn and <paramref name="history"/> holds the
+    /// following turns, alternating model and user and ending with a user turn. Same validation, retry and logging as
+    /// <see cref="GenerateAsync{T}"/>.
+    /// </summary>
+    Task<LlmResult<T>> ChatAsync<T>(LlmRequest<T> request, IReadOnlyList<LlmTurn> history, CancellationToken cancellationToken)
+        where T : class;
+}
+
+public enum LlmRole
+{
+    User,
+    Model,
+}
+
+/// <summary>One turn of a conversation after the first user message.</summary>
+public sealed record LlmTurn(LlmRole Role, string Text)
+{
+    /// <summary>Throws when the turns do not alternate model → user or do not end with a user turn.</summary>
+    public static void EnsureValidHistory(IReadOnlyList<LlmTurn> history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        for (var i = 0; i < history.Count; i++)
+        {
+            var expected = i % 2 == 0 ? LlmRole.Model : LlmRole.User;
+            if (history[i].Role != expected)
+            {
+                throw new ArgumentException($"Turn {i + 1} should be {expected}: turns must alternate model and user.", nameof(history));
+            }
+        }
+
+        if (history.Count % 2 != 0)
+        {
+            throw new ArgumentException("The conversation must end with a user turn.", nameof(history));
+        }
+    }
 }
 
 /// <summary>Lists the models available to the configured API key.</summary>

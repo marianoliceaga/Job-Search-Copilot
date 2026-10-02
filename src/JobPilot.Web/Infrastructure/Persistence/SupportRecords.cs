@@ -147,3 +147,39 @@ public sealed class OutreachRecord
 
     public DateTime? SentAtUtc { get; set; }
 }
+
+/// <summary>Likely interview questions generated for one offer (JSON of the question list). The latest set is current.</summary>
+public sealed class InterviewQuestionSetRecord
+{
+    public long Id { get; set; }
+
+    public Guid JobPostingId { get; set; }
+
+    public DateTime CreatedAtUtc { get; set; }
+
+    public required string PromptId { get; set; }
+
+    public required string Model { get; set; }
+
+    public required string Json { get; set; }
+}
+
+/// <summary>A STAR story built from the master CV (JSON of the domain story), optionally prepared for one offer.</summary>
+public sealed class StarStoryRecord
+{
+    public long Id { get; set; }
+
+    public Guid? JobPostingId { get; set; }
+
+    public int MasterCvVersion { get; set; }
+
+    public DateTime CreatedAtUtc { get; set; }
+
+    public DateTime UpdatedAtUtc { get; set; }
+
+    public required string PromptId { get; set; }
+
+    public required string Model { get; set; }
+
+    public required string Json { get; set; }
+}

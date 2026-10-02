@@ -30,10 +30,15 @@ public sealed partial class GeminiLlmClient(
 
     public static bool IsValidModelName(string model) => ModelNameRegex().IsMatch(model);
 
-    public async Task<LlmResult<T>> GenerateAsync<T>(LlmRequest<T> request, CancellationToken cancellationToken)
+    public Task<LlmResult<T>> GenerateAsync<T>(LlmRequest<T> request, CancellationToken cancellationToken)
+        where T : class =>
+        ChatAsync(request, [], cancellationToken);
+
+    public async Task<LlmResult<T>> ChatAsync<T>(LlmRequest<T> request, IReadOnlyList<LlmTurn> history, CancellationToken cancellationToken)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(request);
+        LlmTurn.EnsureValidHistory(history);
         var prompt = request.Prompt;
         var gemini = geminiOptions.CurrentValue;
         var resolved = await settings.ResolveAsync(prompt.UseCase, cancellationToken);
@@ -52,6 +57,7 @@ public sealed partial class GeminiLlmClient(
         var pricing = settings.GetPricing(resolved.Model);
         var schema = LlmJson.SchemaFor(typeof(T));
         var contents = new List<JsonObject> { Turn("user", prompt.UserMessage) };
+        contents.AddRange(history.Select(t => Turn(t.Role == LlmRole.Model ? "model" : "user", t.Text)));
         var maxAttempts = 1 + Math.Max(0, llmOptions.CurrentValue.MaxInvalidOutputRetries);
 
         var retrieved = new List<LlmRetrievedUrl>();

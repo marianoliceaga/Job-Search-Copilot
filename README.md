@@ -6,7 +6,7 @@ and MudBlazor**, using the **Gemini API** as its only LLM.
 JobPilot prepares, analyses and drafts; you approve. It never sends an application, e-mail or message on
 your behalf. All data stays on your machine.
 
-> **Status:** phase 6 of 8 (company profiles and outreach drafts). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
+> **Status:** phase 7 of 8 (interview practice and negotiation). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
 > acceptance criteria per phase. The UI is in Spanish.
 
 ## Planned features
@@ -137,6 +137,22 @@ a LinkedIn message or an e-mail for a recruiter or hiring manager, in three tone
 master CV and claims about the company from verified facts or the posting; anything else is flagged. Copy the text, send
 it yourself and mark it as sent (it is added to the offer's timeline). **Perfil de LinkedIn** reviews the headline and
 About you paste and proposes versions that cite your CV. JobPilot never sends messages and never accesses LinkedIn.
+
+### Interviews
+
+**Entrevistas → Preparación**: for an offer, a bank of likely questions (each with the sentence of the posting that
+motivates it; quotes not found in the posting are flagged) and STAR stories built only from your master CV (every part
+cites its CV elements; untraceable numbers or technologies are flagged and can be edited or confirmed).
+**Simulacros**: a mock interview in English with Gemini as the interviewer, one question per message and a bounded number
+of follow-ups (rules enforced by the app). At the end, rubric feedback (structure, relevance, evidence, impact,
+communication; overall score computed by the app) and model answers from your CV. The score history is charted.
+
+### Negotiation
+
+**Negociación → Comparador**: enter the offers you received (base per year, month or hour, bonus, your own valuation of
+benefits and equity, contract model). They are normalized to annual USD with your exchange rates and your contractor
+costs; nothing is estimated. **Guion**: a negotiation script from your numbers and your CV, with numbers not found in
+them flagged. **Simulacro**: a roleplay with Gemini as the recruiter, starting from your offer, with rubric feedback.
 
 ### Dashboard
 
