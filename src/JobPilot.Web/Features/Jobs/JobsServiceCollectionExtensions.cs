@@ -31,6 +31,7 @@ public static class JobsServiceCollectionExtensions
         services.AddTransient<JobSearchService>();
         services.AddTransient<ManualJobImport>();
         services.AddTransient<JobAnalysisHandler>();
+        services.AddSingleton<JobAnalysisReader>();
         return services;
     }
 

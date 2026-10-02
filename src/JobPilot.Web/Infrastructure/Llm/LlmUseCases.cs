@@ -13,11 +13,17 @@ public static class LlmUseCases
 
     public const string JobAnalysis = "job-analysis";
 
+    public const string CvTailoring = "cv-tailoring";
+
+    public const string CoverLetter = "cover-letter";
+
     public static IReadOnlyList<LlmUseCaseInfo> All { get; } =
     [
         new(ConnectionTest, "Prueba de conexión", "Verifica la API key, el modelo y la salida estructurada con un pedido mínimo."),
         new(CvImport, "Importación del CV", "Convierte el texto de tu CV en el modelo estructurado del CV maestro, sin agregar información."),
         new(JobExtraction, "Alta manual de ofertas", "Extrae los campos de una oferta pegada a mano; el salario solo se toma si está citado textualmente."),
+        new(CvTailoring, "CV a medida", "Reordena y reformula tu CV maestro para una oferta; cada viñeta cita sus fuentes y se verifica."),
+        new(CoverLetter, "Carta de presentación", "Redacta la carta para una oferta a partir de tu CV maestro; cada párrafo cita sus fuentes."),
         new(JobAnalysis, "Análisis de ofertas", "Compara la oferta con tu perfil y CV maestro: encaje, requisitos, compensación publicada, modalidad, elegibilidad y alertas."),
     ];
 }

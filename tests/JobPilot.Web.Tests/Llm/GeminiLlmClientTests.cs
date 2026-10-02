@@ -156,6 +156,36 @@ public sealed class GeminiLlmClientTests
     }
 
     [Fact]
+    public async Task Review_problems_trigger_one_retry_and_are_returned_as_warnings_on_the_last_attempt()
+    {
+        await using var host = await LlmTestHost.CreateAsync();
+        host.Handler.RespondJson(new { answer = "60%", score = 1 }).RespondJson(new { answer = "still 60%", score = 1 });
+        var request = new LlmRequest<Sample>(Prompt) { Review = s => s.Answer.Contains("60", StringComparison.Ordinal) ? ["60 is not in the sources"] : [] };
+
+        var result = await host.Client.GenerateAsync(request, Ct);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("still 60%", result.Value!.Answer);
+        Assert.Equal(["60 is not in the sources"], result.Warnings);
+        Assert.Contains("60 is not in the sources", (string?)host.Handler.Requests[1].Json["contents"]![2]!["parts"]![0]!["text"], StringComparison.Ordinal);
+        var records = await host.CallRecordsAsync();
+        Assert.Equal([LlmCallOutcome.Failed, LlmCallOutcome.Success], records.Select(r => r.Outcome));
+        Assert.StartsWith("Aceptada con advertencias", records[1].ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_clean_review_returns_no_warnings()
+    {
+        await using var host = await LlmTestHost.CreateAsync();
+        host.Handler.RespondJson(new { answer = "ok", score = 1 });
+
+        var result = await host.Client.GenerateAsync(new LlmRequest<Sample>(Prompt) { Review = _ => [] }, Ct);
+
+        Assert.Empty(result.Warnings);
+        Assert.Single(host.Handler.Requests);
+    }
+
+    [Fact]
     public async Task Reports_a_timeout_when_gemini_does_not_answer()
     {
         await using var host = await LlmTestHost.CreateAsync(new() { ["Gemini:MaxRetryAttempts"] = "1" });

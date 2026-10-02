@@ -96,9 +96,20 @@ public sealed partial class GeminiLlmClient(
             var (value, problems) = Parse(reply.Text!, request.Validate);
             if (value is not null)
             {
-                record.Outcome = LlmCallOutcome.Success;
-                await callLog.AddAsync(record);
-                return Finish(LlmResult<T>.Success(value));
+                var review = request.Review?.Invoke(value) ?? [];
+                if (review.Count == 0 || attempt == maxAttempts)
+                {
+                    record.Outcome = LlmCallOutcome.Success;
+                    if (review.Count > 0)
+                    {
+                        record.ErrorMessage = Truncate("Aceptada con advertencias: " + string.Join(" | ", review), 2000);
+                    }
+
+                    await callLog.AddAsync(record);
+                    return Finish(LlmResult<T>.Success(value) with { Warnings = review });
+                }
+
+                problems = review;
             }
 
             var invalid = new LlmError(LlmErrorKind.InvalidOutput,
@@ -387,6 +398,8 @@ public sealed partial class GeminiLlmClient(
 
         return callLog.AddAsync(record);
     }
+
+    private static string Truncate(string value, int length) => value.Length <= length ? value : value[..length];
 
     private static LlmUsage Add(LlmUsage a, LlmUsage b) => new(
         a.PromptTokens + b.PromptTokens,

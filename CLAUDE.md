@@ -74,7 +74,13 @@ src/JobPilot.Web/
                              JobSearchService (runs, min intervals), FollowedCompanyStore (seed + suggestions),
                              ManualJobImport (ATS URL / pasted text), JobListService (eligibility, USD, rank),
                              Analysis/ (job-analysis schema, AnalysisVerifier, JobAnalysisHandler)
-  Seed/                      profile, job-search preferences, followed companies (verified boards)
+  Features/Tailoring/        TailoringSection (on the offer page), TailoredDocumentPage (/ofertas/{id}/documentos/{doc}),
+                             TailoringHandler (cv-tailoring / cover-letter), TailoringContext (CV with short refs,
+                             validator), TailoredDocumentStore (drafts, approval), TracedTextEditor (sources, diff, flags),
+                             Export/ (DocumentContentBuilder, DocxWriter, PdfWriter, DocumentExporter)
+  Seed/                      profile, job-search preferences, followed companies (verified boards),
+                             technology-terms.txt (technology names checked in generated texts)
+  wwwroot/app.js             jobPilot.downloadFile (browser download of exported files)
   Infrastructure/Text/       HtmlText: third-party HTML → plain text (source HTML is never rendered)
 tests/JobPilot.Domain.Tests/ xUnit v3
 tests/JobPilot.Web.Tests/    xUnit v3 + WebApplicationFactory smoke tests + bUnit; TestSupport/ (LlmTestHost with
@@ -147,6 +153,12 @@ docs/PLAN.md                 approved plan
 - Lever board tokens are case-sensitive (`Ubiminds` works, `ubiminds` is 404). Remotive ignores `limit`.
   Himalayas search takes one query: the source runs one request per keyword (`MaxKeywordQueries`) and the
   ingestion keeps one posting per URL per batch.
+- QuestPDF needs `QuestPDF.Settings.License = LicenseType.Community` before generating (set in `PdfWriter`'s static
+  constructor) and `UseSystemFonts = false` so the bundled Lato font is always embedded.
+- Open XML element constructors must not receive `null` children (fails at runtime); build conditional children
+  with `Append`. `OpenXmlValidator` is used in tests to catch invalid documents.
+- `pdftoppm` (poppler) is available in the container to rasterize exported PDFs for visual checks.
+- The technology catalog must not contain ambiguous English words ("Go", "REST"): they flag ordinary sentences.
 - Do not hit the real job sources in tests or repeatedly while developing: their terms limit request rates
   (Remotive ≈ 4/day). Fixtures under `tests/**/Fixtures/Sources` are fictional and mirror the real shapes.
 
@@ -184,6 +196,13 @@ docs/PLAN.md                 approved plan
 | 2026-10-02 | Ranking computed at read time from the latest analysis and current weights (default 40/30/20/10); unknown compensation gets a configurable neutral value; scores without analysis are marked preliminary | Changing preferences re-ranks instantly. |
 | 2026-10-02 | `AnalysisVerifier` removes unverifiable quotes, downgrades "stated" contract models without a quote, and re-checks missing keywords against posting and CV | The LLM output is checked deterministically before it is stored. |
 | 2026-10-02 | Manual entry: ATS job URLs via their public APIs; other sites (LinkedIn, Indeed, Glassdoor, Wellfound...) require pasted text; the stored description is the pasted text, never an LLM rewrite | Terms of the sites; fidelity of the source. |
+| 2026-10-02 | Tailored content = `TraceableText` (text + source keys: element ids, `headline`, `summary`, `profile`); prompts show the CV with short references (E1, E1.A2, HEAD, SUM, PROF) mapped back to ids by `CvSourceIndex` | Traceability of every generated text; short refs are cheaper and more reliable for the model. |
+| 2026-10-02 | `TraceabilityValidator`: sources must exist (and belong to the bullet's experience); every number must appear in the cited elements (letters: also in the posting); every known technology (catalog + CV vocabulary) must be in the CV vocabulary or the cited elements; skills must exist in the CV | Deterministic "never invent" rule for tailored CVs and letters. |
+| 2026-10-02 | `LlmRequest.Review` (soft validation): problems trigger the bounded retry with feedback; on the last attempt the value is returned with `Warnings` and the texts are flagged instead of losing the draft | The owner sees and fixes flagged texts; nothing is silently accepted. |
+| 2026-10-02 | Company, title, dates and location of experiences always come from the master CV; the model only selects experiences and writes bullets/summary/headline/skills order; master order is kept | Removes whole classes of possible inventions. |
+| 2026-10-02 | Tailored documents are drafts tied to the master CV version they came from; approval is blocked while flagged texts are not edited/removed/confirmed by the owner (`OwnerConfirmed`, reset on edit) or skills are unknown; export (DOCX/PDF) only after approval; approved documents are read-only until reopened | Human in the loop; reproducible validation. |
+| 2026-10-02 | Exports: DOCX with Open XML (single column, real list bullets, styles, no tables/images/text boxes/headers) and PDF with QuestPDF (US Letter, Lato embedded, no tables/images); files are generated on demand and downloaded, not stored | ATS compatibility; nothing personal written to disk besides the local DB. |
+| 2026-10-02 | Cover letter: the model writes body paragraphs only; greeting ("Dear {Company} hiring team,") and sign-off come from the app | Fewer places to invent; consistent format. |
 | 2026-10-02 | HN "Who is hiring?" not implemented in phase 3 | Optional in the plan; can be added as another `IJobSource`. |
 | 2026-10-02 | `ILlmClient.ChatAsync` deferred to phase 7; `GenerateAsync` already supports multi-turn contents internally | No consumer before the interview/negotiation simulators. |
 
@@ -222,7 +241,7 @@ Checked on 2026-10-02:
 - [x] Phase 1 — Domain, persistence, Gemini (pending: real-key check by the owner)
 - [x] Phase 2 — Profile and master CV (pending: real import of the owner's CV)
 - [x] Phase 3 — Ingestion and analysis (pending: a real analysis with the owner's key)
-- [ ] Phase 4 — Tailored CV and cover letter
+- [x] Phase 4 — Tailored CV and cover letter (pending: real generation with the owner's key)
 - [ ] Phase 5 — Pipeline, reminders and dashboard
 - [ ] Phase 6 — Companies and outreach
 - [ ] Phase 7 — Interviews and negotiation

@@ -468,7 +468,72 @@ namespace JobPilot.Web.Infrastructure.Persistence.Migrations
                     b.ToTable("SourceRuns");
                 });
 
+            modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.TailoredDocumentRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ApprovedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("JobPostingId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MasterCvVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PromptId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobPostingId", "Kind");
+
+                    b.ToTable("TailoredDocuments", (string)null);
+                });
+
             modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.JobAnalysisRecord", b =>
+                {
+                    b.HasOne("JobPilot.Domain.Jobs.JobPosting", null)
+                        .WithMany()
+                        .HasForeignKey("JobPostingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.TailoredDocumentRecord", b =>
                 {
                     b.HasOne("JobPilot.Domain.Jobs.JobPosting", null)
                         .WithMany()

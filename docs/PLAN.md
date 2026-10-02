@@ -110,6 +110,7 @@ font.
 
 - Test: an invented metric is rejected by the validator.
 - DOCX test: no tables or images in the XML. PDF test: PdfPig extracts the text in reading order.
+- Notes: exports use US Letter; the font bundled with QuestPDF (Lato, OFL) is embedded; export is enabled after approval.
 
 ### Phase 5 — Pipeline, reminders and dashboard (5.8, 5.10)
 Drag-and-drop Kanban; per application: timeline, notes, contacts, which CV and cover letter versions were

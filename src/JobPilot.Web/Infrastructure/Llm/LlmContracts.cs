@@ -29,6 +29,12 @@ public sealed record LlmRequest<T>(RenderedPrompt Prompt)
 {
     /// <summary>Domain validation of the deserialized value. Returns the list of problems (empty when valid).</summary>
     public Func<T, IReadOnlyList<string>>? Validate { get; init; }
+
+    /// <summary>
+    /// Soft review: problems trigger the bounded retry like <see cref="Validate"/>, but on the last attempt the value is
+    /// returned anyway with the problems in <see cref="LlmResult{T}.Warnings"/> so the UI can flag them.
+    /// </summary>
+    public Func<T, IReadOnlyList<string>>? Review { get; init; }
 }
 
 public sealed record LlmError(LlmErrorKind Kind, string Message, string? Detail = null);
@@ -40,6 +46,9 @@ public sealed record LlmResult<T>
     public LlmError? Error { get; init; }
 
     public bool IsSuccess => Error is null;
+
+    /// <summary>Problems found by <see cref="LlmRequest{T}.Review"/> on the value that was finally returned.</summary>
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 
     public string Model { get; init; } = string.Empty;
 

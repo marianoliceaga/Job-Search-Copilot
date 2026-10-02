@@ -61,3 +61,45 @@ public sealed class JobAnalysisRecord
 
     public required string Json { get; set; }
 }
+
+public enum TailoredKind
+{
+    Cv,
+    CoverLetter,
+}
+
+public enum TailoredStatus
+{
+    Draft,
+    Approved,
+}
+
+/// <summary>A tailored CV or cover letter for one offer (JSON of the domain document), tied to a master CV version.</summary>
+public sealed class TailoredDocumentRecord
+{
+    public long Id { get; set; }
+
+    public Guid JobPostingId { get; set; }
+
+    public TailoredKind Kind { get; set; }
+
+    /// <summary>Master CV version the content was generated from (sources are validated against it).</summary>
+    public int MasterCvVersion { get; set; }
+
+    public TailoredStatus Status { get; set; }
+
+    public DateTime CreatedAtUtc { get; set; }
+
+    public DateTime UpdatedAtUtc { get; set; }
+
+    public DateTime? ApprovedAtUtc { get; set; }
+
+    public required string PromptId { get; set; }
+
+    public required string Model { get; set; }
+
+    /// <summary>Model's explanation of what it prioritised (Spanish).</summary>
+    public string? Notes { get; set; }
+
+    public required string Json { get; set; }
+}

@@ -41,8 +41,9 @@ public sealed class FakeLlmClient : ILlmClient
         var value = (T)next;
         var problems = request.Validate?.Invoke(value) ?? [];
         ValidationProblems.AddRange(problems);
+        var review = request.Review?.Invoke(value) ?? [];
         return Task.FromResult(problems.Count == 0
-            ? LlmResult<T>.Success(value) with { Model = "fake", Attempts = 1 }
+            ? LlmResult<T>.Success(value) with { Model = "fake", Attempts = 1, Warnings = review }
             : new LlmResult<T> { Error = new LlmError(Domain.Llm.LlmErrorKind.InvalidOutput, "invalid", string.Join("; ", problems)), Model = "fake", Attempts = 1 });
     }
 }

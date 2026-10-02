@@ -30,6 +30,8 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
 
     public DbSet<JobAnalysisRecord> JobAnalyses => Set<JobAnalysisRecord>();
 
+    public DbSet<TailoredDocumentRecord> TailoredDocuments => Set<TailoredDocumentRecord>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         ArgumentNullException.ThrowIfNull(configurationBuilder);
@@ -125,6 +127,18 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
             analysis.HasOne<JobPosting>().WithMany().HasForeignKey(a => a.JobPostingId).OnDelete(DeleteBehavior.Cascade);
             analysis.Property(a => a.PromptId).HasMaxLength(150);
             analysis.Property(a => a.Model).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<TailoredDocumentRecord>(document =>
+        {
+            document.ToTable("TailoredDocuments");
+            document.HasIndex(d => new { d.JobPostingId, d.Kind });
+            document.HasOne<JobPosting>().WithMany().HasForeignKey(d => d.JobPostingId).OnDelete(DeleteBehavior.Cascade);
+            document.Property(d => d.Kind).HasConversion<string>().HasMaxLength(20);
+            document.Property(d => d.Status).HasConversion<string>().HasMaxLength(20);
+            document.Property(d => d.PromptId).HasMaxLength(150);
+            document.Property(d => d.Model).HasMaxLength(100);
+            document.Property(d => d.Notes).HasMaxLength(4000);
         });
 
         modelBuilder.Entity<SettingsDocument>(document =>

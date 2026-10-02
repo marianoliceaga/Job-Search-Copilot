@@ -1,0 +1,134 @@
+# Technology names detected in generated CVs and letters. A generated text that mentions one of these must find it
+# in the master CV (skills, technologies of an experience, or the cited achievements). One term per line.
+# Avoid ambiguous English words (e.g. "Go", "REST"): they would flag ordinary sentences.
+.NET
+.NET Core
+.NET Framework
+ASP.NET
+ASP.NET Core
+ASP.NET MVC
+Web API
+Blazor
+Razor
+MAUI
+Xamarin
+WPF
+WinForms
+WCF
+Entity Framework
+EF Core
+Dapper
+LINQ
+SignalR
+gRPC
+GraphQL
+C#
+F#
+VB.NET
+Java
+Kotlin
+Scala
+Golang
+Rust
+Python
+Ruby
+PHP
+Node.js
+JavaScript
+TypeScript
+React
+Angular
+Vue
+Svelte
+Next.js
+jQuery
+HTML
+CSS
+Sass
+Tailwind
+SQL
+T-SQL
+SQL Server
+PostgreSQL
+MySQL
+Oracle
+SQLite
+MongoDB
+Cosmos DB
+DynamoDB
+Cassandra
+Redis
+Elasticsearch
+Kafka
+RabbitMQ
+Azure Service Bus
+NServiceBus
+MassTransit
+Azure
+AWS
+GCP
+Google Cloud
+Azure Functions
+AWS Lambda
+App Service
+Azure DevOps
+GitHub Actions
+Jenkins
+TeamCity
+Octopus Deploy
+Docker
+Kubernetes
+AKS
+EKS
+Helm
+Terraform
+Bicep
+Pulumi
+Ansible
+Linux
+Windows Server
+IIS
+Nginx
+Git
+Microservices
+Serverless
+Event Sourcing
+CQRS
+DDD
+TDD
+xUnit
+NUnit
+MSTest
+Selenium
+Playwright
+Cypress
+OpenTelemetry
+Application Insights
+Datadog
+New Relic
+Grafana
+Prometheus
+Power BI
+Spark
+Databricks
+Snowflake
+Airflow
+Machine Learning
+OpenAI
+Gemini
+LLM
+Copilot
+Semantic Kernel
+Salesforce
+SAP
+Dynamics 365
+SharePoint
+Umbraco
+Sitecore
+Shopify
+Stripe
+OAuth
+OpenID Connect
+IdentityServer
+Keycloak
+Auth0

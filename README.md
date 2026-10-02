@@ -6,7 +6,7 @@ and MudBlazor**, using the **Gemini API** as its only LLM.
 JobPilot prepares, analyses and drafts; you approve. It never sends an application, e-mail or message on
 your behalf. All data stays on your machine.
 
-> **Status:** phase 3 of 8 (job ingestion, analysis and ranking). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
+> **Status:** phase 4 of 8 (tailored CV and cover letter with DOCX/PDF export). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
 > acceptance criteria per phase. The UI is in Spanish.
 
 ## Planned features
@@ -102,6 +102,14 @@ most as often as its terms allow. **Agregar oferta** imports an ATS URL through 
 fields of a pasted text. Open an offer and use **Analizar con Gemini** for the fit score, requirements, missing
 keywords, compensation (only when published), contract model, eligibility from your country and red flags.
 Ranking weights, the compensation floor/target and exchange rates are in **Ofertas → Preferencias**.
+
+### Tailored CV and cover letter
+
+On an offer page, **Postulación** generates a CV variant and a cover letter from your master CV. Every text cites the
+master CV elements it comes from; numbers and technologies that cannot be traced to them are flagged (the model gets
+one retry with the reasons first). Company, titles and dates always come from the master CV. Review the differences,
+edit, and approve; flagged texts must be fixed, removed or explicitly confirmed by you. After approval you can download
+ATS-friendly **DOCX** (one column, no tables or images) and **PDF** (embedded font, selectable text) files.
 
 ### LLM call log
 
