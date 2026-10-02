@@ -1,0 +1,9 @@
+<MudNavMenu>
+    @foreach (var section in AppSections.All)
+    {
+        <MudNavLink Href="@section.Href" Icon="@section.Icon"
+                    Match="@(section.Href == "/" ? NavLinkMatch.All : NavLinkMatch.Prefix)">
+            @section.Title
+        </MudNavLink>
+    }
+</MudNavMenu>

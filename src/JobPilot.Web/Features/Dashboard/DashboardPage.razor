@@ -1,0 +1,24 @@
+@page "/"
+
+<PendingSection Section="AppSections.Dashboard">
+    <MudText Typo="Typo.h6" Class="mt-8 mb-2">Hoja de ruta</MudText>
+    <MudSimpleTable Dense="true" Hover="true" Elevation="0">
+        <thead>
+            <tr>
+                <th>Sección</th>
+                <th>Fase</th>
+                <th>Alcance</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var section in AppSections.All.OrderBy(s => s.Phase))
+            {
+                <tr>
+                    <td><MudLink Href="@section.Href">@section.Title</MudLink></td>
+                    <td>@section.Phase</td>
+                    <td>@section.Description</td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+</PendingSection>

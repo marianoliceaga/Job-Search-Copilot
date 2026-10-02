@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pure domain: entities and business rules. Must not reference any other project or package. -->
+
+</Project>

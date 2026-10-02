@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/JobPilot.Domain/JobPilot.Domain.csproj" />
+    <Project Path="src/JobPilot.Web/JobPilot.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/JobPilot.Domain.Tests/JobPilot.Domain.Tests.csproj" />
+    <Project Path="tests/JobPilot.Web.Tests/JobPilot.Web.Tests.csproj" />
+  </Folder>
+</Solution>
