@@ -1,0 +1,16 @@
+{
+  "headline": "Senior .NET / Backend Software Engineer",
+  "yearsOfExperience": 17,
+  "roles": ["Tech Lead", "Software Architect"],
+  "stack": ["C#", "ASP.NET Core", "Blazor", "EF Core", "Azure"],
+  "domains": ["Banking / fintech", "E-commerce", "Retail", "Logistics"],
+  "workFromCountry": "Argentina",
+  "workModality": "Remote",
+  "priorities": "Compensation over role",
+  "applicationLanguage": "en",
+  "applicationEmphases": [
+    "Recent hands-on experience with Blazor",
+    "Use of AI tools in day-to-day work",
+    "Problem solver rather than just a coder"
+  ]
+}

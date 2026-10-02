@@ -6,7 +6,7 @@ and MudBlazor**, using the **Gemini API** as its only LLM.
 JobPilot prepares, analyses and drafts; you approve. It never sends an application, e-mail or message on
 your behalf. All data stays on your machine.
 
-> **Status:** phase 1 of 8 (persistence, Gemini client, settings page). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
+> **Status:** phase 2 of 8 (profile and master CV import/editing). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
 > acceptance criteria per phase. The UI is in Spanish.
 
 ## Planned features
@@ -83,6 +83,15 @@ Migrations are applied automatically on startup. To create a new one (developers
 dotnet tool restore
 dotnet ef migrations add <Name> --project src/JobPilot.Web --output-dir Infrastructure/Persistence/Migrations
 ```
+
+### Profile and master CV
+
+**Perfil y CV maestro → Perfil** starts with the values in `src/JobPilot.Web/Seed/profile.seed.json` and is
+edited from the app. **CV maestro → Elegir archivo** imports a PDF, DOCX or Markdown CV: the text is extracted
+locally, sent to Gemini only after you confirm (the full prompt is shown first), and comes back as a draft.
+Values that cannot be found in your document are flagged; you review and edit everything before saving. Every
+save creates a version you can restore. Your CV file is not stored; only the structured CV, in the local
+database.
 
 ### LLM call log
 

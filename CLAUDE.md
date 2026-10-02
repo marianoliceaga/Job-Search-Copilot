@@ -66,8 +66,12 @@ src/JobPilot.Web/
     Llm/                     ILlmClient, GeminiLlmClient, LlmJson (schema), PromptLibrary, LlmSettingsStore,
                              DbLlmCallLog, LlmUseCases catalog, DI registration
   Prompts/                   <use-case>.v<N>.md, one per use case (copied to the output folder)
+  Seed/profile.seed.json     initial profile values (professional context only, no personal identifiers)
+  Features/Profile/          ProfilePage (Perfil / CV maestro tabs), ProfileStore, MasterCvStore (versions),
+                             MasterCvEditor, Import/ (CvTextExtractor, ImportedCv schema, CvImportHandler)
 tests/JobPilot.Domain.Tests/ xUnit v3
-tests/JobPilot.Web.Tests/    xUnit v3 + WebApplicationFactory smoke tests + bUnit
+tests/JobPilot.Web.Tests/    xUnit v3 + WebApplicationFactory smoke tests + bUnit; TestSupport/ (LlmTestHost with
+                             FakeGeminiHandler, FakeLlmClient, TestDatabase, JobPilotWebFactory); Fixtures/ (fictional)
 scripts/                     repo tooling (personal data check)
 docs/PLAN.md                 approved plan
 ```
@@ -119,6 +123,17 @@ docs/PLAN.md                 approved plan
   timeout; it is set to `max(30 s, 2 × attempt timeout)`.
 - User secrets are loaded in every environment (local app), not only Development.
 - Tests that cancel must cancel after the request reaches the fake handler, not after a fixed delay.
+- MudBlazor 9: `MudTextField.AutoGrow` → `Sizing="InputSizing.Auto"`; `MudFileUpload` uses `CustomContent`
+  with `upload.OpenFilePickerAsync`; `IDialogService.ShowMessageBoxAsync` for confirmations.
+- PdfPig exception types live in `UglyToad.PdfPig.Core` (`PdfDocumentFormatException`) and
+  `UglyToad.PdfPig.Exceptions` (`PdfDocumentEncryptedException`). PDF link targets are annotations
+  (`page.GetHyperlinks()`), not text.
+- Word bullets are often applied through the paragraph style ("List Bullet"), not a paragraph `numPr`; the
+  DOCX extractor resolves list styles (including `basedOn`).
+- LibreOffice is installed in the cloud container but cannot convert files. Test fixtures were generated
+  with python-docx (DOCX) and Chromium's print-to-PDF (PDF) from the same fictional content.
+- To exercise LLM flows in the browser without a key, point `Gemini__BaseUrl` to a local fake server
+  that returns a canned `generateContent` response.
 
 ## Decision log
 
@@ -141,6 +156,11 @@ docs/PLAN.md                 approved plan
 | 2026-10-02 | Model parameters: DB override (UI) → `Llm:UseCases` → `Llm:DefaultModel` | Editable from the app, defaults in configuration, nothing in code. |
 | 2026-10-02 | `IDbContextFactory` + migrations applied on startup; data in `LocalApplicationData/JobPilot` | Blazor Server needs short-lived contexts; zero-setup local app. |
 | 2026-10-02 | Prompts as `Prompts/<use-case>.v<N>.md`, highest version active; untrusted text auto-wrapped and announced in the system instruction | Versioned, reviewable prompts; prompt-injection defence in one place. |
+| 2026-10-02 | Master CV stored as one JSON document + immutable snapshot per saved version (`MasterCvVersions`); restore = save old snapshot as a new version | The CV is edited as a whole; history is never rewritten; phase 4 references a version. |
+| 2026-10-02 | Every CV element has a stable `Guid` assigned on save (`EnsureIds`) | Traceability of generated bullets in phase 4. |
+| 2026-10-02 | CV import: text extracted locally (PdfPig, Open XML; Markdown/TXT as-is), LLM only transcribes, then `CvImportVerifier` flags values not found in the source (names, numbers, years, reworded achievements); the owner reviews before saving | "Never invent" applied to the import; Markdig not needed (raw Markdown is fine for the LLM). |
+| 2026-10-02 | CV dates as `PartialDate` (`YYYY` or `YYYY-MM`) | CVs rarely give days; supports exact-match checks later. |
+| 2026-10-02 | Profile seeded once from `Seed/profile.seed.json`, then edited in the UI | Initial context from the brief without hardcoding it. |
 | 2026-10-02 | `ILlmClient.ChatAsync` deferred to phase 7; `GenerateAsync` already supports multi-turn contents internally | No consumer before the interview/negotiation simulators. |
 
 ## Verified external facts (re-check when they matter)
@@ -172,7 +192,7 @@ Checked on 2026-10-02:
 
 - [x] Phase 0 — Skeleton
 - [x] Phase 1 — Domain, persistence, Gemini (pending: real-key check by the owner)
-- [ ] Phase 2 — Profile and master CV
+- [x] Phase 2 — Profile and master CV (pending: real import of the owner's CV)
 - [ ] Phase 3 — Ingestion and analysis
 - [ ] Phase 4 — Tailored CV and cover letter
 - [ ] Phase 5 — Pipeline, reminders and dashboard

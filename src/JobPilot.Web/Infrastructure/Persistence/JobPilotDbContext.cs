@@ -13,6 +13,10 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
 
     public DbSet<LlmUseCaseSetting> LlmUseCaseSettings => Set<LlmUseCaseSetting>();
 
+    public DbSet<MasterCvDocument> MasterCvs => Set<MasterCvDocument>();
+
+    public DbSet<MasterCvVersion> MasterCvVersions => Set<MasterCvVersion>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         ArgumentNullException.ThrowIfNull(configurationBuilder);
@@ -48,6 +52,14 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
             // SQLite cannot aggregate decimals; a double is precise enough for cost estimates.
             call.Property(c => c.EstimatedCostUsd).HasConversion<double?>();
             call.HasIndex(c => c.StartedAtUtc);
+        });
+
+        modelBuilder.Entity<MasterCvDocument>(cv => cv.ToTable("MasterCvs"));
+
+        modelBuilder.Entity<MasterCvVersion>(version =>
+        {
+            version.HasIndex(v => v.Version).IsUnique();
+            version.Property(v => v.Source).HasMaxLength(300);
         });
 
         modelBuilder.Entity<LlmUseCaseSetting>(setting =>

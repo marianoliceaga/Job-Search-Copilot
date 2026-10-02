@@ -1,3 +1,14 @@
 @page "/perfil"
 
-<PendingSection Section="AppSections.Profile" />
+<PageTitle>Perfil y CV maestro · JobPilot</PageTitle>
+
+<MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Perfil y CV maestro</MudText>
+
+<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4">
+    <MudTabPanel Text="Perfil">
+        <ProfileForm />
+    </MudTabPanel>
+    <MudTabPanel Text="CV maestro">
+        <MasterCvPanel />
+    </MudTabPanel>
+</MudTabs>

@@ -1,4 +1,6 @@
 using JobPilot.Web.Components;
+using JobPilot.Web.Features.Profile;
+using JobPilot.Web.Features.Profile.Import;
 using JobPilot.Web.Features.Settings;
 using JobPilot.Web.Infrastructure;
 using JobPilot.Web.Infrastructure.Llm;
@@ -24,6 +26,10 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddJobPilotPersistence(dataPaths);
 builder.Services.AddLlm(builder.Configuration, Path.Combine(AppContext.BaseDirectory, "Prompts"));
 builder.Services.AddTransient<ConnectionTestHandler>();
+builder.Services.AddSingleton(new ProfileSeed(Path.Combine(AppContext.BaseDirectory, "Seed", "profile.seed.json")));
+builder.Services.AddSingleton<ProfileStore>();
+builder.Services.AddSingleton<MasterCvStore>();
+builder.Services.AddTransient<CvImportHandler>();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
