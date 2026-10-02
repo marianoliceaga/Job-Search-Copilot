@@ -1,0 +1,271 @@
+@page "/ofertas/{Id:guid}"
+@using JobPilot.Web.Features.Jobs.Analysis
+@using JobPilot.Web.Infrastructure.Llm
+@implements IDisposable
+@inject JobListService Jobs
+@inject JobAnalysisHandler Analyzer
+@inject LlmSettingsStore Settings
+@inject JobPilot.Web.Features.Profile.ProfileStore Profiles
+@inject NavigationManager Navigation
+
+<PageTitle>@(_item?.Posting.Title ?? "Oferta") · JobPilot</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_item is null)
+{
+    <MudText Typo="Typo.h4" HtmlTag="h1">Oferta no encontrada</MudText>
+    <MudLink Href="/ofertas">Volver a Ofertas</MudLink>
+}
+else
+{
+    var posting = _item.Posting;
+    <MudStack Spacing="3">
+        <MudLink Href="/ofertas" Typo="Typo.body2">← Ofertas</MudLink>
+        <MudText Typo="Typo.h4" HtmlTag="h1">@posting.Title</MudText>
+        <MudText Typo="Typo.h6">@posting.Company</MudText>
+
+        <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
+            <MudChip T="string" Color="Color.Primary">Puntaje @_item.Rank.Score.ToString("0")@(_item.Rank.IsPreliminary ? " (preliminar)" : string.Empty)</MudChip>
+            <MudChip T="string" Color="@JobFormat.EligibilityColor(_item.Eligibility.Status)">@JobFormat.EligibilityLabel(_item.Eligibility.Status, _item.EligibilityFromAnalysis)</MudChip>
+            <MudChip T="string">@JobFormat.Compensation(_item)</MudChip>
+            @if (posting.EmploymentType is not null)
+            {
+                <MudChip T="string">@posting.EmploymentType</MudChip>
+            }
+            <MudSpacer />
+            <MudButton Variant="Variant.Text" OnClick="ToggleDiscardAsync">@(posting.IsDiscarded ? "Restaurar" : "Descartar")</MudButton>
+        </MudStack>
+
+        <MudPaper Outlined="true" Class="pa-3">
+            <MudText Typo="Typo.body2">
+                Fuente: <strong>@posting.SourceName</strong> ·
+                @if (posting.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    <MudLink Href="@posting.Url" Target="_blank" rel="noopener noreferrer">ver la oferta original</MudLink>
+                }
+                else
+                {
+                    <span>sin enlace (alta manual)</span>
+                }
+                · publicada @JobFormat.Date(posting.PublishedAtUtc) · vista por primera vez @JobFormat.Date(posting.FirstSeenAtUtc)
+            </MudText>
+            @foreach (var sighting in posting.Sightings)
+            {
+                <MudText Typo="Typo.body2">
+                    También en <strong>@sighting.SourceName</strong>: <MudLink Href="@sighting.Url" Target="_blank" rel="noopener noreferrer">ver</MudLink>
+                </MudText>
+            }
+            <MudText Typo="Typo.body2" Class="mt-1">Ubicación: @(posting.Location ?? "no indicada") — @_item.Eligibility.Reason</MudText>
+            @if (_item.Compensation.Problem is not null)
+            {
+                <MudText Typo="Typo.body2">Compensación: @_item.Compensation.Problem</MudText>
+            }
+        </MudPaper>
+
+        <MudExpansionPanels Outlined="true" Elevation="0" MultiExpansion="true">
+            <MudExpansionPanel Text="Cómo se calculó el puntaje">
+                <MudSimpleTable Dense="true" Elevation="0">
+                    <thead><tr><th>Componente</th><th>Valor</th><th>Peso</th><th>Detalle</th></tr></thead>
+                    <tbody>
+                        @foreach (var component in _item.Rank.Components)
+                        {
+                            <tr><td>@component.Name</td><td>@component.Value.ToString("0.00")</td><td>@component.Weight</td><td>@component.Explanation</td></tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </MudExpansionPanel>
+            <MudExpansionPanel Text="Descripción (texto de la fuente)" Expanded="@(_item.Analysis is null)">
+                <pre class="jp-payload" style="max-height: 480px">@posting.Description</pre>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+
+        <MudText Typo="Typo.h5" Class="mt-2">Análisis</MudText>
+        @if (_prepareError is not null)
+        {
+            <MudAlert Severity="Severity.Info">@_prepareError</MudAlert>
+        }
+        else if (_prepared is not null)
+        {
+            <LlmPayloadPreview Prompt="_prepared.Prompt" Model="@_model" />
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AnalyzeAsync" Disabled="_running">
+                    @(_item.Analysis is null ? "Analizar con Gemini" : "Volver a analizar")
+                </MudButton>
+                @if (_running)
+                {
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                    <MudText Typo="Typo.body2">Analizando…</MudText>
+                    <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+                }
+            </MudStack>
+        }
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+
+        @if (_item.Analysis is { } verified)
+        {
+            var analysis = verified.Analysis;
+            <MudPaper Outlined="true" Class="pa-4" data-testid="analysis">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.caption">Analizada el @LlmFormat.LocalTime(_item.AnalyzedAtUtc!.Value)</MudText>
+                    <MudText Typo="Typo.h6">Encaje: @analysis.FitScore/100</MudText>
+                    <MudText>@analysis.FitJustification</MudText>
+                    <MudText><em>@analysis.Summary</em></MudText>
+
+                    <MudText Typo="Typo.subtitle1" Class="mt-2"><strong>Requisitos</strong></MudText>
+                    <MudSimpleTable Dense="true" Elevation="0">
+                        <tbody>
+                            @foreach (var requirement in analysis.Requirements)
+                            {
+                                <tr>
+                                    <td style="width: 130px">
+                                        <MudChip T="string" Size="Size.Small" Color="@(requirement.Status switch { RequirementStatus.Met => Color.Success, RequirementStatus.Partial => Color.Warning, _ => Color.Error })">
+                                            @(requirement.Status switch { RequirementStatus.Met => "Cumple", RequirementStatus.Partial => "Parcial", _ => "No cumple" })
+                                        </MudChip>
+                                    </td>
+                                    <td>@requirement.Requirement</td>
+                                    <td><MudText Typo="Typo.body2">@requirement.Evidence</MudText></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+
+                    @if (analysis.MissingKeywords.Count > 0)
+                    {
+                        <MudText Typo="Typo.subtitle1"><strong>Keywords de la oferta que no están en tu CV</strong></MudText>
+                        <div>@foreach (var keyword in analysis.MissingKeywords) { <MudChip T="string" Size="Size.Small">@keyword</MudChip> }</div>
+                    }
+
+                    <MudText Typo="Typo.subtitle1"><strong>Compensación</strong></MudText>
+                    <MudText>
+                        @(verified.CompensationOrigin switch
+                        {
+                            CompensationOrigin.NotInformed => "No informada.",
+                            CompensationOrigin.Source => $"Publicada: {analysis.Compensation.Quote ?? posting.SalaryText}",
+                            _ => $"Publicada en la oferta: \"{analysis.Compensation.Quote}\"",
+                        })
+                    </MudText>
+
+                    <MudText Typo="Typo.subtitle1"><strong>Modalidad de contratación</strong></MudText>
+                    <MudText>
+                        @analysis.Contract.Model ·
+                        @(analysis.Contract.Certainty switch { Certainty.Stated => "lo dice la oferta", Certainty.Inferred => "inferido (incierto)", _ => "desconocido" })
+                        — @analysis.Contract.Explanation
+                    </MudText>
+                    @if (analysis.Contract.Quote is not null)
+                    {
+                        <MudText Typo="Typo.body2"><em>"@analysis.Contract.Quote"</em></MudText>
+                    }
+
+                    <MudText Typo="Typo.subtitle1"><strong>Elegibilidad desde @(_country)</strong></MudText>
+                    <MudText>
+                        @(analysis.Eligibility.Verdict switch { EligibilityVerdict.Eligible => "Elegible", EligibilityVerdict.NotEligible => "No elegible", _ => "Incierta" })
+                        — @analysis.Eligibility.Reasoning
+                    </MudText>
+                    @if (analysis.Eligibility.Quote is not null)
+                    {
+                        <MudText Typo="Typo.body2"><em>"@analysis.Eligibility.Quote"</em></MudText>
+                    }
+
+                    <MudText Typo="Typo.subtitle1"><strong>Señales de alerta</strong></MudText>
+                    @if (analysis.RedFlags.Count == 0)
+                    {
+                        <MudText>Ninguna detectada.</MudText>
+                    }
+                    @foreach (var flag in analysis.RedFlags)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true">
+                            @flag.Flag @if (flag.Quote is not null) { <em> — "@flag.Quote"</em> }
+                        </MudAlert>
+                    }
+
+                    @if (verified.VerificationNotes.Count > 0)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true">
+                            Controles de la app sobre la respuesta de Gemini:
+                            <ul>@foreach (var note in verified.VerificationNotes) { <li>@note</li> }</ul>
+                        </MudAlert>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@code {
+    private JobListItem? _item;
+    private bool _loading = true;
+    private PreparedJobAnalysis? _prepared;
+    private string? _prepareError;
+    private string _model = string.Empty;
+    private string _country = string.Empty;
+    private bool _running;
+    private string? _error;
+    private CancellationTokenSource? _cts;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        await LoadAsync();
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        _item = await Jobs.GetItemAsync(Id, CancellationToken.None);
+        if (_item is null)
+        {
+            return;
+        }
+
+        (_prepared, _prepareError) = await Analyzer.PrepareAsync(Id, CancellationToken.None);
+        _model = (await Settings.ResolveAsync(LlmUseCases.JobAnalysis, CancellationToken.None)).Model;
+        _country = (await Profiles.GetAsync(CancellationToken.None)).WorkFromCountry ?? "tu país";
+    }
+
+    private async Task AnalyzeAsync()
+    {
+        _running = true;
+        _error = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            var result = await Analyzer.RunAsync(_prepared!, _cts.Token);
+            if (result.Analysis is null)
+            {
+                _error = result.Llm.Error!.Message + (result.Llm.Error.Detail is null ? string.Empty : $" ({result.Llm.Error.Detail})");
+            }
+
+            await LoadAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            _error = "Análisis cancelado.";
+        }
+        finally
+        {
+            _running = false;
+            _cts.Dispose();
+            _cts = null;
+        }
+    }
+
+    private async Task ToggleDiscardAsync()
+    {
+        await Jobs.SetDiscardedAsync(Id, !_item!.Posting.IsDiscarded, CancellationToken.None);
+        await LoadAsync();
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

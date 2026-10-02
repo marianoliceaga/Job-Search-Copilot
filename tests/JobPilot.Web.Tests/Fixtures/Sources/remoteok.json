@@ -1,0 +1,32 @@
+[
+  { "last_updated": 1790945581, "legal": "Fictional fixture. API Terms of Service: Please link back to the URL on Remote OK and mention Remote OK as a source." },
+  {
+    "slug": "remote-senior-c-sharp-developer-contoso-cloud-700001",
+    "id": "700001",
+    "epoch": 1790792682,
+    "date": "2026-09-30T18:24:42+00:00",
+    "company": "Contoso Cloud",
+    "position": "Senior C# Developer",
+    "tags": ["c#", "dotnet", "backend"],
+    "description": "<h3>About Contoso Cloud</h3><p>Build APIs in .NET 10.</p>",
+    "location": "Worldwide",
+    "salary_min": 100000,
+    "salary_max": 140000,
+    "apply_url": "https://remoteOK.com/remote-jobs/remote-senior-c-sharp-developer-contoso-cloud-700001",
+    "url": "https://remoteOK.com/remote-jobs/remote-senior-c-sharp-developer-contoso-cloud-700001"
+  },
+  {
+    "slug": "remote-sales-rep-litware-700002",
+    "id": "700002",
+    "epoch": 1790792000,
+    "date": "2026-09-30T18:13:20+00:00",
+    "company": "Litware",
+    "position": "Sales Representative",
+    "tags": ["sales"],
+    "description": "<p>Sell things.</p>",
+    "location": "",
+    "salary_min": 0,
+    "salary_max": 0,
+    "url": "https://remoteOK.com/remote-jobs/remote-sales-rep-litware-700002"
+  }
+]

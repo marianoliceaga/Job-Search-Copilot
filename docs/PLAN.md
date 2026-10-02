@@ -99,6 +99,7 @@ otherwise "no informada". Configurable ranking weights.
 - Parser tests per source with recorded fixtures; dedup and ranking tests.
 - Test: compensation without a quote becomes "no informada".
 - A real search lists offers with their original link; analysing one shows every field.
+- Note: HN "Who is hiring?" (optional) was not implemented; it can be added later as another source.
 
 ### Phase 4 — Tailored CV and cover letter (5.4)
 Each generated bullet carries the IDs of the master CV elements it comes from. A deterministic validator

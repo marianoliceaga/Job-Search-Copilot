@@ -17,6 +17,149 @@ namespace JobPilot.Web.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("JobPilot.Domain.Jobs.FollowedCompany", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("AddedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Ats")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BoardToken")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Ats", "BoardToken")
+                        .IsUnique();
+
+                    b.ToTable("FollowedCompanies");
+                });
+
+            modelBuilder.Entity("JobPilot.Domain.Jobs.JobPosting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ApplyUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Company")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EmploymentType")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(800)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("FirstSeenAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDiscarded")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastSeenAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Location")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PublishedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SalaryCurrency")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("SalaryMax")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("SalaryMin")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SalaryPeriod")
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SalaryText")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Sightings")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceJobId")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceKey")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.PrimitiveCollection<string>("Tags")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UrlKey")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Fingerprint");
+
+                    b.HasIndex("FirstSeenAtUtc");
+
+                    b.HasIndex("UrlKey")
+                        .IsUnique();
+
+                    b.ToTable("JobPostings");
+                });
+
             modelBuilder.Entity("JobPilot.Domain.Llm.LlmCallRecord", b =>
                 {
                     b.Property<long>("Id")
@@ -173,6 +316,42 @@ namespace JobPilot.Web.Infrastructure.Persistence.Migrations
                     b.ToTable("Profiles");
                 });
 
+            modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.JobAnalysisRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FitScore")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("JobPostingId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PromptId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobPostingId", "CreatedAtUtc");
+
+                    b.ToTable("JobAnalyses", (string)null);
+                });
+
             modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.MasterCvDocument", b =>
                 {
                     b.Property<int>("Id")
@@ -221,6 +400,81 @@ namespace JobPilot.Web.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("MasterCvVersions");
+                });
+
+            modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.SettingsDocument", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("SettingsDocuments");
+                });
+
+            modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.SourceRun", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Added")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Fetched")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("FinishedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Matched")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Merged")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceKey")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Updated")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceKey", "StartedAtUtc");
+
+                    b.ToTable("SourceRuns");
+                });
+
+            modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.JobAnalysisRecord", b =>
+                {
+                    b.HasOne("JobPilot.Domain.Jobs.JobPosting", null)
+                        .WithMany()
+                        .HasForeignKey("JobPostingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

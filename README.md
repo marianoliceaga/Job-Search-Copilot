@@ -6,7 +6,7 @@ and MudBlazor**, using the **Gemini API** as its only LLM.
 JobPilot prepares, analyses and drafts; you approve. It never sends an application, e-mail or message on
 your behalf. All data stays on your machine.
 
-> **Status:** phase 2 of 8 (profile and master CV import/editing). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
+> **Status:** phase 3 of 8 (job ingestion, analysis and ranking). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
 > acceptance criteria per phase. The UI is in Spanish.
 
 ## Planned features
@@ -92,6 +92,16 @@ locally, sent to Gemini only after you confirm (the full prompt is shown first),
 Values that cannot be found in your document are flagged; you review and edit everything before saving. Every
 save creates a version you can restore. Your CV file is not stored; only the structured CV, in the local
 database.
+
+### Job offers
+
+**Ofertas → Buscar** reads the enabled sources (Remotive, Remote OK, Himalayas, Jobicy, We Work Remotely and the
+public Greenhouse, Lever and Ashby boards of followed companies). Only offers matching your keywords are kept;
+duplicates across sources are merged and every offer keeps its original link and source. Each source is queried at
+most as often as its terms allow. **Agregar oferta** imports an ATS URL through its public API or extracts the
+fields of a pasted text. Open an offer and use **Analizar con Gemini** for the fit score, requirements, missing
+keywords, compensation (only when published), contract model, eligibility from your country and red flags.
+Ranking weights, the compensation floor/target and exchange rates are in **Ofertas → Preferencias**.
 
 ### LLM call log
 

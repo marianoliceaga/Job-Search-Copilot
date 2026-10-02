@@ -26,10 +26,10 @@ public static partial class TextNormalizer
 
             builder.Append(c switch
             {
-                '‐' or '‑' or '‒' or '–' or '—' or '−' => '-',
-                '‘' or '’' or '‛' => '\'',
-                '“' or '”' => '"',
-                ' ' => ' ',
+                '\u2010' or '\u2011' or '\u2012' or '\u2013' or '\u2014' or '\u2212' => '-',
+                '\u2018' or '\u2019' or '\u201B' => '\'',
+                '\u201C' or '\u201D' => '"',
+                '\u00A0' => ' ',
                 _ => char.ToLowerInvariant(c),
             });
         }

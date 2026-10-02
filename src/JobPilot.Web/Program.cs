@@ -1,4 +1,5 @@
 using JobPilot.Web.Components;
+using JobPilot.Web.Features.Jobs;
 using JobPilot.Web.Features.Profile;
 using JobPilot.Web.Features.Profile.Import;
 using JobPilot.Web.Features.Settings;
@@ -30,6 +31,7 @@ builder.Services.AddSingleton(new ProfileSeed(Path.Combine(AppContext.BaseDirect
 builder.Services.AddSingleton<ProfileStore>();
 builder.Services.AddSingleton<MasterCvStore>();
 builder.Services.AddTransient<CvImportHandler>();
+builder.Services.AddJobs(builder.Configuration, Path.Combine(AppContext.BaseDirectory, "Seed"));
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

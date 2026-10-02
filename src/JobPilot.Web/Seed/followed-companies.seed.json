@@ -1,0 +1,13 @@
+[
+  { "name": "Current", "ats": "Greenhouse", "boardToken": "current", "notes": "Verified 2026-10-02: Senior Engineer (.NET), Remote (US)." },
+  { "name": "Mission Telecom", "ats": "Greenhouse", "boardToken": "missiontelecom", "notes": "Verified 2026-10-02: Senior .NET Full-Stack Engineer (Blazor Server), Remote-US." },
+  { "name": "Praxent", "ats": "Greenhouse", "boardToken": "praxent", "notes": "Verified 2026-10-02: LATAM Software Engineer (React/.NET, Angular/.NET)." },
+  { "name": "Topstep", "ats": "Greenhouse", "boardToken": "topsteptrader", "notes": "Verified 2026-10-02: C#/.NET in software engineering roles (US)." },
+  { "name": "Atlas HXM", "ats": "Greenhouse", "boardToken": "atlasxhm", "notes": "Verified 2026-10-02: C# / ASP.NET Core microservices roles." },
+  { "name": "Ubiminds", "ats": "Lever", "boardToken": "Ubiminds", "notes": "Verified 2026-10-02: .NET / Angular and .NET / React roles, remote (LATAM)." },
+  { "name": "CI&T", "ats": "Lever", "boardToken": "ciandt", "notes": "Verified 2026-10-02: several Senior .NET roles (mostly Brazil)." },
+  { "name": "Ndeavour", "ats": "Ashby", "boardToken": "ndeavour", "notes": "Verified 2026-10-02: Backend (.NET) and Full-Stack (.NET) roles." },
+  { "name": "1Password", "ats": "Ashby", "boardToken": "1password", "notes": "Verified 2026-10-02: Senior .NET Developer (US/Canada)." },
+  { "name": "Delinea", "ats": "Ashby", "boardToken": "delinea", "notes": "Verified 2026-10-02: C# .NET roles in Mexico City and remote." },
+  { "name": "Agility IO", "ats": "Ashby", "boardToken": "agility.io", "notes": "Verified 2026-10-02: Full-Stack / Tech Lead roles with .NET, LATAM (Remote)." }
+]

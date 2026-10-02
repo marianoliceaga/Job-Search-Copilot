@@ -1,0 +1,152 @@
+@using JobPilot.Domain.Jobs
+@inject JobSearchService Search
+@inject FollowedCompanyStore Companies
+@inject JobPreferencesStore Preferences
+@inject ISnackbar Snackbar
+
+<MudStack Spacing="4">
+    <div>
+        <MudText Typo="Typo.h6" GutterBottom="true">Fuentes</MudText>
+        <MudText Typo="Typo.body2" Class="mb-2">
+            Solo fuentes con API pública, RSS o feed permitido por sus términos. Cada oferta conserva el enlace original y la fuente.
+            Las consultas respetan el intervalo mínimo de cada fuente.
+        </MudText>
+        <MudSimpleTable Dense="true" Elevation="0" Outlined="true">
+            <thead><tr><th>Activa</th><th>Fuente</th><th>Términos</th><th>Última consulta</th><th>Próxima permitida</th></tr></thead>
+            <tbody>
+                @foreach (var source in _sources)
+                {
+                    <tr>
+                        <td><MudSwitch T="bool" Value="source.Enabled" ValueChanged="value => ToggleAsync(source.SourceKey, value)" Color="Color.Primary" /></td>
+                        <td>@source.DisplayName</td>
+                        <td><MudText Typo="Typo.caption">@source.TermsSummary</MudText></td>
+                        <td>
+                            @if (source.LastRunUtc is { } last)
+                            {
+                                <MudText Typo="Typo.body2">@LlmFormat.LocalTime(last) · @JobFormat.RunStatus(source.LastStatus)</MudText>
+                                <MudText Typo="Typo.caption">@JobFormat.Short(source.LastMessage, 160)</MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2">Nunca</MudText>
+                            }
+                        </td>
+                        <td>@(source.NextAllowedUtc is { } next && next > DateTime.UtcNow ? LlmFormat.LocalTime(next) : "Ahora")</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </div>
+
+    <div>
+        <MudText Typo="Typo.h6" GutterBottom="true">Empresas seguidas</MudText>
+        <MudText Typo="Typo.body2" Class="mb-2">
+            Se lee el tablero público de empleos (Greenhouse, Lever o Ashby) de cada empresa en cada búsqueda. La lista inicial se
+            verificó el 02/10/2026: empresas con ofertas .NET publicadas.
+        </MudText>
+        <MudSimpleTable Dense="true" Elevation="0" Outlined="true">
+            <thead><tr><th>Empresa</th><th>ATS</th><th>Tablero</th><th>Notas</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var company in _companies)
+                {
+                    <tr>
+                        <td>@company.Name</td>
+                        <td>@company.Ats</td>
+                        <td><code>@company.BoardToken</code></td>
+                        <td><MudText Typo="Typo.caption">@company.Notes</MudText></td>
+                        <td><MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" aria-label="Dejar de seguir" OnClick="() => RemoveAsync(company)" /></td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-3" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_newName" Immediate="true" Label="Empresa" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            <MudSelect T="AtsKind" @bind-Value="_newAts" Label="ATS" Variant="Variant.Outlined" Margin="Margin.Dense">
+                @foreach (var ats in Enum.GetValues<AtsKind>())
+                {
+                    <MudSelectItem T="AtsKind" Value="ats">@ats</MudSelectItem>
+                }
+            </MudSelect>
+            <MudTextField @bind-Value="_newToken" Immediate="true" Label="Tablero (o URL del tablero)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          HelperText="Ej.: job-boards.greenhouse.io/empresa" />
+            <MudButton Variant="Variant.Outlined" OnClick="AddAsync" Disabled="@(string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newToken))">Seguir</MudButton>
+        </MudStack>
+    </div>
+
+    @if (_suggestions.Count > 0)
+    {
+        <div>
+            <MudText Typo="Typo.h6" GutterBottom="true">Sugerencias</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">Tableros públicos que aparecen en ofertas que ya encontraste.</MudText>
+            @foreach (var suggestion in _suggestions)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudText>@suggestion.CompanyName · @suggestion.Ats · <code>@suggestion.BoardToken</code> (@suggestion.Postings ofertas)</MudText>
+                    <MudButton Size="Size.Small" OnClick="() => FollowSuggestionAsync(suggestion)">Seguir</MudButton>
+                </MudStack>
+            }
+        </div>
+    }
+</MudStack>
+
+@code {
+    private IReadOnlyList<SourceStatus> _sources = [];
+    private IReadOnlyList<FollowedCompany> _companies = [];
+    private IReadOnlyList<CompanySuggestion> _suggestions = [];
+    private string? _newName;
+    private string? _newToken;
+    private AtsKind _newAts = AtsKind.Greenhouse;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _sources = await Search.GetStatusAsync(CancellationToken.None);
+        _companies = await Companies.GetAllAsync(CancellationToken.None);
+        _suggestions = await Companies.GetSuggestionsAsync(CancellationToken.None);
+    }
+
+    private async Task ToggleAsync(string key, bool enabled)
+    {
+        var preferences = await Preferences.GetAsync(CancellationToken.None);
+        preferences.DisabledSources.RemoveAll(s => string.Equals(s, key, StringComparison.OrdinalIgnoreCase));
+        if (!enabled)
+        {
+            preferences.DisabledSources.Add(key);
+        }
+
+        await Preferences.SaveAsync(preferences, CancellationToken.None);
+        await LoadAsync();
+    }
+
+    private async Task AddAsync()
+    {
+        // Accept a board URL as well as a bare token.
+        var reference = AtsUrlParser.Parse(_newToken);
+        var ats = reference?.Ats ?? _newAts;
+        var token = reference?.BoardToken ?? _newToken!.Trim();
+        if (await Companies.AddAsync(_newName!, ats, token, null, CancellationToken.None))
+        {
+            Snackbar.Add($"Ahora seguís a {_newName}.", Severity.Success);
+            _newName = _newToken = null;
+        }
+        else
+        {
+            Snackbar.Add("Ya seguís ese tablero.", Severity.Info);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task FollowSuggestionAsync(CompanySuggestion suggestion)
+    {
+        await Companies.AddAsync(suggestion.CompanyName, suggestion.Ats, suggestion.BoardToken, "Sugerida a partir de ofertas encontradas.", CancellationToken.None);
+        await LoadAsync();
+    }
+
+    private async Task RemoveAsync(FollowedCompany company)
+    {
+        await Companies.RemoveAsync(company.Id, CancellationToken.None);
+        await LoadAsync();
+    }
+}

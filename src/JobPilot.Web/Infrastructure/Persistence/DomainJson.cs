@@ -13,6 +13,7 @@ public static class DomainJson
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         options.Converters.Add(new PartialDateJsonConverter());
+        options.Converters.Add(new JsonStringEnumConverter());
         options.MakeReadOnly(populateMissingResolver: true);
         return options;
     }

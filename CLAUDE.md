@@ -69,6 +69,13 @@ src/JobPilot.Web/
   Seed/profile.seed.json     initial profile values (professional context only, no personal identifiers)
   Features/Profile/          ProfilePage (Perfil / CV maestro tabs), ProfileStore, MasterCvStore (versions),
                              MasterCvEditor, Import/ (CvTextExtractor, ImportedCv schema, CvImportHandler)
+  Features/Jobs/             JobsPage (Ofertas / Fuentes y empresas / Preferencias), JobDetailPage (/ofertas/{id}),
+                             Sources/ (IJobSource + 8 providers with static parsers), JobIngestion (filters + dedup),
+                             JobSearchService (runs, min intervals), FollowedCompanyStore (seed + suggestions),
+                             ManualJobImport (ATS URL / pasted text), JobListService (eligibility, USD, rank),
+                             Analysis/ (job-analysis schema, AnalysisVerifier, JobAnalysisHandler)
+  Seed/                      profile, job-search preferences, followed companies (verified boards)
+  Infrastructure/Text/       HtmlText: third-party HTML → plain text (source HTML is never rendered)
 tests/JobPilot.Domain.Tests/ xUnit v3
 tests/JobPilot.Web.Tests/    xUnit v3 + WebApplicationFactory smoke tests + bUnit; TestSupport/ (LlmTestHost with
                              FakeGeminiHandler, FakeLlmClient, TestDatabase, JobPilotWebFactory); Fixtures/ (fictional)
@@ -134,6 +141,14 @@ docs/PLAN.md                 approved plan
   with python-docx (DOCX) and Chromium's print-to-PDF (PDF) from the same fictional content.
 - To exercise LLM flows in the browser without a key, point `Gemini__BaseUrl` to a local fake server
   that returns a canned `generateContent` response.
+- `DomainJson` must keep `JsonStringEnumConverter`: seed files and settings documents store enums as names.
+- MudBlazor inputs bind on blur by default; a field that enables a button needs `Immediate="true"`, otherwise
+  the first click hits a still-disabled button.
+- Lever board tokens are case-sensitive (`Ubiminds` works, `ubiminds` is 404). Remotive ignores `limit`.
+  Himalayas search takes one query: the source runs one request per keyword (`MaxKeywordQueries`) and the
+  ingestion keeps one posting per URL per batch.
+- Do not hit the real job sources in tests or repeatedly while developing: their terms limit request rates
+  (Remotive ≈ 4/day). Fixtures under `tests/**/Fixtures/Sources` are fictional and mirror the real shapes.
 
 ## Decision log
 
@@ -161,6 +176,15 @@ docs/PLAN.md                 approved plan
 | 2026-10-02 | CV import: text extracted locally (PdfPig, Open XML; Markdown/TXT as-is), LLM only transcribes, then `CvImportVerifier` flags values not found in the source (names, numbers, years, reworded achievements); the owner reviews before saving | "Never invent" applied to the import; Markdig not needed (raw Markdown is fine for the LLM). |
 | 2026-10-02 | CV dates as `PartialDate` (`YYYY` or `YYYY-MM`) | CVs rarely give days; supports exact-match checks later. |
 | 2026-10-02 | Profile seeded once from `Seed/profile.seed.json`, then edited in the UI | Initial context from the brief without hardcoding it. |
+| 2026-10-02 | Job sources behind `IJobSource` with static `Parse` methods; minimum interval per source from config (`JobSources:Sources:<key>:MinIntervalMinutes`), enforced from the `SourceRuns` history (failed requests count, skipped ones do not); search only on "Buscar" | Respect each source's terms; testable parsers; no background process. |
+| 2026-10-02 | Dedup: canonical URL (tracking params removed) = same posting; normalized company + title fingerprint = same offer elsewhere, stored as a sighting | Keeps attribution of every source without duplicate rows. |
+| 2026-10-02 | Keyword and age filters at ingestion (preferences, seeded from `Seed/job-search.seed.json`); manual entries bypass them | Only relevant offers are stored. |
+| 2026-10-02 | Eligibility: rule-based hint from the location text until an analysis exists, then the analysis verdict | Filter before spending tokens; never presented as a conclusion. |
+| 2026-10-02 | Compensation: structured source data first, else an LLM value only with a verbatim quote found in the posting and amounts present in the quote; otherwise "no informada". Annual USD only with owner-provided exchange rates | "Never estimate without a source". |
+| 2026-10-02 | Ranking computed at read time from the latest analysis and current weights (default 40/30/20/10); unknown compensation gets a configurable neutral value; scores without analysis are marked preliminary | Changing preferences re-ranks instantly. |
+| 2026-10-02 | `AnalysisVerifier` removes unverifiable quotes, downgrades "stated" contract models without a quote, and re-checks missing keywords against posting and CV | The LLM output is checked deterministically before it is stored. |
+| 2026-10-02 | Manual entry: ATS job URLs via their public APIs; other sites (LinkedIn, Indeed, Glassdoor, Wellfound...) require pasted text; the stored description is the pasted text, never an LLM rewrite | Terms of the sites; fidelity of the source. |
+| 2026-10-02 | HN "Who is hiring?" not implemented in phase 3 | Optional in the plan; can be added as another `IJobSource`. |
 | 2026-10-02 | `ILlmClient.ChatAsync` deferred to phase 7; `GenerateAsync` already supports multi-turn contents internally | No consumer before the interview/negotiation simulators. |
 
 ## Verified external facts (re-check when they matter)
@@ -186,14 +210,18 @@ Checked on 2026-10-02:
   Greenhouse `boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true`, Lever
   `api.lever.co/v0/postings/{site}?mode=json`, Ashby
   `api.ashbyhq.com/posting-api/job-board/{name}?includeCompensation=true` (all public, no auth).
-  We Work Remotely RSS: terms not fully verified — owner must confirm before enabling.
+  We Work Remotely RSS (back-end and full-stack feeds): enabled by the owner on 2026-10-02.
+  Response shapes checked against live responses on 2026-10-02 (Remotive `jobs[]`, Remote OK array with a
+  legal notice first, Himalayas `jobs[]` with `locationRestrictions`, Jobicy `jobs[]` with `salaryMin/Max`,
+  WWR RSS with `<region>`/`<country>`, Greenhouse escaped HTML `content`, Lever `salaryRange`, Ashby
+  `compensation.summaryComponents`). Followed companies seed: 11 boards verified with .NET postings.
 
 ## Status
 
 - [x] Phase 0 — Skeleton
 - [x] Phase 1 — Domain, persistence, Gemini (pending: real-key check by the owner)
 - [x] Phase 2 — Profile and master CV (pending: real import of the owner's CV)
-- [ ] Phase 3 — Ingestion and analysis
+- [x] Phase 3 — Ingestion and analysis (pending: a real analysis with the owner's key)
 - [ ] Phase 4 — Tailored CV and cover letter
 - [ ] Phase 5 — Pipeline, reminders and dashboard
 - [ ] Phase 6 — Companies and outreach

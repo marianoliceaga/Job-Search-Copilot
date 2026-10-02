@@ -1,0 +1,38 @@
+{
+  "apiVersion": "1",
+  "jobs": [
+    {
+      "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "title": "Senior Software Engineer – Backend (.NET)",
+      "department": "Engineering",
+      "team": "Platform",
+      "employmentType": "FullTime",
+      "location": "LATAM (Remote)",
+      "secondaryLocations": [{ "location": "Argentina" }],
+      "publishedAt": "2026-09-27T14:29:08.532+00:00",
+      "isListed": true,
+      "isRemote": true,
+      "workplaceType": "Remote",
+      "jobUrl": "https://jobs.ashbyhq.com/contoso/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "applyUrl": "https://jobs.ashbyhq.com/contoso/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/application",
+      "descriptionHtml": "<p>Backend in C#.</p>",
+      "descriptionPlain": "Backend in C#. We use .NET 10, EF Core and Azure.",
+      "compensation": {
+        "compensationTierSummary": "$120K – $150K • Offers Equity",
+        "scrapeableCompensationSalarySummary": "$120K - $150K",
+        "summaryComponents": [
+          { "compensationType": "Salary", "interval": "1 YEAR", "currencyCode": "USD", "minValue": 120000, "maxValue": 150000 },
+          { "compensationType": "EquityPercentage", "interval": "NONE", "currencyCode": null, "minValue": 0.01, "maxValue": 0.05 }
+        ]
+      }
+    },
+    {
+      "id": "ffffffff-0000-1111-2222-333333333333",
+      "title": "Unlisted role",
+      "location": "Remote",
+      "isListed": false,
+      "jobUrl": "https://jobs.ashbyhq.com/contoso/ffffffff-0000-1111-2222-333333333333",
+      "descriptionPlain": "Hidden."
+    }
+  ]
+}
