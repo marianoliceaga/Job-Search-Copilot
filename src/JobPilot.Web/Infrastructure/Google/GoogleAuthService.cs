@@ -55,7 +55,7 @@ public sealed class GoogleAuthService(
     }
 
     /// <summary>The Google consent page URL; the state is single-use and expires in 10 minutes.</summary>
-    public string BuildAuthorizationUrl()
+    public string BuildAuthorizationUrl(GoogleAccess access = GoogleAccess.Full)
     {
         var google = options.CurrentValue;
         if (!google.IsConfigured)
@@ -76,7 +76,7 @@ public sealed class GoogleAuthService(
             ["client_id"] = google.ClientId!,
             ["redirect_uri"] = RedirectUri,
             ["response_type"] = "code",
-            ["scope"] = string.Join(' ', GoogleScopes.All),
+            ["scope"] = string.Join(' ', GoogleScopes.For(access)),
             ["access_type"] = "offline",
             // Always show the consent screen so Google returns a refresh token on reconnection.
             ["prompt"] = "consent",
