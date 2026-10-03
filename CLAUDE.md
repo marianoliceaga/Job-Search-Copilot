@@ -41,6 +41,10 @@ git config core.hooksPath .githooks              # optional: run the check on ev
 # Gemini API key (never committed)
 dotnet user-secrets set "Gemini:ApiKey" "<key>" --project src/JobPilot.Web   # or env var GEMINI_API_KEY
 
+# Optional Google integration (OAuth client of type "Web application", redirect http://localhost:5080/google/callback)
+dotnet user-secrets set "Google:ClientId" "<client id>" --project src/JobPilot.Web
+dotnet user-secrets set "Google:ClientSecret" "<client secret>" --project src/JobPilot.Web
+
 # EF Core migrations (dotnet-ef is a local tool: dotnet-tools.json)
 dotnet tool restore
 dotnet ef migrations add <Name> --project src/JobPilot.Web --output-dir Infrastructure/Persistence/Migrations
@@ -94,6 +98,13 @@ src/JobPilot.Web/
                              contractor costs, facts text), NegotiationScriptHandler
   Features/Outreach/         OutreachPage (/outreach: Mensajes / Perfil de LinkedIn), OutreachHandler (outreach-message, three
                              tones), OutreachStore (history, mark as sent → pipeline timeline), LinkedInReviewHandler
+  Infrastructure/Google/     GoogleOptions + GoogleScopes, GoogleTokenStore (Data Protection, data folder), GoogleAuthService
+                             (OAuth web flow, refresh, revoke), GoogleApiClient base, GmailClient (threads, drafts, MIME),
+                             GoogleCalendarClient (JobPilot calendar), DI + /google/connect and /google/callback endpoints
+  Features/Google/           GoogleUi (confirmation dialogs showing exactly what is sent to Google)
+  Features/Settings/         GooglePanel (setup steps, connect, granted scopes, disconnect)
+  Features/Pipeline/         ApplicationMailPanel (Correo tab), ApplicationGoogleService (link threads, record responses, reply
+                             drafts, interview events)
   Seed/                      profile, job-search preferences, followed companies (verified boards),
                              technology-terms.txt (technology names checked in generated texts)
   wwwroot/app.js             jobPilot.downloadFile (browser download of exported files), jobPilot.copyText (clipboard)
@@ -189,6 +200,14 @@ docs/PLAN.md                 approved plan
   so URLs are compared with `CompanyFactVerifier.UrlKey`.
 - System.Text.Json escapes `'` as `\u0027` in request bodies: a fake server matching prompt text must avoid apostrophes.
 - Razor reserves `<text>` inside code blocks (RZ1023): SVG `<text>` elements inside loops are emitted as `MarkupString`.
+- `Uri.ToString()` unescapes (`%22` → `"`); fake HTTP handlers that assert on query strings must record `AbsoluteUri`.
+- The personal data check only allows `@example.com/.org/.net` exactly: subdomains such as `@contoso.example.com` fail.
+- Google OAuth for this app is a "Web application" client with the redirect `http://localhost:{port}/google/callback`
+  (localhost is exempt from HTTPS). Starting the flow needs a full page load (`NavigateTo(..., forceLoad: true)`).
+- Google may grant only some scopes (granular consent): check `GoogleStatus` before each feature; calls for a missing
+  scope fail locally without reaching Google.
+- To exercise the Google flows without an account, point the `Google__*Endpoint` / `Google__*BaseUrl` settings to a local
+  fake server whose authorization endpoint redirects straight to the callback.
 - Ical.Net 5: all-day events use `new CalDateTime(DateOnly)`; UTC times use `new CalDateTime(value, CalDateTime.UtcTzId, true)`.
 - Do not hit the real job sources in tests or repeatedly while developing: their terms limit request rates
   (Remotive ≈ 4/day). Fixtures under `tests/**/Fixtures/Sources` are fictional and mirror the real shapes.
@@ -252,6 +271,11 @@ docs/PLAN.md                 approved plan
 | 2026-10-02 | Outreach: one call returns three tones (formal, cordial, directo); greeting/sign-off from the app; channels LinkedIn invitation note (limit in config, default 200 = free accounts), LinkedIn message, e-mail; only verified facts are used; drafts stored, "Ya lo envié" records the sent text and adds it to the offer's timeline | Variants without extra calls; nothing is sent by the app. |
 | 2026-10-02 | LinkedIn review works on headline/About pasted by the owner (LinkedIn is never accessed); proposals cite the CV and are checked by `TraceabilityValidator`; the last review is stored as a settings document | No scraping; "never invent". |
 | 2026-10-02 | `NoSendingTests` fail if the app references mail libraries or contains sending APIs (`SmtpClient`, `mailto:`, LinkedIn/Gmail send endpoints) | "No code path sends messages" is enforced, not just documented. |
+| 2026-10-03 | Google integration over REST (no Google SDK): OAuth web flow with state, `access_type=offline`, `prompt=consent`; scopes `gmail.readonly`, `gmail.compose`, `calendar.app.created`, chosen by the owner | Fewer dependencies, fake-testable; minimal scopes available. |
+| 2026-10-03 | `gmail.compose` is the narrowest scope that creates drafts and Google describes it as "manage drafts and send"; the app only calls `drafts.create`, and `NoSendingTests` fail on any send endpoint or broader scope | Drafts in Gmail without ever sending; the owner accepted the scope knowingly. |
+| 2026-10-03 | Interviews go to a secondary "JobPilot" calendar (`calendar.app.created`), created on first use and recreated if deleted; events only after a confirmation dialog showing the event; the Google event id is stored on the interview so it can be removed | No access to the owner's primary calendar. |
+| 2026-10-03 | Gmail threads are linked per application (only thread id and subject stored); messages are read on demand, never sent to Gemini; "Registrar como respuesta" stores sender, subject and date only | Privacy; the timeline keeps facts, not mail bodies. |
+| 2026-10-03 | Token stored in `google-token.bin` in the data folder, encrypted with ASP.NET Core Data Protection (keys in `{data}/keys`, DPAPI on Windows); `invalid_grant` deletes it and asks to reconnect (7-day refresh tokens for "Testing" apps) | Secrets never in the repo or the database; clear recovery path. |
 | 2026-10-02 | `.ics` via Ical.Net 5.2.3 (MIT): upcoming interviews (UTC) and the next reminder (all-day, owner's time zone), stable UIDs; generated on demand and downloaded | Import into any calendar without OAuth (phase 8 still pending). |
 
 ## Verified external facts (re-check when they matter)
@@ -293,6 +317,17 @@ Checked on 2026-10-02 (phase 6):
 - LinkedIn limits (secondary sources, kept in configuration): invitation note 200 characters on free accounts and 300 on
   Premium; headline 220; About 2,600.
 
+Checked on 2026-10-03 (phase 8):
+
+- Gmail v1 and Calendar v3 discovery documents: `users.threads.list/get` (gmail.readonly), `users.drafts.create`
+  (gmail.compose, "Manage drafts and send emails"; no drafts-only scope exists), `calendars.insert`,
+  `events.insert/delete` (calendar.app.created: "Make secondary Google calendars, and see, create, change, and delete
+  events on them").
+- OAuth web server flow: endpoints `accounts.google.com/o/oauth2/v2/auth`, `oauth2.googleapis.com/token`,
+  `oauth2.googleapis.com/revoke`; refresh token only with `access_type=offline`; localhost redirect URIs may use HTTP;
+  apps with External user type in "Testing" get refresh tokens that expire in 7 days. Sources:
+  `https://developers.google.com/identity/protocols/oauth2/web-server`, `https://developers.google.com/identity/protocols/oauth2`.
+
 ## Status
 
 - [x] Phase 0 — Skeleton
@@ -303,4 +338,4 @@ Checked on 2026-10-02 (phase 6):
 - [x] Phase 5 — Pipeline, reminders and dashboard (pending: a real follow-up draft with the owner's key)
 - [x] Phase 6 — Companies and outreach (pending: real research, outreach and LinkedIn review with the owner's key)
 - [x] Phase 7 — Interviews and negotiation (pending: real practice sessions with the owner's key)
-- [ ] Phase 8 — Google integration (pending decision)
+- [x] Phase 8 — Google integration (pending: the owner's OAuth client and a real connection)

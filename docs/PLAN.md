@@ -145,6 +145,11 @@ Negotiation script and recruiter-role chat simulation.
   message and the follow-up limit, and computes the overall score from the rubric; the recruiter's room to move is a
   practice parameter chosen by the owner.
 
-### Phase 8 — Google integration (only if confirmed)
-Local-app OAuth with minimal scopes. Gmail: read threads linked to applications and create drafts, never
-send. Calendar: create interview events after explicit confirmation.
+### Phase 8 — Google integration
+Local-app OAuth with minimal scopes. Gmail: read threads linked to applications and create drafts, never send. Calendar:
+create interview events after explicit confirmation.
+
+- Confirmed by the owner on 2026-10-03: scopes `gmail.readonly` + `gmail.compose` (no drafts-only scope exists; the app
+  never sends, enforced by tests) and `calendar.app.created` (a dedicated "JobPilot" calendar, no access to the primary one).
+- Tests with a fake Google server: OAuth state, code exchange, refresh, revocation, granular consent, Gmail search/read,
+  draft MIME (reply headers, no header injection), calendar creation and events.

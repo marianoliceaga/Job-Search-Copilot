@@ -4,7 +4,7 @@
 
 <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Configuración</MudText>
 
-<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4">
+<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4" ActivePanelIndex="@(Google is null ? 0 : 3)">
     <MudTabPanel Text="Conexión con Gemini">
         <GeminiConnectionPanel />
     </MudTabPanel>
@@ -14,4 +14,15 @@
     <MudTabPanel Text="Registro de llamadas">
         <LlmCallLogPanel />
     </MudTabPanel>
+    <MudTabPanel Text="Google">
+        <GooglePanel Result="@Google" Detail="@Detail" />
+    </MudTabPanel>
 </MudTabs>
+
+@code {
+    [SupplyParameterFromQuery(Name = "google")]
+    public string? Google { get; set; }
+
+    [SupplyParameterFromQuery(Name = "mensaje")]
+    public string? Detail { get; set; }
+}

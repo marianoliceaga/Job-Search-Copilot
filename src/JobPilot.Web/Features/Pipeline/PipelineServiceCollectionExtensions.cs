@@ -8,6 +8,7 @@ public static class PipelineServiceCollectionExtensions
         services.AddSingleton<ApplicationStore>();
         services.AddSingleton<CalendarExport>();
         services.AddTransient<FollowUpHandler>();
+        services.AddTransient<ApplicationGoogleService>();
         services.AddSingleton<Dashboard.DashboardService>();
         return services;
     }

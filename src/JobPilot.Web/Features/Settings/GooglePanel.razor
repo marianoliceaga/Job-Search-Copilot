@@ -1,0 +1,101 @@
+@using JobPilot.Web.Features.Google
+@using JobPilot.Web.Infrastructure
+@using JobPilot.Web.Infrastructure.Google
+@inject GoogleAuthService Auth
+@inject IDialogService Dialogs
+@inject NavigationManager Navigation
+@inject JobPilotOptions Options
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.body2">
+        Opcional. Con Google conectado, JobPilot puede vincular hilos de Gmail a tus postulaciones, crear <strong>borradores</strong> (nunca envía nada)
+        y agregar entrevistas a un calendario propio "JobPilot". Cada acción la iniciás vos y antes se muestra qué se envía.
+    </MudText>
+
+    @if (Message is not null)
+    {
+        <MudAlert Severity="@(Result == "conectado" ? Severity.Success : Severity.Warning)">@Message</MudAlert>
+    }
+
+    @if (!_status.Configured)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">Todavía no configuraste el cliente OAuth de Google.</MudAlert>
+        <MudText Typo="Typo.subtitle1"><strong>Cómo configurarlo (una sola vez)</strong></MudText>
+        <ol>
+            <li>En <MudLink Href="https://console.cloud.google.com/" Target="_blank" rel="noopener noreferrer">Google Cloud Console</MudLink> creá un proyecto y habilitá <strong>Gmail API</strong> y <strong>Google Calendar API</strong>.</li>
+            <li>En <em>Google Auth Platform</em> configurá la pantalla de consentimiento: tipo <strong>External</strong>, estado <strong>Testing</strong>, y agregá tu cuenta como <em>test user</em>.</li>
+            <li>Creá un cliente OAuth de tipo <strong>Web application</strong> con este redirect URI: <code>@Auth.RedirectUri</code></li>
+            <li>Guardá las credenciales con user-secrets (nunca en el repositorio) y reiniciá la app:
+                <pre class="jp-payload">dotnet user-secrets set "Google:ClientId" "&lt;client id&gt;" --project src/JobPilot.Web
+dotnet user-secrets set "Google:ClientSecret" "&lt;client secret&gt;" --project src/JobPilot.Web</pre>
+            </li>
+        </ol>
+        <MudText Typo="Typo.body2">
+            Con la app en estado Testing, Google hace vencer el permiso a los 7 días: cuando pase, JobPilot te avisa y volvés a conectar.
+        </MudText>
+    }
+    else if (!_status.Connected)
+    {
+        <MudText Typo="Typo.subtitle1"><strong>Permisos que se piden</strong></MudText>
+        <ul>@foreach (var scope in GoogleScopes.All) { <li>@GoogleUi.ScopeLabel(scope)</li> }</ul>
+        <MudText Typo="Typo.body2">En la pantalla de Google podés destildar cualquiera: la función correspondiente queda desactivada.</MudText>
+        <div><MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Link" OnClick="Connect">Conectar con Google</MudButton></div>
+    }
+    else
+    {
+        <MudPaper Outlined="true" Class="pa-3" data-testid="google-status">
+            <MudText><strong>Conectado</strong>@(_status.Email is null ? string.Empty : $" como {_status.Email}") · desde el @LlmFormat.LocalTime(_status.ConnectedAtUtc!.Value)</MudText>
+            <ul>
+                @foreach (var scope in GoogleScopes.All)
+                {
+                    <li>@(_status.GrantedScopes.Contains(scope) ? "✓" : "✗ (no concedido)") @GoogleUi.ScopeLabel(scope)</li>
+                }
+            </ul>
+            <MudStack Row="true">
+                @if (_status.MissingScopes.Count > 0)
+                {
+                    <MudButton Variant="Variant.Outlined" OnClick="Connect">Volver a conectar</MudButton>
+                }
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="DisconnectAsync">Desconectar y revocar</MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    private GoogleStatus _status = new(false, false, null, [], null);
+
+    [Parameter]
+    public string? Result { get; set; }
+
+    [Parameter]
+    public string? Detail { get; set; }
+
+    private string? Message => Result switch
+    {
+        "conectado" => "Google quedó conectado.",
+        "no-configurado" => "Falta configurar Google:ClientId y Google:ClientSecret.",
+        "error" => Detail ?? "No se pudo conectar con Google.",
+        "desconectado" => Detail ?? "Google quedó desconectado y el permiso fue revocado.",
+        _ => null,
+    };
+
+    protected override void OnParametersSet() => _status = Auth.Status();
+
+    // A full page load: the OAuth flow leaves the app and comes back through /google/callback.
+    private void Connect() => Navigation.NavigateTo("/google/connect", forceLoad: true);
+
+    private async Task DisconnectAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync("Desconectar Google", "Se revoca el permiso en Google y se borra el token local. Los hilos vinculados quedan anotados, pero no se pueden leer hasta reconectar.",
+            yesText: "Desconectar", cancelText: "Cancelar");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var warning = await Auth.DisconnectAsync(CancellationToken.None);
+        (Result, Detail) = ("desconectado", warning);
+        _status = Auth.Status();
+    }
+}

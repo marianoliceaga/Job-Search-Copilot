@@ -183,3 +183,17 @@ public sealed class StarStoryRecord
 
     public required string Json { get; set; }
 }
+
+/// <summary>A Gmail thread the owner linked to an application. Only the id and subject are stored; messages are read on demand.</summary>
+public sealed class ApplicationMailThread
+{
+    public long Id { get; set; }
+
+    public Guid ApplicationId { get; set; }
+
+    public required string ThreadId { get; set; }
+
+    public required string Subject { get; set; }
+
+    public DateTime LinkedAtUtc { get; set; }
+}

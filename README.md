@@ -6,7 +6,7 @@ and MudBlazor**, using the **Gemini API** as its only LLM.
 JobPilot prepares, analyses and drafts; you approve. It never sends an application, e-mail or message on
 your behalf. All data stays on your machine.
 
-> **Status:** phase 7 of 8 (interview practice and negotiation). See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
+> **Status:** all 8 phases delivered (Google integration included). Pending: checks with your own Gemini key and Google account. See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
 > acceptance criteria per phase. The UI is in Spanish.
 
 ## Planned features
@@ -158,6 +158,24 @@ them flagged. **Simulacro**: a roleplay with Gemini as the recruiter, starting f
 
 **Panel** shows offers detected, applications, response rate, average time to the first response and per stage, pending
 follow-ups, upcoming interviews and the estimated LLM cost by use case.
+
+### Google (optional)
+
+**Configuración → Google** explains the one-time setup: a Google Cloud project with Gmail API and Google Calendar API
+enabled, an OAuth consent screen (External, Testing, your account as test user) and an OAuth client of type
+**Web application** with the redirect URI `http://localhost:5080/google/callback`. Store its id and secret with
+user-secrets (`Google:ClientId`, `Google:ClientSecret`) and restart. JobPilot asks for three scopes:
+
+- `gmail.readonly`: search and read threads that you link to an application (only the thread id and subject are stored;
+  messages are read on demand and never sent to Gemini).
+- `gmail.compose`: create **drafts** of follow-ups and e-mail outreach, optionally as a reply in a linked thread. Google
+  describes this scope as "manage drafts and send emails"; JobPilot never sends (a test fails if any send call appears).
+- `calendar.app.created`: create a separate "JobPilot" calendar and add interviews to it, after you confirm each one.
+  JobPilot cannot see or change your primary calendar.
+
+Every action shows exactly what will be sent to Google first. The token is stored encrypted in your data folder. With
+the app in "Testing" status Google expires the permission after 7 days; JobPilot asks you to reconnect.
+**Desconectar y revocar** revokes the permission at Google and deletes the local token.
 
 ### LLM call log
 

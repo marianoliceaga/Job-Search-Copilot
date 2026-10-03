@@ -8,8 +8,10 @@ using JobPilot.Web.Features.Profile.Import;
 using JobPilot.Web.Features.Settings;
 using JobPilot.Web.Features.Tailoring;
 using JobPilot.Web.Infrastructure;
+using JobPilot.Web.Infrastructure.Google;
 using JobPilot.Web.Infrastructure.Llm;
 using JobPilot.Web.Infrastructure.Persistence;
+using Microsoft.AspNetCore.DataProtection;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,6 +29,16 @@ builder.WebHost.ConfigureKestrel(options => options.ListenLocalhost(jobPilotOpti
 
 var dataPaths = new DataPaths(jobPilotOptions);
 builder.Services.AddSingleton(dataPaths);
+builder.Services.AddSingleton(jobPilotOptions);
+
+// Data Protection keys (used for the Google token and antiforgery) live in the local data folder, protected with DPAPI on Windows.
+var dataProtection = builder.Services.AddDataProtection()
+    .SetApplicationName("JobPilot")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataPaths.DataDirectory, "keys")));
+if (OperatingSystem.IsWindows())
+{
+    dataProtection.ProtectKeysWithDpapi();
+}
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddJobPilotPersistence(dataPaths);
 builder.Services.AddLlm(builder.Configuration, Path.Combine(AppContext.BaseDirectory, "Prompts"));
@@ -40,6 +52,7 @@ builder.Services.AddTailoring(Path.Combine(AppContext.BaseDirectory, "Seed"));
 builder.Services.AddPipeline();
 builder.Services.AddCompaniesAndOutreach(builder.Configuration);
 builder.Services.AddInterviewsAndNegotiation(builder.Configuration);
+builder.Services.AddGoogle(builder.Configuration);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -58,6 +71,7 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapGoogleEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

@@ -68,6 +68,9 @@ public sealed class ApplicationEvent
 
     public int? DurationMinutes { get; set; }
 
+    /// <summary>Id of the event created in the owner's external calendar for this interview, if any.</summary>
+    public string? ExternalId { get; set; }
+
     /// <summary>Events the owner may delete: their own notes and scheduled interviews. Stage changes are permanent.</summary>
     public bool IsDeletable => Kind is ApplicationEventKind.Note or ApplicationEventKind.InterviewScheduled;
 }

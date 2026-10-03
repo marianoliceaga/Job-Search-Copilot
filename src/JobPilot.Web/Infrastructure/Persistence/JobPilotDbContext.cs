@@ -54,6 +54,8 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
 
     public DbSet<CompensationOffer> CompensationOffers => Set<CompensationOffer>();
 
+    public DbSet<ApplicationMailThread> ApplicationMailThreads => Set<ApplicationMailThread>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         ArgumentNullException.ThrowIfNull(configurationBuilder);
@@ -180,6 +182,7 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
             applicationEvent.Property(e => e.FromStage).HasConversion<string>().HasMaxLength(20);
             applicationEvent.Property(e => e.ToStage).HasConversion<string>().HasMaxLength(20);
             applicationEvent.Property(e => e.Text).HasMaxLength(20000);
+            applicationEvent.Property(e => e.ExternalId).HasMaxLength(300);
             applicationEvent.Ignore(e => e.IsDeletable);
         });
 
@@ -274,6 +277,15 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
             session.Ignore(p => p.AwaitingAnswer);
             session.Ignore(p => p.AwaitingCoach);
             session.Ignore(p => p.HasAnswers);
+        });
+
+        modelBuilder.Entity<ApplicationMailThread>(thread =>
+        {
+            thread.ToTable("ApplicationMailThreads");
+            thread.HasIndex(t => new { t.ApplicationId, t.ThreadId }).IsUnique();
+            thread.HasOne<JobApplication>().WithMany().HasForeignKey(t => t.ApplicationId).OnDelete(DeleteBehavior.Cascade);
+            thread.Property(t => t.ThreadId).HasMaxLength(200);
+            thread.Property(t => t.Subject).HasMaxLength(1000);
         });
 
         modelBuilder.Entity<SettingsDocument>(document =>

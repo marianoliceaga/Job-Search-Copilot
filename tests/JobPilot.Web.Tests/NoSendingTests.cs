@@ -7,7 +7,7 @@ public class NoSendingTests
 {
     private static readonly string[] Forbidden =
     [
-        "SmtpClient", "System.Net.Mail", "MailKit", "MimeKit", "mailto:", "api.linkedin.com", "/messages/send", "gmail.googleapis.com",
+        "SmtpClient", "System.Net.Mail", "MailKit", "MimeKit", "mailto:", "api.linkedin.com", "/messages/send", "drafts/send", "gmail.send", "auth/gmail.modify", "mail.google.com",
     ];
 
     [Fact]
@@ -17,6 +17,14 @@ public class NoSendingTests
 
         Assert.DoesNotContain("System.Net.Mail", references);
         Assert.DoesNotContain(references, r => r!.StartsWith("MailKit", StringComparison.Ordinal) || r.StartsWith("MimeKit", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Google_access_is_limited_to_reading_mail_drafts_and_the_app_calendar()
+    {
+        Assert.Equal(
+            ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.compose", "https://www.googleapis.com/auth/calendar.app.created"],
+            JobPilot.Web.Infrastructure.Google.GoogleScopes.All);
     }
 
     [Fact]

@@ -445,6 +445,10 @@ namespace JobPilot.Web.Infrastructure.Persistence.Migrations
                     b.Property<int?>("DurationMinutes")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("FromStage")
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
@@ -636,6 +640,36 @@ namespace JobPilot.Web.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Profiles");
+                });
+
+            modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.ApplicationMailThread", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ApplicationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LinkedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ThreadId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId", "ThreadId")
+                        .IsUnique();
+
+                    b.ToTable("ApplicationMailThreads", (string)null);
                 });
 
             modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.InterviewQuestionSetRecord", b =>
@@ -1028,6 +1062,15 @@ namespace JobPilot.Web.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("OfferId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.ApplicationMailThread", b =>
+                {
+                    b.HasOne("JobPilot.Domain.Pipeline.JobApplication", null)
+                        .WithMany()
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.InterviewQuestionSetRecord", b =>
