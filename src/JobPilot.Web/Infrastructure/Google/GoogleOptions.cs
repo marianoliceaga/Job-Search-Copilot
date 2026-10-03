@@ -43,4 +43,19 @@ public static class GoogleScopes
     public const string CalendarAppCreated = "https://www.googleapis.com/auth/calendar.app.created";
 
     public static IReadOnlyList<string> All { get; } = [GmailReadonly, GmailCompose, CalendarAppCreated];
+
+    /// <summary>
+    /// Calendar only: for accounts where Gmail access is blocked, e.g. Google's Advanced Protection Program, which only
+    /// lets verified third-party apps read sensitive data such as Gmail.
+    /// </summary>
+    public static IReadOnlyList<string> CalendarOnly { get; } = [CalendarAppCreated];
+
+    public static IReadOnlyList<string> For(GoogleAccess access) => access == GoogleAccess.CalendarOnly ? CalendarOnly : All;
+}
+
+/// <summary>What the owner chooses to connect: everything, or only the JobPilot calendar.</summary>
+public enum GoogleAccess
+{
+    Full,
+    CalendarOnly,
 }

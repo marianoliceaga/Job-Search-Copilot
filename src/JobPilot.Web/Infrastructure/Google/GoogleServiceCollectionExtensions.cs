@@ -27,11 +27,13 @@ public static class GoogleServiceCollectionExtensions
     /// <summary>OAuth endpoints: start the consent flow and receive Google's redirect.</summary>
     public static IEndpointRouteBuilder MapGoogleEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet("/google/connect", (GoogleAuthService auth) =>
+        // ?alcance=calendario asks only for the JobPilot calendar (accounts where Gmail access is blocked).
+        endpoints.MapGet("/google/connect", (string? alcance, GoogleAuthService auth) =>
         {
+            var access = alcance == "calendario" ? GoogleAccess.CalendarOnly : GoogleAccess.Full;
             try
             {
-                return Results.Redirect(auth.BuildAuthorizationUrl());
+                return Results.Redirect(auth.BuildAuthorizationUrl(access));
             }
             catch (InvalidOperationException)
             {
