@@ -1,0 +1,56 @@
+@* Edits a list of short strings in place (chips + input). *@
+
+<MudStack Spacing="1">
+    <MudTextField T="string" @bind-Value="_newValue" Label="@Label" Variant="Variant.Outlined" Immediate="true"
+                  HelperText="@(HelperText ?? "Escribí y presioná Enter para agregar.")" OnKeyDown="OnKeyDownAsync"
+                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" OnAdornmentClick="AddAsync"
+                  AdornmentAriaLabel="Agregar" />
+    <div>
+        @foreach (var value in Values)
+        {
+            <MudChip T="string" Text="@value" OnClose="() => RemoveAsync(value)" Size="Size.Small" />
+        }
+    </div>
+</MudStack>
+
+@code {
+    private string? _newValue;
+
+    [Parameter, EditorRequired]
+    public required List<string> Values { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    [Parameter]
+    public string? HelperText { get; set; }
+
+    [Parameter]
+    public EventCallback Changed { get; set; }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await AddAsync();
+        }
+    }
+
+    private async Task AddAsync()
+    {
+        var value = _newValue?.Trim();
+        if (!string.IsNullOrEmpty(value) && !Values.Contains(value, StringComparer.OrdinalIgnoreCase))
+        {
+            Values.Add(value);
+            await Changed.InvokeAsync();
+        }
+
+        _newValue = null;
+    }
+
+    private async Task RemoveAsync(string value)
+    {
+        Values.Remove(value);
+        await Changed.InvokeAsync();
+    }
+}

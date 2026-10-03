@@ -19,7 +19,7 @@ public static class AppSections
 
     public static readonly AppSection Jobs = new(
         "Ofertas", "/ofertas", Icons.Material.Filled.Work, 3,
-        "Búsqueda en fuentes permitidas, alta manual, filtros, análisis y ranking. CV y carta a medida en la fase 4.");
+        "Búsqueda en fuentes permitidas, alta manual, filtros, análisis, ranking, y CV y carta a medida.");
 
     public static readonly AppSection Pipeline = new(
         "Pipeline", "/pipeline", Icons.Material.Filled.ViewKanban, 5,
@@ -27,7 +27,7 @@ public static class AppSections
 
     public static readonly AppSection Companies = new(
         "Empresas", "/empresas", Icons.Material.Filled.Business, 6,
-        "Fichas de empresas con fuentes citadas y datos no verificados marcados como tales.");
+        "Fichas de empresas armadas con las URLs y textos que elegís; cada dato cita su fuente y los no verificados se marcan.");
 
     public static readonly AppSection Outreach = new(
         "Outreach", "/outreach", Icons.Material.Filled.Send, 6,
@@ -35,11 +35,11 @@ public static class AppSections
 
     public static readonly AppSection Interviews = new(
         "Entrevistas", "/entrevistas", Icons.Material.Filled.RecordVoiceOver, 7,
-        "Banco de preguntas, historias STAR y simulacros en inglés con feedback por rúbrica.");
+        "Banco de preguntas por oferta, historias STAR basadas en tu CV y simulacros en inglés con feedback por rúbrica.");
 
     public static readonly AppSection Negotiation = new(
         "Negociación", "/negociacion", Icons.Material.Filled.Handshake, 7,
-        "Comparador de ofertas en USD anuales, guion de negociación y simulacro con el LLM como recruiter.");
+        "Comparador de ofertas en USD anuales con tus tipos de cambio y costos, guion de negociación y simulacro con el recruiter.");
 
     public static readonly AppSection Settings = new(
         "Configuración", "/configuracion", Icons.Material.Filled.Settings, 1,

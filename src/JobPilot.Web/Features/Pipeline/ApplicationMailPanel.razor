@@ -1,0 +1,153 @@
+@using JobPilot.Web.Infrastructure.Google
+@using JobPilot.Web.Infrastructure.Persistence
+@inject GoogleAuthService Auth
+@inject GmailClient Gmail
+@inject ApplicationGoogleService Google
+
+@if (!_status.Connected || !_status.CanReadMail)
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+        Para vincular correos conectá Google con permiso de lectura de Gmail en <MudLink Href="/configuracion?google=ver">Configuración → Google</MudLink>.
+    </MudAlert>
+}
+else
+{
+    <MudStack Spacing="2">
+        <MudText Typo="Typo.body2">
+            Buscá en tu Gmail los hilos de esta postulación y vinculalos. JobPilot guarda solo el asunto y el id del hilo; los mensajes se leen de Gmail
+            cuando los abrís y no se envían a Gemini.
+        </MudText>
+        <MudStack Row="true" AlignItems="AlignItems.End">
+            <MudTextField @bind-Value="_query" Label="Búsqueda en Gmail" Immediate="true" Style="flex: 1" />
+            <MudButton Variant="Variant.Outlined" OnClick="SearchAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_query))">Buscar en Gmail</MudButton>
+        </MudStack>
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        }
+        @if (_busy)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        @foreach (var result in _results)
+        {
+            <MudPaper Outlined="true" Class="pa-2" data-testid="mail-result">
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudStack Spacing="0" Style="flex: 1">
+                        <MudText><strong>@result.Subject</strong> · @result.Messages mensaje(s)</MudText>
+                        <MudText Typo="Typo.body2">@result.From · @PipelineFormat.LocalDateTime(result.DateUtc)</MudText>
+                        <MudText Typo="Typo.caption">@result.Snippet</MudText>
+                    </MudStack>
+                    @if (_linked.Any(l => l.ThreadId == result.Id))
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success">Vinculado</MudChip>
+                    }
+                    else
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => LinkAsync(result)">Vincular</MudButton>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+
+        <MudText Typo="Typo.subtitle1" Class="mt-2"><strong>Hilos vinculados</strong></MudText>
+        @if (_linked.Count == 0)
+        {
+            <MudText Typo="Typo.body2">Ninguno todavía.</MudText>
+        }
+        @foreach (var link in _linked)
+        {
+            <MudPaper Outlined="true" Class="pa-2" data-testid="mail-linked">
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudText Style="flex: 1"><strong>@link.Subject</strong></MudText>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => ReadAsync(link)">@(_open.ContainsKey(link.ThreadId) ? "Actualizar" : "Leer")</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="() => UnlinkAsync(link)">Desvincular</MudButton>
+                </MudStack>
+                @if (_open.TryGetValue(link.ThreadId, out var thread))
+                {
+                    @foreach (var message in thread.Messages)
+                    {
+                        var own = _status.Email is not null && message.From.Contains(_status.Email, StringComparison.OrdinalIgnoreCase);
+                        <MudPaper Elevation="0" Class="pa-2 mt-2" Style="background: var(--mud-palette-background-gray)">
+                            <MudText Typo="Typo.caption">@message.From · @PipelineFormat.LocalDateTime(message.DateUtc)</MudText>
+                            <MudText Typo="Typo.body2" Style="white-space: pre-wrap">@message.Body</MudText>
+                            @if (!own)
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => RecordAsync(message)">Registrar como respuesta</MudButton>
+                            }
+                        </MudPaper>
+                    }
+                }
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@code {
+    private GoogleStatus _status = new(false, false, null, [], null);
+    private string? _query;
+    private IReadOnlyList<MailThreadSummary> _results = [];
+    private IReadOnlyList<ApplicationMailThread> _linked = [];
+    private readonly Dictionary<string, MailThread> _open = [];
+    private bool _busy;
+    private string? _error;
+
+    [Parameter, EditorRequired]
+    public required ApplicationDetail Detail { get; set; }
+
+    /// <summary>Raised when the timeline changed (a response was recorded).</summary>
+    [Parameter]
+    public EventCallback Changed { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _status = Auth.Status();
+        _query ??= ApplicationGoogleService.SuggestedQuery(Detail);
+        _linked = await Google.LinkedThreadsAsync(Detail.Application.Id, CancellationToken.None);
+    }
+
+    private async Task SearchAsync()
+    {
+        (_busy, _error) = (true, null);
+        var result = await Gmail.SearchAsync(_query!, 10, CancellationToken.None);
+        (_results, _error, _busy) = (result.Value ?? [], result.Error, false);
+        if (result.IsSuccess && _results.Count == 0)
+        {
+            _error = "No se encontraron hilos con esa búsqueda.";
+        }
+    }
+
+    private async Task LinkAsync(MailThreadSummary thread)
+    {
+        await Google.LinkAsync(Detail.Application.Id, thread, CancellationToken.None);
+        _linked = await Google.LinkedThreadsAsync(Detail.Application.Id, CancellationToken.None);
+    }
+
+    private async Task UnlinkAsync(ApplicationMailThread link)
+    {
+        await Google.UnlinkAsync(Detail.Application.Id, link.Id, CancellationToken.None);
+        _open.Remove(link.ThreadId);
+        _linked = await Google.LinkedThreadsAsync(Detail.Application.Id, CancellationToken.None);
+    }
+
+    private async Task ReadAsync(ApplicationMailThread link)
+    {
+        (_busy, _error) = (true, null);
+        var thread = await Gmail.GetThreadAsync(link.ThreadId, CancellationToken.None);
+        _busy = false;
+        if (thread.Value is { } value)
+        {
+            _open[link.ThreadId] = value;
+        }
+        else
+        {
+            _error = thread.Error;
+        }
+    }
+
+    private async Task RecordAsync(MailMessage message)
+    {
+        await Google.RecordResponseAsync(Detail.Application.Id, message, CancellationToken.None);
+        await Changed.InvokeAsync();
+    }
+}

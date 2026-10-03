@@ -1,0 +1,9 @@
+{
+  "keywords": [".net", "c#", "dotnet", "asp.net", "blazor", "ef core", "entity framework"],
+  "excludedKeywords": ["vb6"],
+  "disabledSources": [],
+  "weights": { "compensation": 40, "fit": 30, "eligibility": 20, "redFlags": 10 },
+  "compensation": { "floorUsd": 60000, "targetUsd": 150000, "unknownScore": 0.4 },
+  "usdPerUnit": { "USD": 1 },
+  "maxAgeDays": 30
+}

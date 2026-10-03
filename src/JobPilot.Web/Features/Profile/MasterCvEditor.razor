@@ -1,0 +1,219 @@
+@using JobPilot.Domain.Cv
+@* Edits every element of a master CV in place. Optional flags (from the import check) are shown next to each element. *@
+
+<MudStack Spacing="3">
+    @if (Flags.Count > 0)
+    {
+        <MudAlert Severity="Severity.Warning" data-testid="import-flags-summary">
+            Hay @Flags.Count datos que no se encontraron tal cual en el documento original. Están marcados abajo:
+            revisalos y corregilos o eliminalos antes de guardar.
+        </MudAlert>
+    }
+
+    <MudExpansionPanels MultiExpansion="true" Outlined="true" Elevation="0">
+        <MudExpansionPanel Text="Contacto, titular y resumen" Expanded="true">
+            @FlagsFor("contact.fullName", "contact.email", "contact.phone", "contact.location", "headline", "summary")
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6"><MudTextField @bind-Value="Cv.Contact.FullName" Label="Nombre completo" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                <MudItem xs="12" md="6"><MudTextField @bind-Value="Cv.Contact.Email" Label="Email" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                <MudItem xs="12" md="6"><MudTextField @bind-Value="Cv.Contact.Phone" Label="Teléfono" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                <MudItem xs="12" md="6"><MudTextField @bind-Value="Cv.Contact.Location" Label="Ubicación" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                <MudItem xs="12" md="4"><MudTextField @bind-Value="Cv.Contact.LinkedInUrl" Label="LinkedIn" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                <MudItem xs="12" md="4"><MudTextField @bind-Value="Cv.Contact.GitHubUrl" Label="GitHub" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                <MudItem xs="12" md="4"><MudTextField @bind-Value="Cv.Contact.WebsiteUrl" Label="Sitio web" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                <MudItem xs="12"><MudTextField @bind-Value="Cv.Headline" Label="Titular" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                <MudItem xs="12"><MudTextField @bind-Value="Cv.Summary" Label="Resumen" Variant="Variant.Outlined" Lines="4" Sizing="InputSizing.Auto" /></MudItem>
+            </MudGrid>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="@($"Experiencia ({Cv.Experiences.Count})")" Expanded="true">
+            <MudStack Spacing="3">
+                @foreach (var experience in Cv.Experiences)
+                {
+                    <MudPaper Outlined="true" Class="pa-3" @key="experience">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.subtitle1"><strong>@Display(experience.Title, "Puesto")</strong> · @Display(experience.Company, "Empresa")</MudText>
+                                <MudSpacer />
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" aria-label="Subir" OnClick="() => Move(Cv.Experiences, experience, -1)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" aria-label="Bajar" OnClick="() => Move(Cv.Experiences, experience, 1)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" aria-label="Eliminar experiencia" OnClick="() => Cv.Experiences.Remove(experience)" />
+                            </MudStack>
+                            @FlagsFor(experience.Id.ToString())
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12" md="4"><MudTextField @bind-Value="experience.Company" Label="Empresa" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                                <MudItem xs="12" md="4"><MudTextField @bind-Value="experience.Title" Label="Puesto" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                                <MudItem xs="12" md="4"><MudTextField @bind-Value="experience.Location" Label="Ubicación" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                                <MudItem xs="6" md="3"><PartialDateField @bind-Value="experience.Start" Label="Inicio" /></MudItem>
+                                <MudItem xs="6" md="3"><PartialDateField @bind-Value="experience.End" Label="Fin" Disabled="experience.IsCurrent" /></MudItem>
+                                <MudItem xs="12" md="6">
+                                    <MudCheckBox T="bool" Value="experience.IsCurrent" ValueChanged="value => SetCurrent(experience, value)" Label="Trabajo actual" />
+                                </MudItem>
+                                <MudItem xs="12"><MudTextField @bind-Value="experience.Description" Label="Descripción" Variant="Variant.Outlined" Lines="2" Sizing="InputSizing.Auto" /></MudItem>
+                                <MudItem xs="12"><StringListEditor Values="experience.Technologies" Label="Tecnologías" /></MudItem>
+                            </MudGrid>
+                            <MudText Typo="Typo.subtitle2">Logros</MudText>
+                            @foreach (var achievement in experience.Achievements)
+                            {
+                                <div @key="achievement">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                                        <MudTextField @bind-Value="achievement.Text" Variant="Variant.Outlined" Lines="1" Sizing="InputSizing.Auto" Margin="Margin.Dense" Class="flex-grow-1" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" aria-label="Subir logro" OnClick="() => Move(experience.Achievements, achievement, -1)" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" aria-label="Bajar logro" OnClick="() => Move(experience.Achievements, achievement, 1)" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" aria-label="Eliminar logro" OnClick="() => experience.Achievements.Remove(achievement)" />
+                                    </MudStack>
+                                    @FlagsFor(achievement.Id.ToString())
+                                </div>
+                            }
+                            <div>
+                                <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="() => experience.Achievements.Add(new CvAchievement())">Agregar logro</MudButton>
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+                }
+                <div>
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="() => Cv.Experiences.Insert(0, new CvExperience())">Agregar experiencia</MudButton>
+                </div>
+            </MudStack>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="@($"Skills ({Cv.Skills.Count})")" Expanded="@HasFlags(Cv.Skills.Select(e => e.Id))">
+            <MudStack Spacing="1">
+                @foreach (var skill in Cv.Skills)
+                {
+                    <div @key="skill">
+                        @FlagsFor(skill.Id.ToString())
+                        <MudStack Row="true" AlignItems="AlignItems.Center">
+                            <MudTextField @bind-Value="skill.Name" Label="Skill" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudTextField @bind-Value="skill.Category" Label="Categoría" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" aria-label="Eliminar skill" OnClick="() => Cv.Skills.Remove(skill)" />
+                        </MudStack>
+                    </div>
+                }
+                <div><MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="() => Cv.Skills.Add(new CvSkill())">Agregar skill</MudButton></div>
+            </MudStack>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="@($"Certificaciones ({Cv.Certifications.Count})")" Expanded="@HasFlags(Cv.Certifications.Select(e => e.Id))">
+            <MudStack Spacing="1">
+                @foreach (var certification in Cv.Certifications)
+                {
+                    <div @key="certification">
+                        @FlagsFor(certification.Id.ToString())
+                        <MudGrid Spacing="1">
+                            <MudItem xs="12" md="4"><MudTextField @bind-Value="certification.Name" Label="Nombre" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                            <MudItem xs="12" md="3"><MudTextField @bind-Value="certification.Issuer" Label="Emisor" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                            <MudItem xs="6" md="2"><PartialDateField @bind-Value="certification.Date" Label="Fecha" /></MudItem>
+                            <MudItem xs="5" md="2"><MudTextField @bind-Value="certification.CredentialUrl" Label="URL" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                            <MudItem xs="1"><MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" aria-label="Eliminar certificación" OnClick="() => Cv.Certifications.Remove(certification)" /></MudItem>
+                        </MudGrid>
+                    </div>
+                }
+                <div><MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="() => Cv.Certifications.Add(new CvCertification())">Agregar certificación</MudButton></div>
+            </MudStack>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="@($"Idiomas ({Cv.Languages.Count})")" Expanded="@HasFlags(Cv.Languages.Select(e => e.Id))">
+            <MudStack Spacing="1">
+                @foreach (var language in Cv.Languages)
+                {
+                    <div @key="language">
+                        @FlagsFor(language.Id.ToString())
+                        <MudStack Row="true" AlignItems="AlignItems.Center">
+                            <MudTextField @bind-Value="language.Name" Label="Idioma" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudTextField @bind-Value="language.Level" Label="Nivel" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" aria-label="Eliminar idioma" OnClick="() => Cv.Languages.Remove(language)" />
+                        </MudStack>
+                    </div>
+                }
+                <div><MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="() => Cv.Languages.Add(new CvLanguage())">Agregar idioma</MudButton></div>
+            </MudStack>
+        </MudExpansionPanel>
+
+        <MudExpansionPanel Text="@($"Educación ({Cv.Education.Count})")" Expanded="@HasFlags(Cv.Education.Select(e => e.Id))">
+            <MudStack Spacing="1">
+                @foreach (var education in Cv.Education)
+                {
+                    <div @key="education">
+                        @FlagsFor(education.Id.ToString())
+                        <MudGrid Spacing="1">
+                            <MudItem xs="12" md="4"><MudTextField @bind-Value="education.Institution" Label="Institución" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                            <MudItem xs="12" md="3"><MudTextField @bind-Value="education.Degree" Label="Título" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                            <MudItem xs="12" md="2"><MudTextField @bind-Value="education.Field" Label="Área" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+                            <MudItem xs="6" md="1"><PartialDateField @bind-Value="education.Start" Label="Inicio" /></MudItem>
+                            <MudItem xs="5" md="1"><PartialDateField @bind-Value="education.End" Label="Fin" /></MudItem>
+                            <MudItem xs="1"><MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" aria-label="Eliminar estudio" OnClick="() => Cv.Education.Remove(education)" /></MudItem>
+                        </MudGrid>
+                    </div>
+                }
+                <div><MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="() => Cv.Education.Add(new CvEducation())">Agregar estudio</MudButton></div>
+            </MudStack>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+</MudStack>
+
+@code {
+    private ILookup<string, string> _flagsByKey = Enumerable.Empty<CvImportFlag>().ToLookup(f => f.ElementKey, f => f.Message);
+
+    [Parameter, EditorRequired]
+    public required MasterCv Cv { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<CvImportFlag> Flags { get; set; } = [];
+
+    protected override void OnParametersSet() =>
+        _flagsByKey = Flags.ToLookup(f => f.ElementKey, f => f.Message);
+
+    private RenderFragment FlagsFor(params string[] keys) => builder =>
+    {
+        var messages = keys.SelectMany(k => _flagsByKey[k]).ToList();
+        if (messages.Count == 0)
+        {
+            return;
+        }
+
+        builder.OpenComponent<MudAlert>(0);
+        builder.AddComponentParameter(1, nameof(MudAlert.Severity), Severity.Warning);
+        builder.AddComponentParameter(2, nameof(MudAlert.Dense), true);
+        builder.AddComponentParameter(3, nameof(MudAlert.Class), "mb-2 jp-import-flag");
+        builder.AddComponentParameter(4, nameof(MudAlert.ChildContent), (RenderFragment)(content =>
+        {
+            foreach (var (message, index) in messages.Select((m, i) => (m, i)))
+            {
+                if (index > 0)
+                {
+                    content.AddMarkupContent(10 + (index * 2), "<br />");
+                }
+
+                content.AddContent(11 + (index * 2), message);
+            }
+        }));
+        builder.CloseComponent();
+    };
+
+    private bool HasFlags(IEnumerable<Guid> ids) => ids.Any(id => _flagsByKey.Contains(id.ToString()));
+
+    private static string Display(string? value, string placeholder) => string.IsNullOrWhiteSpace(value) ? $"({placeholder})" : value;
+
+    private static void SetCurrent(CvExperience experience, bool isCurrent)
+    {
+        experience.IsCurrent = isCurrent;
+        if (isCurrent)
+        {
+            experience.End = null;
+        }
+    }
+
+    private static void Move<T>(List<T> list, T item, int offset)
+    {
+        var index = list.IndexOf(item);
+        var target = index + offset;
+        if (index < 0 || target < 0 || target >= list.Count)
+        {
+            return;
+        }
+
+        list.RemoveAt(index);
+        list.Insert(target, item);
+    }
+}

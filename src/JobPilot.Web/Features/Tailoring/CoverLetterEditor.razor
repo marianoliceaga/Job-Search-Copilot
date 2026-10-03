@@ -1,0 +1,53 @@
+@using JobPilot.Domain.Tailoring
+
+<MudStack Spacing="2">
+    <MudText Typo="Typo.body2"><em>Dear @Context.Posting.Company hiring team,</em></MudText>
+    @foreach (var paragraph in Letter.Paragraphs)
+    {
+        <TracedTextEditor @key="paragraph" Text="paragraph" Index="Context.Index" Lines="4" ReadOnly="ReadOnly" Changed="Changed"
+                          Problems="Context.Validator.Check(paragraph, allowedExtraText: Context.Posting.SearchableText)">
+            <Actions>
+                @if (!ReadOnly)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" aria-label="Subir" OnClick="() => MoveAsync(paragraph, -1)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" aria-label="Bajar" OnClick="() => MoveAsync(paragraph, 1)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" aria-label="Quitar párrafo" OnClick="() => RemoveAsync(paragraph)" />
+                }
+            </Actions>
+        </TracedTextEditor>
+    }
+    <MudText Typo="Typo.body2"><em>Sincerely,<br />@(Context.Cv.Contact.FullName ?? "(nombre del CV maestro)")</em></MudText>
+    <MudText Typo="Typo.caption">El saludo y la firma los arma la app. Los números de un párrafo pueden salir de tu CV o de la oferta.</MudText>
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired]
+    public required CoverLetter Letter { get; set; }
+
+    [Parameter, EditorRequired]
+    public required TailoringContext Context { get; set; }
+
+    [Parameter]
+    public bool ReadOnly { get; set; }
+
+    [Parameter]
+    public EventCallback Changed { get; set; }
+
+    private async Task RemoveAsync(TraceableText paragraph)
+    {
+        Letter.Paragraphs.Remove(paragraph);
+        await Changed.InvokeAsync();
+    }
+
+    private async Task MoveAsync(TraceableText paragraph, int offset)
+    {
+        var index = Letter.Paragraphs.IndexOf(paragraph);
+        var target = index + offset;
+        if (index >= 0 && target >= 0 && target < Letter.Paragraphs.Count)
+        {
+            Letter.Paragraphs.RemoveAt(index);
+            Letter.Paragraphs.Insert(target, paragraph);
+            await Changed.InvokeAsync();
+        }
+    }
+}

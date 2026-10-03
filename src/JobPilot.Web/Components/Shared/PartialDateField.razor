@@ -1,0 +1,49 @@
+@using JobPilot.Domain.Cv
+@* Text input for a CV date (YYYY or YYYY-MM). Invalid text keeps the previous value and shows an error. *@
+
+<MudTextField T="string" Value="_text" ValueChanged="OnChangedAsync" Label="@Label" Variant="Variant.Outlined"
+              Placeholder="AAAA-MM" Error="_error" ErrorText="Usá AAAA o AAAA-MM" Disabled="Disabled" Margin="Margin.Dense" />
+
+@code {
+    private string? _text;
+    private bool _error;
+
+    [Parameter]
+    public PartialDate? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<PartialDate?> ValueChanged { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (!_error)
+        {
+            _text = Value?.ToString();
+        }
+    }
+
+    private async Task OnChangedAsync(string? text)
+    {
+        _text = text;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _error = false;
+            await ValueChanged.InvokeAsync(null);
+        }
+        else if (PartialDate.TryParse(text, out var date))
+        {
+            _error = false;
+            await ValueChanged.InvokeAsync(date);
+        }
+        else
+        {
+            _error = true;
+        }
+    }
+}

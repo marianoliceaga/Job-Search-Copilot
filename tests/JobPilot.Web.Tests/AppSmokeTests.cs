@@ -1,10 +1,10 @@
 using System.Net;
 using JobPilot.Web.Components.Layout;
-using Microsoft.AspNetCore.Mvc.Testing;
+using JobPilot.Web.Tests.TestSupport;
 
 namespace JobPilot.Web.Tests;
 
-public class AppSmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class AppSmokeTests(JobPilotWebFactory factory) : IClassFixture<JobPilotWebFactory>
 {
     public static TheoryData<string, string> Sections()
     {
@@ -27,6 +27,16 @@ public class AppSmokeTests(WebApplicationFactory<Program> factory) : IClassFixtu
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains(title, WebUtility.HtmlDecode(html), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Unknown_application_shows_a_message()
+    {
+        using var client = factory.CreateClient();
+
+        var html = await client.GetStringAsync($"/pipeline/{Guid.NewGuid()}", TestContext.Current.CancellationToken);
+
+        Assert.Contains("Postulación no encontrada", WebUtility.HtmlDecode(html), StringComparison.Ordinal);
     }
 
     [Fact]

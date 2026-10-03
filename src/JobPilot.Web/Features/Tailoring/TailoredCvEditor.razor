@@ -1,0 +1,146 @@
+@using JobPilot.Domain.Cv
+@using JobPilot.Domain.Tailoring
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h6">Titular y resumen</MudText>
+    <TracedTextEditor Text="Cv.Headline" Index="Context.Index" Problems="ProblemsOf(Cv.Headline)" Label="Titular" ReadOnly="ReadOnly" Changed="Changed" />
+    <TracedTextEditor Text="Cv.Summary" Index="Context.Index" Problems="ProblemsOf(Cv.Summary)" Label="Resumen" Lines="3" ReadOnly="ReadOnly" Changed="Changed" />
+
+    <MudText Typo="Typo.h6">Experiencia</MudText>
+    <MudText Typo="Typo.body2">Empresa, puesto, fechas y ubicación salen siempre del CV maestro; solo cambian las viñetas.</MudText>
+    @foreach (var master in Context.Cv.Experiences)
+    {
+        var tailored = Cv.Experiences.FirstOrDefault(e => e.ExperienceId == master.Id);
+        <MudPaper Outlined="true" Class="pa-3" @key="master.Id">
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudText><strong>@master.Title</strong> — @master.Company</MudText>
+                <MudText Typo="Typo.caption">@Context.Index.RefOf(master.Id.ToString())</MudText>
+                <MudSpacer />
+                @if (!ReadOnly)
+                {
+                    @if (tailored is null)
+                    {
+                        <MudButton Size="Size.Small" OnClick="() => IncludeAsync(master)">Incluir</MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Size="Size.Small" Color="Color.Secondary" OnClick="() => ExcludeAsync(tailored)">Quitar del CV</MudButton>
+                    }
+                }
+            </MudStack>
+            @if (tailored is null)
+            {
+                <MudText Typo="Typo.body2">No incluida en esta variante.</MudText>
+            }
+            else
+            {
+                @foreach (var bullet in tailored.Bullets)
+                {
+                    <TracedTextEditor @key="bullet" Text="bullet" Index="Context.Index" Problems="ProblemsOf(bullet, master.Id)" ReadOnly="ReadOnly" Changed="Changed">
+                        <Actions>
+                            @if (!ReadOnly)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" aria-label="Subir" OnClick="() => MoveAsync(tailored.Bullets, bullet, -1)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" aria-label="Bajar" OnClick="() => MoveAsync(tailored.Bullets, bullet, 1)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" aria-label="Quitar viñeta" OnClick="() => RemoveAsync(tailored.Bullets, bullet)" />
+                            }
+                        </Actions>
+                    </TracedTextEditor>
+                }
+                var unused = master.Achievements.Where(a => !tailored.Bullets.Any(b => b.Sources.Contains(a.Id.ToString()))).ToList();
+                @if (unused.Count > 0)
+                {
+                    <MudExpansionPanels Elevation="0">
+                        <MudExpansionPanel Text="@($"Logros del CV maestro no usados ({unused.Count})")">
+                            @foreach (var achievement in unused)
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.body2" Class="flex-grow-1">@Context.Index.RefOf(achievement.Id.ToString()): @achievement.Text</MudText>
+                                    @if (!ReadOnly)
+                                    {
+                                        <MudButton Size="Size.Small" OnClick="() => AddAchievementAsync(tailored, achievement)">Agregar</MudButton>
+                                    }
+                                </MudStack>
+                            }
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                }
+            }
+        </MudPaper>
+    }
+
+    <MudText Typo="Typo.h6">Skills</MudText>
+    @if (ReadOnly)
+    {
+        <MudText>@string.Join(", ", Cv.Skills)</MudText>
+    }
+    else
+    {
+        <StringListEditor Values="Cv.Skills" Label="Skills (en orden de prioridad)" HelperText="Solo las que figuran en tu CV maestro." Changed="Changed" />
+    }
+    @if (Check.UnknownSkills.Count > 0)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true" data-testid="unknown-skills">
+            No figuran en tu CV maestro: @string.Join(", ", Check.UnknownSkills). Quitalas o agregalas primero al CV maestro.
+        </MudAlert>
+    }
+
+    <MudText Typo="Typo.h6">Secciones</MudText>
+    <MudStack Row="true">
+        <MudCheckBox T="bool" Value="Cv.IncludeCertifications" ValueChanged="v => SetAsync(() => Cv.IncludeCertifications = v)" Label="Certificaciones" Disabled="ReadOnly" />
+        <MudCheckBox T="bool" Value="Cv.IncludeLanguages" ValueChanged="v => SetAsync(() => Cv.IncludeLanguages = v)" Label="Idiomas" Disabled="ReadOnly" />
+        <MudCheckBox T="bool" Value="Cv.IncludeEducation" ValueChanged="v => SetAsync(() => Cv.IncludeEducation = v)" Label="Educación" Disabled="ReadOnly" />
+    </MudStack>
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired]
+    public required TailoredCv Cv { get; set; }
+
+    [Parameter, EditorRequired]
+    public required TailoringContext Context { get; set; }
+
+    [Parameter, EditorRequired]
+    public required ApprovalCheck Check { get; set; }
+
+    [Parameter]
+    public bool ReadOnly { get; set; }
+
+    [Parameter]
+    public EventCallback Changed { get; set; }
+
+    private IReadOnlyList<string> ProblemsOf(TraceableText text, Guid? experienceId = null) =>
+        Context.Validator.Check(text, experienceId);
+
+    private Task IncludeAsync(CvExperience master) => SetAsync(() =>
+    {
+        var bullets = master.Achievements.Select(a => new TraceableText { Text = a.Text, Sources = [a.Id.ToString()] }).ToList();
+        Cv.Experiences.Add(new TailoredExperience { ExperienceId = master.Id, Bullets = bullets });
+        var order = Context.Cv.Experiences.Select((e, i) => (e.Id, i)).ToDictionary(x => x.Id, x => x.i);
+        Cv.Experiences = Cv.Experiences.OrderBy(e => order.GetValueOrDefault(e.ExperienceId, int.MaxValue)).ToList();
+    });
+
+    private Task ExcludeAsync(TailoredExperience experience) => SetAsync(() => Cv.Experiences.Remove(experience));
+
+    private Task AddAchievementAsync(TailoredExperience experience, CvAchievement achievement) =>
+        SetAsync(() => experience.Bullets.Add(new TraceableText { Text = achievement.Text, Sources = [achievement.Id.ToString()] }));
+
+    private Task RemoveAsync(List<TraceableText> list, TraceableText item) => SetAsync(() => list.Remove(item));
+
+    private Task MoveAsync(List<TraceableText> list, TraceableText item, int offset) => SetAsync(() =>
+    {
+        var index = list.IndexOf(item);
+        var target = index + offset;
+        if (index >= 0 && target >= 0 && target < list.Count)
+        {
+            list.RemoveAt(index);
+            list.Insert(target, item);
+        }
+    });
+
+    private async Task SetAsync(Action change)
+    {
+        change();
+        await Changed.InvokeAsync();
+    }
+}

@@ -1,0 +1,30 @@
+@using JobPilot.Domain.Prompts
+@* Shows exactly what an LLM action sends to Gemini before the owner triggers it. *@
+
+<MudExpansionPanels Outlined="true" Elevation="0">
+    <MudExpansionPanel Text="Qué se envía a Gemini" Expanded="@Expanded">
+        <MudText Typo="Typo.body2">
+            Modelo: <strong>@Model</strong> · Prompt: <code>@Prompt.PromptId</code>
+        </MudText>
+        <MudText Typo="Typo.subtitle2" Class="mt-3">Instrucción de sistema</MudText>
+        <pre class="jp-payload" data-testid="payload-system">@Prompt.SystemInstruction</pre>
+        <MudText Typo="Typo.subtitle2">Mensaje</MudText>
+        <pre class="jp-payload" data-testid="payload-user">@Prompt.UserMessage</pre>
+        <MudText Typo="Typo.caption">
+            Esto es todo el contenido que se envía, junto con el formato de respuesta esperado. La API key viaja en un
+            encabezado HTTP y no se muestra. Si la respuesta no es válida, se reenvía una sola vez con la respuesta
+            anterior y el motivo del rechazo.
+        </MudText>
+    </MudExpansionPanel>
+</MudExpansionPanels>
+
+@code {
+    [Parameter, EditorRequired]
+    public required RenderedPrompt Prompt { get; set; }
+
+    [Parameter, EditorRequired]
+    public required string Model { get; set; }
+
+    [Parameter]
+    public bool Expanded { get; set; }
+}

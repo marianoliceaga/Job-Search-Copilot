@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss">
+  <channel>
+    <title>We Work Remotely: Back-End Programming Jobs (fictional fixture)</title>
+    <item>
+      <title>Litware: Senior .NET Backend Engineer</title>
+      <region>Anywhere in the World</region>
+      <country>🇦🇷 Argentina, 🇧🇦 Bosnia and Herzegovina, and 🇨🇱 Chile</country>
+      <skills>C#, .NET, and PostgreSQL</skills>
+      <category>Back-End Programming</category>
+      <type>Full-Time</type>
+      <description>&lt;p&gt;&lt;strong&gt;Headquarters:&lt;/strong&gt; Example City&lt;/p&gt;&lt;p&gt;We use .NET 10 and PostgreSQL.&lt;/p&gt;</description>
+      <pubDate>Thu, 17 Sep 2026 10:51:23 +0000</pubDate>
+      <guid>https://weworkremotely.com/remote-jobs/litware-senior-net-backend-engineer</guid>
+      <link>https://weworkremotely.com/remote-jobs/litware-senior-net-backend-engineer</link>
+    </item>
+    <item>
+      <title>Tailspin Toys: Go Developer</title>
+      <region>USA Only</region>
+      <skills>Go</skills>
+      <type>Contract</type>
+      <description>&lt;p&gt;Go services.&lt;/p&gt;</description>
+      <pubDate>Mon, 14 Sep 2026 09:00:00 +0000</pubDate>
+      <guid>https://weworkremotely.com/remote-jobs/tailspin-toys-go-developer</guid>
+      <link>https://weworkremotely.com/remote-jobs/tailspin-toys-go-developer</link>
+    </item>
+  </channel>
+</rss>

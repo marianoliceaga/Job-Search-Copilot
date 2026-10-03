@@ -1,0 +1,32 @@
+{
+  "0-legal-notice": "Fictional fixture for JobPilot tests. Please link back to the URL found on Remotive AND mention Remotive as a source.",
+  "job-count": 2,
+  "jobs": [
+    {
+      "id": 900001,
+      "url": "https://remotive.com/remote-jobs/software-development/senior-net-engineer-900001",
+      "title": "Senior .NET Engineer",
+      "company_name": "Northwind Payments",
+      "company_logo": "https://remotive.com/job/900001/logo",
+      "category": "Software Development",
+      "tags": [".Net", "C#", "Azure"],
+      "job_type": "full_time",
+      "publication_date": "2026-09-28T10:00:00",
+      "candidate_required_location": "Latin America",
+      "salary": "$90k - $120k",
+      "description": "<p><strong>About us</strong></p><p>We build payment APIs with ASP.NET Core.</p><ul><li>5+ years of C#</li><li>Azure experience</li></ul><script>alert('x')</script>"
+    },
+    {
+      "id": 900002,
+      "url": "https://remotive.com/remote-jobs/software-development/react-developer-900002",
+      "title": "React Developer",
+      "company_name": "Tailspin Toys",
+      "tags": ["react", "typescript"],
+      "job_type": "contract",
+      "publication_date": "2026-09-20T08:00:00",
+      "candidate_required_location": "USA",
+      "salary": "",
+      "description": "<p>Frontend role.</p>"
+    }
+  ]
+}

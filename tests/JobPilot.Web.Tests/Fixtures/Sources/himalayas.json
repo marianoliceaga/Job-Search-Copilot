@@ -1,0 +1,40 @@
+{
+  "comments": "Fictional fixture for JobPilot tests.",
+  "offset": 0,
+  "limit": 20,
+  "totalCount": 2,
+  "jobs": [
+    {
+      "title": "Blazor Developer",
+      "excerpt": "Build internal tools with Blazor.",
+      "companyName": "Fabrikam Health",
+      "companySlug": "fabrikam-health",
+      "employmentType": "Contractor",
+      "minSalary": 6000,
+      "maxSalary": 8000,
+      "salaryPeriod": "monthly",
+      "currency": "USD",
+      "locationRestrictions": ["Argentina", "Brazil", "Mexico"],
+      "categories": ["Software-Engineer"],
+      "description": "<p>Blazor Server and EF Core.</p>",
+      "pubDate": 1790075996,
+      "applicationLink": "https://himalayas.app/companies/fabrikam-health/jobs/blazor-developer",
+      "guid": "https://himalayas.app/companies/fabrikam-health/jobs/blazor-developer"
+    },
+    {
+      "title": "Data Analyst",
+      "companyName": "Woodgrove Bank",
+      "employmentType": "Full Time",
+      "minSalary": null,
+      "maxSalary": null,
+      "salaryPeriod": "annual",
+      "currency": "USD",
+      "locationRestrictions": [],
+      "categories": ["Data"],
+      "description": "<p>SQL and dashboards.</p>",
+      "pubDate": 1789000000,
+      "applicationLink": "https://himalayas.app/companies/woodgrove-bank/jobs/data-analyst",
+      "guid": "https://himalayas.app/companies/woodgrove-bank/jobs/data-analyst"
+    }
+  ]
+}

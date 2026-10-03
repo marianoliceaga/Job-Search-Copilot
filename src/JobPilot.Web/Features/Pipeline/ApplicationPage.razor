@@ -1,0 +1,503 @@
+@page "/pipeline/{Id:guid}"
+@using System.Text.Json
+@using JobPilot.Domain.Pipeline
+@using JobPilot.Domain.Tailoring
+@using JobPilot.Web.Features.Tailoring
+@using JobPilot.Web.Features.Tailoring.Export
+@using JobPilot.Web.Infrastructure.Persistence
+@inject ApplicationStore Store
+@inject TailoredDocumentStore Documents
+@inject JobPilot.Web.Features.Profile.MasterCvStore Cvs
+@inject DocumentExporter Exporter
+@inject CalendarExport Calendar
+@inject TimeProvider Time
+@inject IDialogService Dialogs
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject JobPilot.Web.Infrastructure.Google.GoogleAuthService GoogleAuth
+@inject ApplicationGoogleService Google
+
+<PageTitle>@(_detail?.Posting.Title ?? "Postulación") · JobPilot</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_detail is null)
+{
+    <MudText Typo="Typo.h4" HtmlTag="h1">Postulación no encontrada</MudText>
+    <MudLink Href="/pipeline">Volver al pipeline</MudLink>
+}
+else
+{
+    var application = _detail.Application;
+    var posting = _detail.Posting;
+    <MudStack Spacing="3">
+        <MudLink Href="/pipeline" Typo="Typo.body2">← Pipeline</MudLink>
+        <MudText Typo="Typo.h4" HtmlTag="h1">@posting.Title</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudText Typo="Typo.h6">@posting.Company</MudText>
+            <MudChip T="string" Color="@PipelineFormat.Color(application.Stage)" data-testid="stage">@PipelineFormat.Label(application.Stage)</MudChip>
+            <MudLink Href="@($"/ofertas/{posting.Id}")">Ver la oferta y sus documentos</MudLink>
+            @if (posting.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                <MudLink Href="@posting.Url" Target="_blank" rel="noopener noreferrer">Original en @posting.SourceName</MudLink>
+            }
+        </MudStack>
+
+        @if (_message is not null)
+        {
+            <MudAlert Severity="@_messageSeverity" ShowCloseIcon="true" CloseIconClicked="() => _message = null">@_message</MudAlert>
+        }
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudPaper Outlined="true" Class="pa-3">
+                    <MudText Typo="Typo.subtitle1"><strong>Etapa</strong></MudText>
+                    <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.End">
+                        <MudSelect T="ApplicationStage" @bind-Value="_stage" Label="Mover a" Style="min-width: 180px">
+                            @foreach (var stage in Enum.GetValues<ApplicationStage>())
+                            {
+                                <MudSelectItem T="ApplicationStage" Value="stage">@PipelineFormat.Label(stage)</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudTextField @bind-Value="_stageComment" Label="Comentario (opcional)" Immediate="true" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="MoveAsync" Disabled="@(_stage == application.Stage)">Cambiar etapa</MudButton>
+                    </MudStack>
+                    <MudStack Row="true" Class="mt-3" Wrap="Wrap.Wrap" AlignItems="AlignItems.End">
+                        <MudTextField @bind-Value="_responseText" Label="Respuesta de la empresa (opcional)" Immediate="true" />
+                        <MudButton Variant="Variant.Outlined" OnClick="RecordResponseAsync">Registrar respuesta</MudButton>
+                        <MudButton Variant="Variant.Outlined" OnClick="RecordFollowUpSentAsync">Registrar follow-up enviado</MudButton>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudPaper Outlined="true" Class="pa-3" data-testid="reminder">
+                    <MudText Typo="Typo.subtitle1"><strong>Recordatorio</strong></MudText>
+                    @if (_detail.Reminder is { } reminder)
+                    {
+                        <MudAlert Severity="@(reminder.IsDue(_now) ? Severity.Warning : Severity.Normal)" Dense="true">
+                            @PipelineFormat.ReminderText(reminder, _now). @reminder.Reason
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2">Sin recordatorio en esta etapa.</MudText>
+                    }
+                    <MudStack Row="true" Class="mt-2" Wrap="Wrap.Wrap" AlignItems="AlignItems.End">
+                        <MudDatePicker @bind-Date="_reminderDate" Label="Recordarme el" Editable="true" Style="max-width: 200px" />
+                        <MudButton Variant="Variant.Outlined" OnClick="SetReminderAsync" Disabled="@(_reminderDate is null)">Guardar fecha</MudButton>
+                        @if (application.ReminderAtUtc is not null)
+                        {
+                            <MudButton Variant="Variant.Text" OnClick="ClearReminderAsync">Volver a la regla</MudButton>
+                        }
+                        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Event" OnClick="ExportCalendarAsync">.ics</MudButton>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4">
+            <MudTabPanel Text="Línea de tiempo">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.End">
+                        <MudTextField @bind-Value="_note" Label="Nueva nota" Lines="2" Immediate="true" Style="flex: 1" />
+                        <MudButton Variant="Variant.Outlined" OnClick="AddNoteAsync" Disabled="@string.IsNullOrWhiteSpace(_note)">Agregar nota</MudButton>
+                    </MudStack>
+                    <MudList T="string" Dense="true" data-testid="timeline">
+                        @foreach (var item in application.Timeline().Reverse())
+                        {
+                            <MudListItem T="string" Icon="@PipelineFormat.Icon(item.Kind)">
+                                <MudStack Row="true" AlignItems="AlignItems.Start">
+                                    <MudStack Spacing="0" Style="flex: 1">
+                                        <MudText Typo="Typo.body2"><strong>@PipelineFormat.Describe(item)</strong> · @PipelineFormat.LocalDateTime(item.OccurredAtUtc)</MudText>
+                                        @if (item.Text is not null)
+                                        {
+                                            <MudText Typo="Typo.body2" Style="white-space: pre-wrap">@item.Text</MudText>
+                                        }
+                                        @if (item.Kind == ApplicationEventKind.DocumentSent)
+                                        {
+                                            <MudStack Row="true">
+                                                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => DownloadSentAsync(item, ExportFormat.Pdf)">PDF de lo enviado</MudButton>
+                                                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => DownloadSentAsync(item, ExportFormat.Docx)">DOCX de lo enviado</MudButton>
+                                            </MudStack>
+                                        }
+                                    </MudStack>
+                                    @if (item.IsDeletable)
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" aria-label="Borrar" OnClick="() => DeleteEventAsync(item)" />
+                                    }
+                                </MudStack>
+                            </MudListItem>
+                        }
+                    </MudList>
+                </MudStack>
+            </MudTabPanel>
+
+            <MudTabPanel Text="@($"Contactos ({application.Contacts.Count})")">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.body2">Recruiters o personas del equipo. Los datos quedan solo en tu base local.</MudText>
+                    @foreach (var contact in application.Contacts)
+                    {
+                        <MudPaper Outlined="true" Class="pa-2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                <MudStack Spacing="0" Style="flex: 1">
+                                    <MudText><strong>@contact.Name</strong>@(string.IsNullOrWhiteSpace(contact.Role) ? string.Empty : $" · {contact.Role}")</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(contact.Email))
+                                    {
+                                        <MudText Typo="Typo.body2">@contact.Email</MudText>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(contact.ProfileUrl))
+                                    {
+                                        <MudLink Href="@contact.ProfileUrl" Target="_blank" rel="noopener noreferrer" Typo="Typo.body2">Perfil</MudLink>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(contact.Notes))
+                                    {
+                                        <MudText Typo="Typo.body2" Style="white-space: pre-wrap">@contact.Notes</MudText>
+                                    }
+                                </MudStack>
+                                <MudButton Size="Size.Small" OnClick="() => EditContact(contact)">Editar</MudButton>
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" aria-label="Borrar contacto" OnClick="() => DeleteContactAsync(contact)" />
+                            </MudStack>
+                        </MudPaper>
+                    }
+                    <MudText Typo="Typo.subtitle2" Class="mt-2">@(_contact.Id == 0 ? "Agregar contacto" : "Editar contacto")</MudText>
+                    <MudStack Row="true" Wrap="Wrap.Wrap">
+                        <MudTextField @bind-Value="_contact.Name" Label="Nombre" Immediate="true" Required="true" />
+                        <MudTextField @bind-Value="_contact.Role" Label="Rol" Immediate="true" />
+                        <MudTextField @bind-Value="_contact.Email" Label="E-mail" Immediate="true" />
+                        <MudTextField @bind-Value="_contact.ProfileUrl" Label="URL de perfil" Immediate="true" />
+                    </MudStack>
+                    <MudTextField @bind-Value="_contact.Notes" Label="Notas" Lines="2" Immediate="true" />
+                    <MudStack Row="true">
+                        <MudButton Variant="Variant.Outlined" OnClick="SaveContactAsync" Disabled="@string.IsNullOrWhiteSpace(_contact.Name)">Guardar contacto</MudButton>
+                        @if (_contact.Id != 0)
+                        {
+                            <MudButton Variant="Variant.Text" OnClick="() => _contact = NewContact()">Cancelar</MudButton>
+                        }
+                    </MudStack>
+                </MudStack>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Documentos enviados">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.body2">
+                        Registrá qué CV y carta aprobados enviaste. Se guarda una copia de lo enviado: si después editás el documento, la línea de
+                        tiempo sigue mostrando la versión que mandaste.
+                    </MudText>
+                    @if (_approved.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true">
+                            No hay documentos aprobados para esta oferta. Generalos y aprobalos en <MudLink Href="@($"/ofertas/{posting.Id}")">la oferta</MudLink>.
+                        </MudAlert>
+                    }
+                    @foreach (var document in _approved)
+                    {
+                        var sentCount = application.Events.Count(e => e.Kind == ApplicationEventKind.DocumentSent && e.DocumentId == document.Id);
+                        <MudStack Row="true" AlignItems="AlignItems.Center">
+                            <MudText>@(document.Kind == TailoredKind.Cv ? "CV a medida" : "Carta de presentación") · aprobado el @PipelineFormat.Date(document.ApprovedAtUtc) · CV maestro v@(document.MasterCvVersion)</MudText>
+                            @if (sentCount > 0)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Success">Enviado</MudChip>
+                            }
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => RecordSentAsync(document.Id)">Registrar como enviado</MudButton>
+                        </MudStack>
+                    }
+                    @foreach (var sent in application.Timeline().Where(e => e.Kind == ApplicationEventKind.DocumentSent))
+                    {
+                        <MudPaper Outlined="true" Class="pa-2">
+                            <MudText Typo="Typo.body2"><strong>@sent.Text</strong> · enviado el @PipelineFormat.LocalDateTime(sent.OccurredAtUtc)</MudText>
+                            @if (ChangedSinceSent(sent))
+                            {
+                                <MudText Typo="Typo.caption">El documento cambió después del envío; las descargas muestran lo que enviaste.</MudText>
+                            }
+                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => DownloadSentAsync(sent, ExportFormat.Pdf)">PDF</MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => DownloadSentAsync(sent, ExportFormat.Docx)">DOCX</MudButton>
+                        </MudPaper>
+                    }
+                </MudStack>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Entrevistas">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.End">
+                        <MudDatePicker @bind-Date="_interviewDate" Label="Fecha" Editable="true" Style="max-width: 180px" />
+                        <MudTimePicker @bind-Time="_interviewTime" Label="Hora (local)" Editable="true" Style="max-width: 140px" />
+                        <MudNumericField T="int" @bind-Value="_interviewMinutes" Label="Duración (min)" Min="5" Max="600" Immediate="true" Style="max-width: 140px" />
+                        <MudTextField @bind-Value="_interviewDetails" Label="Detalles (con quién, link, tipo)" Immediate="true" Style="min-width: 280px" />
+                        <MudButton Variant="Variant.Outlined" OnClick="ScheduleAsync" Disabled="@(_interviewDate is null || _interviewTime is null)">Agendar</MudButton>
+                    </MudStack>
+                    <MudText Typo="Typo.caption">
+                        Se agrega a la línea de tiempo y al calendario exportado (.ics). Con Google conectado podés agregarla al calendario "JobPilot"; si no, no se crea nada en tu calendario.
+                    </MudText>
+                    @foreach (var interview in application.Timeline().Where(e => e.Kind == ApplicationEventKind.InterviewScheduled).OrderBy(e => e.ScheduledAtUtc))
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center">
+                            <MudChip T="string" Color="@(interview.ScheduledAtUtc >= _now ? Color.Primary : Color.Default)">@PipelineFormat.LocalDateTime(interview.ScheduledAtUtc) · @interview.DurationMinutes min</MudChip>
+                            <MudText Typo="Typo.body2">@interview.Text</MudText>
+                            @if (interview.ExternalId is not null)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.Event">En Google Calendar (JobPilot)</MudChip>
+                                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => RemoveFromCalendarAsync(interview)">Quitar de Google Calendar</MudButton>
+                            }
+                            else if (_googleCalendar)
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Event" OnClick="() => AddToCalendarAsync(interview)">Agregar a Google Calendar</MudButton>
+                            }
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" aria-label="Borrar entrevista" OnClick="() => DeleteEventAsync(interview)" />
+                        </MudStack>
+                    }
+                </MudStack>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Correo">
+                <ApplicationMailPanel Detail="_detail" Changed="LoadAsync" />
+            </MudTabPanel>
+
+            <MudTabPanel Text="Follow-up">
+                <FollowUpPanel Detail="_detail" Changed="LoadAsync" />
+            </MudTabPanel>
+        </MudTabs>
+
+        <div>
+            <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" OnClick="DeleteAsync">Quitar del pipeline</MudButton>
+        </div>
+    </MudStack>
+}
+
+@code {
+    private ApplicationDetail? _detail;
+    private IReadOnlyList<TailoredDocumentSummary> _approved = [];
+    private Dictionary<long, string> _currentJson = [];
+    private bool _loading = true;
+    private DateTime _now;
+    private string? _message;
+    private Severity _messageSeverity = Severity.Info;
+    private ApplicationStage _stage;
+    private string? _stageComment;
+    private string? _responseText;
+    private string? _note;
+    private DateTime? _reminderDate;
+    private ApplicationContact _contact = NewContact();
+    private bool _googleCalendar;
+    private DateTime? _interviewDate;
+    private TimeSpan? _interviewTime = new(10, 0, 0);
+    private int _interviewMinutes = 60;
+    private string? _interviewDetails;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        await LoadAsync();
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        _now = Time.GetUtcNow().UtcDateTime;
+        _detail = await Store.GetAsync(Id, CancellationToken.None);
+        if (_detail is null)
+        {
+            return;
+        }
+
+        _stage = _detail.Application.Stage;
+        var google = GoogleAuth.Status();
+        _googleCalendar = google.Connected && google.CanUseCalendar;
+        _approved = (await Documents.ListAsync(_detail.Posting.Id, CancellationToken.None)).Where(d => d.Status == TailoredStatus.Approved).ToList();
+        _currentJson = [];
+        foreach (var id in _detail.Application.Events.Where(e => e.DocumentId is not null).Select(e => e.DocumentId!.Value).Distinct())
+        {
+            if (await Documents.GetAsync(id, CancellationToken.None) is { } stored)
+            {
+                _currentJson[id] = stored.Record.Json;
+            }
+        }
+    }
+
+    private static ApplicationContact NewContact() => new() { Name = string.Empty };
+
+    private void Show(string message, Severity severity = Severity.Info) => (_message, _messageSeverity) = (message, severity);
+
+    private async Task MoveAsync()
+    {
+        await Store.MoveAsync(Id, _stage, _stageComment, CancellationToken.None);
+        Show($"Pasó a {PipelineFormat.Label(_stage)}.", Severity.Success);
+        _stageComment = null;
+        await LoadAsync();
+    }
+
+    private async Task RecordResponseAsync()
+    {
+        await Store.RecordResponseAsync(Id, _responseText, CancellationToken.None);
+        _responseText = null;
+        Show("Respuesta registrada.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task RecordFollowUpSentAsync()
+    {
+        await Store.RecordFollowUpSentAsync(Id, null, CancellationToken.None);
+        Show("Follow-up registrado: el recordatorio vuelve a contar desde hoy.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task SetReminderAsync()
+    {
+        // Reminder at the start of the chosen local day.
+        var local = DateTime.SpecifyKind(_reminderDate!.Value.Date, DateTimeKind.Unspecified);
+        await Store.SetReminderAsync(Id, TimeZoneInfo.ConvertTimeToUtc(local, Time.LocalTimeZone), CancellationToken.None);
+        _reminderDate = null;
+        await LoadAsync();
+    }
+
+    private async Task ClearReminderAsync()
+    {
+        await Store.SetReminderAsync(Id, null, CancellationToken.None);
+        await LoadAsync();
+    }
+
+    private async Task AddNoteAsync()
+    {
+        await Store.AddNoteAsync(Id, _note!, CancellationToken.None);
+        _note = null;
+        await LoadAsync();
+    }
+
+    private async Task DeleteEventAsync(ApplicationEvent item)
+    {
+        var question = item.ExternalId is null ? "¿Borrar esta entrada de la línea de tiempo?" : "¿Borrar esta entrevista? También se quita del calendario JobPilot de Google.";
+        var confirmed = await Dialogs.ShowMessageBoxAsync("Borrar", question, yesText: "Borrar", cancelText: "Cancelar");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        if (await Google.RemoveFromCalendarAsync(Id, item, CancellationToken.None) is { } error)
+        {
+            Show(error + " La entrevista no se borró.", Severity.Error);
+            return;
+        }
+
+        await Store.DeleteEventAsync(Id, item.Id, CancellationToken.None);
+        await LoadAsync();
+    }
+
+    private async Task AddToCalendarAsync(ApplicationEvent interview)
+    {
+        if (await JobPilot.Web.Features.Google.GoogleUi.ConfirmEventAsync(Dialogs, ApplicationGoogleService.EventFor(_detail!.Posting, interview)) != true)
+        {
+            return;
+        }
+
+        var error = await Google.AddToCalendarAsync(_detail, interview.Id, CancellationToken.None);
+        Show(error ?? "Entrevista agregada al calendario JobPilot de Google.", error is null ? Severity.Success : Severity.Error);
+        await LoadAsync();
+    }
+
+    private async Task RemoveFromCalendarAsync(ApplicationEvent interview)
+    {
+        var error = await Google.RemoveFromCalendarAsync(Id, interview, CancellationToken.None);
+        Show(error ?? "Se quitó la entrevista de Google Calendar.", error is null ? Severity.Success : Severity.Error);
+        await LoadAsync();
+    }
+
+    private void EditContact(ApplicationContact contact) =>
+        _contact = new ApplicationContact { Id = contact.Id, Name = contact.Name, Role = contact.Role, Email = contact.Email, ProfileUrl = contact.ProfileUrl, Notes = contact.Notes };
+
+    private async Task SaveContactAsync()
+    {
+        if (_contact.Id == 0)
+        {
+            await Store.AddContactAsync(Id, _contact, CancellationToken.None);
+        }
+        else
+        {
+            await Store.UpdateContactAsync(Id, _contact, CancellationToken.None);
+        }
+
+        _contact = NewContact();
+        await LoadAsync();
+    }
+
+    private async Task DeleteContactAsync(ApplicationContact contact)
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync("Borrar contacto", $"¿Borrar a {contact.Name}?", yesText: "Borrar", cancelText: "Cancelar");
+        if (confirmed == true)
+        {
+            await Store.DeleteContactAsync(Id, contact.Id, CancellationToken.None);
+            await LoadAsync();
+        }
+    }
+
+    private async Task RecordSentAsync(long documentId)
+    {
+        var error = await Store.RecordDocumentSentAsync(Id, documentId, CancellationToken.None);
+        if (error is not null)
+        {
+            Show(error, Severity.Error);
+            return;
+        }
+
+        Show("Documento registrado como enviado.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private bool ChangedSinceSent(ApplicationEvent sent) =>
+        sent.DocumentId is { } id && ApplicationStore.ReadSnapshot(sent) is { } snapshot
+        && (!_currentJson.TryGetValue(id, out var current) || current != snapshot.Json);
+
+    private async Task DownloadSentAsync(ApplicationEvent sent, ExportFormat format)
+    {
+        var snapshot = ApplicationStore.ReadSnapshot(sent);
+        var master = snapshot is null ? null : await Cvs.GetVersionAsync(snapshot.MasterCvVersion, CancellationToken.None);
+        if (snapshot is null || master is null)
+        {
+            Show("No se encontró la versión del CV maestro de ese documento.", Severity.Error);
+            return;
+        }
+
+        var file = snapshot.Kind == TailoredKind.Cv
+            ? Exporter.ExportCv(master, JsonSerializer.Deserialize<TailoredCv>(snapshot.Json, DomainJson.Options)!, _detail!.Posting, format)
+            : Exporter.ExportLetter(master, JsonSerializer.Deserialize<CoverLetter>(snapshot.Json, DomainJson.Options)!, _detail!.Posting, format);
+        await DownloadAsync(file.FileName, file.ContentType, file.Content);
+    }
+
+    private async Task ScheduleAsync()
+    {
+        var local = DateTime.SpecifyKind(_interviewDate!.Value.Date + _interviewTime!.Value, DateTimeKind.Unspecified);
+        await Store.ScheduleInterviewAsync(Id, TimeZoneInfo.ConvertTimeToUtc(local, Time.LocalTimeZone), _interviewMinutes, _interviewDetails, CancellationToken.None);
+        (_interviewDate, _interviewDetails) = (null, null);
+        Show("Entrevista agendada.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task ExportCalendarAsync()
+    {
+        var (fileName, content, count) = await Calendar.ExportAsync(Id, CancellationToken.None);
+        await DownloadAsync(fileName, CalendarExport.ContentType, content);
+        Show(count == 0 ? "No hay entrevistas próximas ni recordatorios: el calendario está vacío." : $"Calendario exportado con {count} evento(s).");
+    }
+
+    private async Task DownloadAsync(string fileName, string contentType, byte[] content)
+    {
+        using var stream = new MemoryStream(content);
+        using var reference = new DotNetStreamReference(stream);
+        await JS.InvokeVoidAsync("jobPilot.downloadFile", fileName, contentType, reference);
+    }
+
+    private async Task DeleteAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync("Quitar del pipeline",
+            "Se borran la línea de tiempo, los contactos y los registros de esta postulación. La oferta y sus documentos se mantienen.",
+            yesText: "Quitar", cancelText: "Cancelar");
+        if (confirmed == true)
+        {
+            await Store.DeleteAsync(Id, CancellationToken.None);
+            Navigation.NavigateTo("/pipeline");
+        }
+    }
+}

@@ -1,0 +1,159 @@
+@using JobPilot.Web.Infrastructure.Llm
+@using Microsoft.Extensions.Options
+@implements IDisposable
+@inject LinkedInReviewHandler Handler
+@inject LlmSettingsStore Settings
+@inject IOptions<OutreachOptions> Options
+@inject IJSRuntime JS
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.body2">
+        Pegá tu titular y tu "Acerca de" actuales (JobPilot no entra a LinkedIn). Gemini los compara con tu CV maestro y propone versiones donde
+        cada afirmación cita tu CV; lo que no se pueda rastrear queda marcado.
+    </MudText>
+    <MudTextField @bind-Value="_headline" Label="Titular actual" Immediate="true" Counter="@Options.Value.HeadlineMaxLength" />
+    <MudTextField @bind-Value="_about" Label="Acerca de (actual)" Lines="6" Immediate="true" />
+    <MudTextField @bind-Value="_focus" Label="Roles objetivo y enfoque (opcional)" Immediate="true" />
+    <div><MudButton Variant="Variant.Outlined" OnClick="PrepareAsync" Disabled="_running">Preparar revisión</MudButton></div>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+
+    @if (_prepared is not null)
+    {
+        <LlmPayloadPreview Prompt="_prepared.Prompt" Model="@_model" />
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RunAsync" Disabled="_running">Revisar con Gemini</MudButton>
+            @if (_running)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+            }
+        </MudStack>
+    }
+
+    @if (_review is { } review)
+    {
+        <MudPaper Outlined="true" Class="pa-3" data-testid="linkedin-review">
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.caption">Revisión del @LlmFormat.LocalTime(review.CreatedAtUtc) con el CV maestro v@(review.MasterCvVersion)</MudText>
+                <MudText>@review.Assessment</MudText>
+                <ul>@foreach (var item in review.Improvements) { <li>@item</li> }</ul>
+
+                <MudText Typo="Typo.subtitle1"><strong>Titulares propuestos</strong></MudText>
+                @foreach (var headline in review.Headlines)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                        <MudText Style="flex: 1">@headline.Text</MudText>
+                        <MudText Typo="Typo.caption">@headline.Text.Length/@Options.Value.HeadlineMaxLength · fuentes: @headline.Sources</MudText>
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => CopyAsync(headline.Text)">Copiar</MudButton>
+                    </MudStack>
+                    @foreach (var problem in headline.Problems)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true">@problem</MudAlert>
+                    }
+                }
+
+                <MudText Typo="Typo.subtitle1"><strong>"Acerca de" propuesto</strong></MudText>
+                @foreach (var paragraph in review.About)
+                {
+                    <MudText Style="white-space: pre-wrap">@paragraph.Text</MudText>
+                    <MudText Typo="Typo.caption">Fuentes: @paragraph.Sources</MudText>
+                    @foreach (var problem in paragraph.Problems)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true">@problem</MudAlert>
+                    }
+                }
+                @{ var about = string.Join("\n\n", review.About.Select(a => a.Text)); }
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption">@about.Length/@Options.Value.AboutMaxLength caracteres</MudText>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="() => CopyAsync(about)">Copiar "Acerca de"</MudButton>
+                </MudStack>
+                @if (_copied is not null)
+                {
+                    <MudText Typo="Typo.caption">@_copied</MudText>
+                }
+            </MudStack>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    private string? _headline;
+    private string? _about;
+    private string? _focus;
+    private PreparedLinkedInReview? _prepared;
+    private string _model = string.Empty;
+    private bool _running;
+    private string? _error;
+    private LinkedInReview? _review;
+    private string? _copied;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _review = await Handler.LastAsync(CancellationToken.None);
+        if (_review is not null)
+        {
+            (_headline, _about, _focus) = (_review.Input.Headline, _review.Input.About, _review.Input.Focus);
+        }
+    }
+
+    private async Task PrepareAsync()
+    {
+        _error = null;
+        (_prepared, _error) = await Handler.PrepareAsync(new LinkedInReviewInput(_headline, _about, _focus), CancellationToken.None);
+        if (_prepared is not null)
+        {
+            _model = (await Settings.ResolveAsync(LlmUseCases.LinkedInReview, CancellationToken.None)).Model;
+        }
+    }
+
+    private async Task RunAsync()
+    {
+        _running = true;
+        _error = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            var (review, error) = await Handler.RunAsync(_prepared!, _cts.Token);
+            if (review is not null)
+            {
+                (_review, _prepared, _copied) = (review, null, null);
+            }
+            else
+            {
+                _error = error!.Message + (error.Detail is null ? string.Empty : $" ({error.Detail})");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _error = "Revisión cancelada.";
+        }
+        finally
+        {
+            _running = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private async Task CopyAsync(string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("jobPilot.copyText", text);
+            _copied = "Copiado al portapapeles.";
+        }
+        catch (JSException)
+        {
+            _copied = "El navegador no permitió copiar: seleccioná el texto y copialo a mano.";
+        }
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

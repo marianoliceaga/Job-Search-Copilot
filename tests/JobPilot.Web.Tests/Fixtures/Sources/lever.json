@@ -1,0 +1,17 @@
+[
+  {
+    "additionalPlain": "We are a fictional company used in tests.",
+    "categories": { "commitment": "Contractor", "location": "Latin America", "team": "Engineering", "allLocations": ["Latin America"] },
+    "createdAt": 1790000000000,
+    "descriptionPlain": "Senior engineer for a .NET / Angular SaaS.",
+    "id": "11111111-2222-3333-4444-555555555555",
+    "lists": [
+      { "text": "Requirements", "content": "<li>7+ years of C#</li><li>Angular 16+</li>" }
+    ],
+    "text": "Senior Full Stack Engineer .NET / Angular",
+    "workplaceType": "remote",
+    "hostedUrl": "https://jobs.lever.co/AdventureWorks/11111111-2222-3333-4444-555555555555",
+    "applyUrl": "https://jobs.lever.co/AdventureWorks/11111111-2222-3333-4444-555555555555/apply",
+    "salaryRange": { "min": 5000, "max": 7000, "currency": "USD", "interval": "per-month-salary" }
+  }
+]

@@ -12,7 +12,7 @@ Changes to the plan must be agreed with the owner and recorded in the decision l
 | LLM | Gemini API, **paid tier** (free tier allows Google to use prompts to improve its products). Model per use case in configuration: `gemini-3.8-flash` for reasoning-heavy use cases, `gemini-3.5-flash-lite` for cheap extraction. No preview models by default. |
 | Google integration (Gmail/Calendar) | Decided when phase 8 starts. |
 | Job sources | Remotive, Remote OK, Himalayas, Jobicy (APIs); We Work Remotely RSS only after the owner confirms its terms; Greenhouse, Lever and Ashby public job boards per followed company; HN "Who is hiring?" optional. No LinkedIn, Indeed, Glassdoor or Wellfound. |
-| DOCX / PDF | DocumentFormat.OpenXml (MIT) / QuestPDF (Community license). CV reading: PdfPig (Apache-2.0), OpenXml, Markdig (BSD-2). |
+| DOCX / PDF | DocumentFormat.OpenXml (MIT) / QuestPDF (Community license). CV reading: PdfPig (Apache-2.0) and OpenXml; Markdown is read as-is (Markdig turned out unnecessary). |
 | Repository | Treated as public: MIT license, fictional sample data, CI check against personal data. |
 | CV import | PDF, DOCX and Markdown; text extracted locally, then structured by the LLM. |
 | Name | JobPilot (`JobPilot.slnx`). |
@@ -45,7 +45,7 @@ cohesive without Clean Architecture ceremony, and the logic that matters most (r
 "never invent") lives in a pure, easily tested domain. No MediatR (commercial license since 2025):
 plain handler classes.
 
-Gemini client: `ILlmClient` (`GenerateStructuredAsync<T>`, `ChatAsync`) implemented with a typed
+Gemini client: `ILlmClient` (`GenerateAsync<T>`; `ChatAsync` arrives with its first consumer in phase 7) implemented with a typed
 `HttpClient` + `Microsoft.Extensions.Http.Resilience` (retry with jitter on 429/5xx honouring
 `Retry-After`, timeout, circuit breaker). JSON schema generated from C# records with
 `JsonSchemaExporter`, adapted to the subset Gemini accepts. Two-step validation (strict
@@ -71,7 +71,7 @@ Every phase closes with: `dotnet build` with 0 warnings, tests green, commit + p
 - CI green.
 
 ### Phase 1 — Domain, persistence, Gemini
-EF Core + SQLite + migrations; base entities (`Profile`, `AppSettings`, `LlmCallLog`). Gemini client
+EF Core + SQLite + migrations; base entities (`Profile`, `LlmUseCaseSetting` for UI overrides, `LlmCallRecord`). Gemini client
 with structured output, versioned prompt loader, cost calculation. Settings page: model per use case,
 API key status (never displayed), "Probar conexión", LLM call log. Confirm the current REST syntax for
 structured output.
@@ -99,6 +99,7 @@ otherwise "no informada". Configurable ranking weights.
 - Parser tests per source with recorded fixtures; dedup and ranking tests.
 - Test: compensation without a quote becomes "no informada".
 - A real search lists offers with their original link; analysing one shows every field.
+- Note: HN "Who is hiring?" (optional) was not implemented; it can be added later as another source.
 
 ### Phase 4 — Tailored CV and cover letter (5.4)
 Each generated bullet carries the IDs of the master CV elements it comes from. A deterministic validator
@@ -109,6 +110,7 @@ font.
 
 - Test: an invented metric is rejected by the validator.
 - DOCX test: no tables or images in the XML. PDF test: PdfPig extracts the text in reading order.
+- Notes: exports use US Letter; the font bundled with QuestPDF (Lato, OFL) is embedded; export is enabled after approval.
 
 ### Phase 5 — Pipeline, reminders and dashboard (5.8, 5.10)
 Drag-and-drop Kanban; per application: timeline, notes, contacts, which CV and cover letter versions were
@@ -117,14 +119,19 @@ Ical.Net (MIT). Dashboard with metrics including LLM usage and cost.
 
 - Every status change appears in the timeline.
 - Tests for follow-up rules and metric calculations; the `.ics` round-trips without errors.
+- Notes: follow-up drafts are a new LLM use case (`follow-up-email`); sent documents keep a snapshot of what was sent;
+  defaults 7/3 days and 2 follow-ups per stage, editable in the UI.
 
 ### Phase 6 — Companies and outreach (5.5, 5.7)
-Company profile using Google Search grounding; every fact stores its URL; facts whose URL is not in the
-grounding metadata returned by Gemini are marked "no verificado". Outreach drafts with tone and length
-variants; LinkedIn headline/About review. Copy to clipboard only; the app never sends anything.
+Company profile built with Gemini's URL context tool from public URLs the owner chooses, plus pasted texts; every fact
+stores its source URL and a quote; facts whose URL Gemini did not report as read (or whose quote is not in the pasted
+text, or whose numbers are not in the quote) are marked "no verificado". Outreach drafts with tone and length variants;
+LinkedIn headline/About review. Copy to clipboard only; the app never sends anything.
 
 - Test for the "no verificado" rule.
 - No code path sends messages.
+- Change agreed with the owner on 2026-10-02: Grounding with Google Search was replaced by URL context because its terms
+  forbid storing, analysing or modifying grounded results (see the decision log in `CLAUDE.md`).
 
 ### Phase 7 — Interviews and negotiation (5.6, 5.9)
 Question bank per offer; STAR stories traceable to the master CV. Mock interview chat (one question at a
@@ -134,7 +141,15 @@ Negotiation script and recruiter-role chat simulation.
 
 - Conversation and persistence tests with the fake LLM.
 - Rubric validation and comparator calculation tests.
+- Notes: the simulators share one engine (`PracticeSession`, `ILlmClient.ChatAsync`); the app enforces one question per
+  message and the follow-up limit, and computes the overall score from the rubric; the recruiter's room to move is a
+  practice parameter chosen by the owner.
 
-### Phase 8 — Google integration (only if confirmed)
-Local-app OAuth with minimal scopes. Gmail: read threads linked to applications and create drafts, never
-send. Calendar: create interview events after explicit confirmation.
+### Phase 8 — Google integration
+Local-app OAuth with minimal scopes. Gmail: read threads linked to applications and create drafts, never send. Calendar:
+create interview events after explicit confirmation.
+
+- Confirmed by the owner on 2026-10-03: scopes `gmail.readonly` + `gmail.compose` (no drafts-only scope exists; the app
+  never sends, enforced by tests) and `calendar.app.created` (a dedicated "JobPilot" calendar, no access to the primary one).
+- Tests with a fake Google server: OAuth state, code exchange, refresh, revocation, granular consent, Gmail search/read,
+  draft MIME (reply headers, no header injection), calendar creation and events.

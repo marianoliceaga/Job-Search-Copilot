@@ -1,3 +1,87 @@
 @page "/empresas"
+@inject CompanyStore Store
+@inject JobPilot.Web.Features.Pipeline.ApplicationStore Applications
+@inject NavigationManager Navigation
 
-<PendingSection Section="AppSections.Companies" />
+<PageTitle>@AppSections.Companies.Title · JobPilot</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4" HtmlTag="h1">@AppSections.Companies.Title</MudText>
+    <MudText Typo="Typo.body2">
+        Cada ficha se arma solo con las fuentes que elegís: URLs públicas de la empresa (Gemini las lee con su herramienta URL context)
+        o textos que pegás. Cada dato guarda su URL y su cita; los que no se pueden verificar quedan marcados como <strong>no verificados</strong>.
+    </MudText>
+
+    <MudPaper Outlined="true" Class="pa-3">
+        <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.End">
+            <MudTextField @bind-Value="_name" Label="Empresa" Immediate="true" Style="min-width: 240px" />
+            <MudTextField @bind-Value="_website" Label="Sitio web (opcional)" Placeholder="https://" Immediate="true" Style="min-width: 300px" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => CreateAsync(_name, _website)" Disabled="@string.IsNullOrWhiteSpace(_name)">Crear ficha</MudButton>
+        </MudStack>
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert>
+        }
+    </MudPaper>
+
+    @if (_suggestions.Count > 0)
+    {
+        <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.body2">Empresas de tu pipeline sin ficha:</MudText>
+            @foreach (var company in _suggestions)
+            {
+                <MudChip T="string" Icon="@Icons.Material.Filled.Add" OnClick="() => CreateAsync(company, null)">@company</MudChip>
+            }
+        </MudStack>
+    }
+
+    <MudTable Items="_companies" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true" data-testid="companies">
+        <NoRecordsContent><MudText>Todavía no hay fichas.</MudText></NoRecordsContent>
+        <HeaderContent>
+            <MudTh>Empresa</MudTh>
+            <MudTh>Datos (verificados / total)</MudTh>
+            <MudTh>Ofertas</MudTh>
+            <MudTh>Última investigación</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Empresa"><MudLink Href="@($"/empresas/{context.Id}")">@context.Name</MudLink></MudTd>
+            <MudTd DataLabel="Datos">@context.VerifiedFacts / @context.Facts</MudTd>
+            <MudTd DataLabel="Ofertas">@context.Offers</MudTd>
+            <MudTd DataLabel="Última investigación">@(context.ResearchedAtUtc is { } at ? LlmFormat.LocalTime(at) : "—")</MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private IReadOnlyList<CompanySummary> _companies = [];
+    private List<string> _suggestions = [];
+    private string? _name;
+    private string? _website;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _companies = await Store.ListAsync(CancellationToken.None);
+        var keys = _companies.Select(c => JobPilot.Domain.Jobs.JobFingerprint.CompanyKey(c.Name)).ToHashSet();
+        _suggestions = (await Applications.GetBoardAsync(CancellationToken.None))
+            .Select(c => c.Company)
+            .Where(c => !keys.Contains(JobPilot.Domain.Jobs.JobFingerprint.CompanyKey(c)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    private async Task CreateAsync(string? name, string? website)
+    {
+        _error = null;
+        try
+        {
+            var id = await Store.CreateAsync(name!, website, CancellationToken.None);
+            Navigation.NavigateTo($"/empresas/{id}");
+        }
+        catch (ArgumentException ex)
+        {
+            _error = ex.Message.Split(" (Parameter", StringSplitOptions.None)[0];
+        }
+    }
+}

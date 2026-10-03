@@ -1,0 +1,154 @@
+@using JobPilot.Web.Infrastructure.Llm
+@inject LlmSettingsStore Settings
+@inject ILlmModelCatalog ModelCatalog
+@inject ISnackbar Snackbar
+
+<MudStack Spacing="3">
+    <MudText>
+        Cada caso de uso toma su modelo y parámetros de <code>appsettings.json</code> (sección <code>Llm</code>). Lo que
+        cambies acá queda guardado en tu base local y tiene prioridad. "Restablecer" vuelve a la configuración.
+    </MudText>
+
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudButton Variant="Variant.Outlined" OnClick="LoadModelsAsync" Disabled="_loadingModels">
+            Cargar modelos disponibles para tu API key
+        </MudButton>
+        @if (_loadingModels)
+        {
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+        }
+    </MudStack>
+    @if (_modelsError is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_modelsError</MudAlert>
+    }
+    @if (_availableModels is not null)
+    {
+        <MudText Typo="Typo.body2">@_availableModels.Count modelos con generación de contenido disponibles para tu API key.</MudText>
+    }
+
+    @foreach (var row in _rows)
+    {
+        <MudPaper Outlined="true" Class="pa-4" @key="row.UseCase">
+            <MudStack Spacing="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.h6">@row.Label</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="@(row.IsOverridden ? Color.Primary : Color.Default)">
+                        @(row.IsOverridden ? "Personalizado" : "Configuración")
+                    </MudChip>
+                </MudStack>
+                <MudText Typo="Typo.body2">@row.Description</MudText>
+                <MudGrid>
+                    <MudItem xs="12" md="5">
+                        <MudTextField @bind-Value="row.Model" Label="Modelo" Variant="Variant.Outlined"
+                                      HelperText="@ModelHelperText(row)" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="string" @bind-Value="row.ThinkingLevel" Label="Nivel de razonamiento" Variant="Variant.Outlined">
+                            <MudSelectItem T="string" Value="@string.Empty">Por defecto del modelo</MudSelectItem>
+                            @foreach (var level in LlmSettingsStore.ThinkingLevels)
+                            {
+                                <MudSelectItem T="string" Value="@level">@level</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" md="3">
+                        <MudNumericField T="double?" @bind-Value="row.Temperature" Label="Temperatura" Variant="Variant.Outlined"
+                                         Min="0" Max="2" Step="0.1" HelperText="Vacío: por defecto" />
+                    </MudItem>
+                </MudGrid>
+                @if (_availableModels is not null)
+                {
+                    <MudSelect T="string" Value="@row.Model" ValueChanged="@(value => row.Model = value)"
+                               Label="Elegir entre los modelos disponibles" Variant="Variant.Outlined" Dense="true">
+                        @foreach (var model in _availableModels)
+                        {
+                            <MudSelectItem T="string" Value="@model.Name">@model.Name@(model.DisplayName is null ? "" : $" — {model.DisplayName}")</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
+                <MudStack Row="true">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SaveAsync(row)">Guardar</MudButton>
+                    <MudButton Variant="Variant.Text" Disabled="@(!row.IsOverridden)" OnClick="() => ResetAsync(row)">Restablecer</MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    private List<Row> _rows = [];
+    private IReadOnlyList<LlmModelInfo>? _availableModels;
+    private string? _modelsError;
+    private bool _loadingModels;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var resolved = await Settings.ResolveAllAsync(LlmUseCases.All.Select(u => u.Name), CancellationToken.None);
+        _rows = LlmUseCases.All.Zip(resolved, (info, settings) => new Row
+        {
+            UseCase = info.Name,
+            Label = info.Label,
+            Description = info.Description,
+            Model = settings.Model,
+            ThinkingLevel = settings.ThinkingLevel ?? string.Empty,
+            Temperature = settings.Temperature,
+            IsOverridden = settings.IsOverridden,
+        }).ToList();
+    }
+
+    private async Task LoadModelsAsync()
+    {
+        _loadingModels = true;
+        _modelsError = null;
+        var result = await ModelCatalog.ListModelsAsync(CancellationToken.None);
+        _loadingModels = false;
+        if (result.IsSuccess)
+        {
+            _availableModels = result.Value;
+        }
+        else
+        {
+            _modelsError = result.Error!.Message;
+        }
+    }
+
+    private string ModelHelperText(Row row) =>
+        _availableModels is not null && !_availableModels.Any(m => m.Name == row.Model)
+            ? "Atención: este modelo no figura entre los disponibles para tu API key."
+            : "Ej.: gemini-3.8-flash";
+
+    private async Task SaveAsync(Row row)
+    {
+        try
+        {
+            await Settings.SaveOverrideAsync(row.UseCase, row.Model, row.ThinkingLevel, row.Temperature, CancellationToken.None);
+            Snackbar.Add($"Guardado: {row.Label}", Severity.Success);
+            await LoadAsync();
+        }
+        catch (ArgumentException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task ResetAsync(Row row)
+    {
+        await Settings.ResetAsync(row.UseCase, CancellationToken.None);
+        Snackbar.Add($"Restablecido: {row.Label}", Severity.Info);
+        await LoadAsync();
+    }
+
+    private sealed class Row
+    {
+        public required string UseCase { get; init; }
+        public required string Label { get; init; }
+        public required string Description { get; init; }
+        public string? Model { get; set; }
+        public string ThinkingLevel { get; set; } = string.Empty;
+        public double? Temperature { get; set; }
+        public bool IsOverridden { get; init; }
+    }
+}

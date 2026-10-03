@@ -1,0 +1,25 @@
+{
+  "apiVersion": "2.2.19",
+  "friendlyNotice": "Fictional fixture. Please ensure Jobicy is clearly credited with a direct link to the source.",
+  "jobCount": 1,
+  "jobs": [
+    {
+      "id": 500001,
+      "url": "https://jobicy.com/jobs/500001-senior-asp-net-core-developer",
+      "jobSlug": "500001-senior-asp-net-core-developer",
+      "jobTitle": "Senior ASP.NET Core Developer &amp; Mentor",
+      "companyName": "Adventure Works",
+      "jobIndustry": ["Software Engineering"],
+      "jobType": ["Full-Time"],
+      "jobGeo": "LATAM",
+      "jobLevel": "Senior",
+      "jobExcerpt": "Build APIs.",
+      "jobDescription": "\n<p>Work with <a href=\"https://jobicy.com/company/adventure-works\">Adventure Works</a> on ASP.NET Core.</p>",
+      "pubDate": "2026-10-01T08:38:08+00:00",
+      "salaryMin": 85000,
+      "salaryMax": 110000,
+      "salaryCurrency": "USD",
+      "salaryPeriod": "yearly"
+    }
+  ]
+}

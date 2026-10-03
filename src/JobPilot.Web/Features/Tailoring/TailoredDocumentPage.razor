@@ -1,0 +1,176 @@
+@page "/ofertas/{PostingId:guid}/documentos/{Id:long}"
+@using JobPilot.Domain.Tailoring
+@using JobPilot.Web.Features.Tailoring.Export
+@using JobPilot.Web.Infrastructure.Persistence
+@inject TailoredDocumentStore Store
+@inject TailoringContextFactory Contexts
+@inject DocumentExporter Exporter
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>@Title · JobPilot</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_document is null || _context is null)
+{
+    <MudText Typo="Typo.h4" HtmlTag="h1">Documento no encontrado</MudText>
+    <MudAlert Severity="Severity.Error">@(_error ?? "El documento no existe.")</MudAlert>
+    <MudLink Href="@($"/ofertas/{PostingId}")">Volver a la oferta</MudLink>
+}
+else
+{
+    var approved = _document.Record.Status == TailoredStatus.Approved;
+    <MudStack Spacing="3">
+        <MudLink Href="@($"/ofertas/{PostingId}")" Typo="Typo.body2">← @_context.Posting.Title · @_context.Posting.Company</MudLink>
+        <MudText Typo="Typo.h4" HtmlTag="h1">@Title</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudChip T="string" Color="@(approved ? Color.Success : Color.Default)">@(approved ? "Aprobado" : "Borrador")</MudChip>
+            <MudText Typo="Typo.body2">Generado con @_document.Record.Model (@_document.Record.PromptId) desde la versión @_document.Record.MasterCvVersion del CV maestro.</MudText>
+        </MudStack>
+        @if (_document.Record.Notes is not null)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">@_document.Record.Notes</MudAlert>
+        }
+
+        @if (_check is { } check && check.Blocking.Any())
+        {
+            <MudAlert Severity="Severity.Warning" data-testid="blocking-summary">
+                @check.Blocking.Count() texto(s) marcados: no se pueden rastrear al CV maestro. Editalos, quitalos o confirmá que son correctos.
+            </MudAlert>
+        }
+
+        @if (_document.Cv is { } cv)
+        {
+            <TailoredCvEditor Cv="cv" Context="_context" Check="_check!" ReadOnly="approved" Changed="OnChanged" />
+        }
+        else if (_document.Letter is { } letter)
+        {
+            <CoverLetterEditor Letter="letter" Context="_context" ReadOnly="approved" Changed="OnChanged" />
+        }
+
+        <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
+            @if (!approved)
+            {
+                <MudButton Variant="Variant.Outlined" OnClick="SaveAsync" Disabled="@(!_dirty)">Guardar cambios</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ApproveAsync">Aprobar</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="DeleteAsync">Eliminar</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download" OnClick="() => ExportAsync(ExportFormat.Pdf)">Descargar PDF</MudButton>
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download" OnClick="() => ExportAsync(ExportFormat.Docx)">Descargar DOCX</MudButton>
+                <MudButton Variant="Variant.Text" OnClick="ReopenAsync">Volver a borrador</MudButton>
+            }
+        </MudStack>
+        @if (!approved)
+        {
+            <MudText Typo="Typo.caption">La exportación a DOCX y PDF se habilita al aprobar: nada sale sin tu revisión.</MudText>
+        }
+    </MudStack>
+}
+
+@code {
+    private StoredTailoredDocument? _document;
+    private TailoringContext? _context;
+    private ApprovalCheck? _check;
+    private bool _loading = true;
+    private bool _dirty;
+    private string? _error;
+
+    [Parameter]
+    public Guid PostingId { get; set; }
+
+    [Parameter]
+    public long Id { get; set; }
+
+    private string Title => _document?.Record.Kind == TailoredKind.CoverLetter ? "Carta de presentación" : "CV a medida";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        await LoadAsync();
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        _document = await Store.GetAsync(Id, CancellationToken.None);
+        if (_document is null || _document.Record.JobPostingId != PostingId)
+        {
+            _document = null;
+            return;
+        }
+
+        (_context, _error) = await Contexts.CreateAsync(PostingId, _document.Record.MasterCvVersion, CancellationToken.None);
+        _dirty = false;
+        Recheck();
+    }
+
+    private void Recheck()
+    {
+        if (_context is null || _document is null)
+        {
+            return;
+        }
+
+        _check = _document.Cv is { } cv ? TailoredDocumentStore.Check(_context, cv) : TailoredDocumentStore.Check(_context, _document.Letter!);
+    }
+
+    private void OnChanged()
+    {
+        _dirty = true;
+        Recheck();
+    }
+
+    private async Task SaveAsync()
+    {
+        await Store.SaveAsync(Id, (object?)_document!.Cv ?? _document.Letter!, CancellationToken.None);
+        _dirty = false;
+        Snackbar.Add("Cambios guardados.", Severity.Success);
+    }
+
+    private async Task ApproveAsync()
+    {
+        Recheck();
+        if (_check is { CanApprove: false })
+        {
+            Snackbar.Add("Hay textos marcados o skills que no están en tu CV: revisalos antes de aprobar.", Severity.Warning);
+            return;
+        }
+
+        await Store.SaveAsync(Id, (object?)_document!.Cv ?? _document.Letter!, CancellationToken.None);
+        await Store.SetStatusAsync(Id, TailoredStatus.Approved, CancellationToken.None);
+        Snackbar.Add("Aprobado. Ya podés descargarlo.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task ReopenAsync()
+    {
+        await Store.SetStatusAsync(Id, TailoredStatus.Draft, CancellationToken.None);
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (await Dialogs.ShowMessageBoxAsync("Eliminar documento", "Se elimina este borrador. No se puede deshacer.", yesText: "Eliminar", cancelText: "Cancelar") == true)
+        {
+            await Store.DeleteAsync(Id, CancellationToken.None);
+            Navigation.NavigateTo($"/ofertas/{PostingId}");
+        }
+    }
+
+    private async Task ExportAsync(ExportFormat format)
+    {
+        var file = _document!.Cv is { } cv
+            ? Exporter.ExportCv(_context!.Cv, cv, _context.Posting, format)
+            : Exporter.ExportLetter(_context!.Cv, _document.Letter!, _context.Posting, format);
+        using var stream = new MemoryStream(file.Content);
+        using var reference = new DotNetStreamReference(stream);
+        await JS.InvokeVoidAsync("jobPilot.downloadFile", file.FileName, file.ContentType, reference);
+    }
+}

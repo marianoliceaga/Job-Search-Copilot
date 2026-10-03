@@ -1,3 +1,391 @@
 @page "/negociacion"
+@using System.Globalization
+@using JobPilot.Domain.Jobs
+@using JobPilot.Domain.Negotiation
+@using JobPilot.Domain.Practice
+@using JobPilot.Web.Features.Interviews
+@using JobPilot.Web.Infrastructure.Llm
+@using Microsoft.Extensions.Options
+@implements IDisposable
+@inject OfferStore Offers
+@inject NegotiationScriptHandler Scripts
+@inject PracticeHandler Practice
+@inject PracticeStore Sessions
+@inject JobPilot.Web.Features.Pipeline.ApplicationStore Applications
+@inject LlmSettingsStore Settings
+@inject IOptions<PracticeOptions> PracticeOptions
+@inject IDialogService Dialogs
+@inject NavigationManager Navigation
 
-<PendingSection Section="AppSections.Negotiation" />
+<PageTitle>@AppSections.Negotiation.Title · JobPilot</PageTitle>
+
+<MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">@AppSections.Negotiation.Title</MudText>
+
+@if (_message is not null)
+{
+    <MudAlert Severity="@_severity" Class="mb-2" ShowCloseIcon="true" CloseIconClicked="() => _message = null">@_message</MudAlert>
+}
+
+<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4">
+    <MudTabPanel Text="Comparador">
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body2">
+                Cargá las ofertas que recibiste. Todo se pasa a USD anuales con <strong>tus</strong> tipos de cambio
+                (<MudLink Href="/ofertas" Typo="Typo.body2">Ofertas → Preferencias</MudLink>) y tus costos como contractor. Nada se estima: si falta un tipo de cambio, la oferta queda sin comparar.
+            </MudText>
+            <MudSimpleTable Dense="true" Elevation="0" Outlined="true" data-testid="comparison">
+                <thead><tr><th>Empresa</th><th>Modalidad</th><th>Bruto anual (USD)</th><th>Extras (USD)</th><th>Costos contractor (USD)</th><th>Comparable (USD/año)</th><th></th></tr></thead>
+                <tbody>
+                    @if (_rows.Count == 0)
+                    {
+                        <tr><td colspan="7">Todavía no cargaste ofertas.</td></tr>
+                    }
+                    @foreach (var row in _rows)
+                    {
+                        <tr>
+                            <td>@row.Offer.Company @(row.Offer.Role is null ? string.Empty : $"· {row.Offer.Role}")</td>
+                            <td>@Model(row.Offer.Model)</td>
+                            @if (row.Problem is not null)
+                            {
+                                <td colspan="4"><MudText Typo="Typo.body2" Color="Color.Warning">@row.Problem</MudText></td>
+                            }
+                            else
+                            {
+                                <td>@Usd(row.GrossAnnualUsd)</td>
+                                <td>@Usd(row.ExtrasAnnualUsd)</td>
+                                <td>@Usd(row.ContractorCostsUsd)</td>
+                                <td><strong>@Usd(row.ComparableAnnualUsd)</strong></td>
+                            }
+                            <td>
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" aria-label="Editar" OnClick="() => Edit(row.Offer)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" aria-label="Borrar" OnClick="() => DeleteAsync(row.Offer)" />
+                            </td>
+                        </tr>
+                        @if (row.Breakdown.Count > 0)
+                        {
+                            <tr><td colspan="7"><MudText Typo="Typo.caption">@string.Join(" · ", row.Breakdown)</MudText></td></tr>
+                        }
+                    }
+                </tbody>
+            </MudSimpleTable>
+
+            <MudPaper Outlined="true" Class="pa-3">
+                <MudText Typo="Typo.subtitle1"><strong>@(_offer.Id == 0 ? "Agregar oferta" : $"Editar {_offer.Company}")</strong></MudText>
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="4"><MudTextField @bind-Value="_offer.Company" Label="Empresa" Immediate="true" /></MudItem>
+                    <MudItem xs="12" md="4"><MudTextField @bind-Value="_offer.Role" Label="Rol (opcional)" Immediate="true" /></MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="Guid" Value="@(_offer.JobPostingId ?? Guid.Empty)" ValueChanged="v => _offer.JobPostingId = v == Guid.Empty ? null : v" Label="Oferta del pipeline (opcional)">
+                            <MudSelectItem T="Guid" Value="Guid.Empty">(ninguna)</MudSelectItem>
+                            @foreach (var posting in _postings)
+                            {
+                                <MudSelectItem T="Guid" Value="posting.Key">@posting.Value</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="6" md="2"><MudTextField @bind-Value="_offer.Currency" Label="Moneda" Immediate="true" /></MudItem>
+                    <MudItem xs="6" md="2"><MudNumericField T="decimal" @bind-Value="_offer.BaseAmount" Label="Monto base" Min="0" Immediate="true" /></MudItem>
+                    <MudItem xs="6" md="2">
+                        <MudSelect T="SalaryPeriod" @bind-Value="_offer.Period" Label="Período">
+                            <MudSelectItem T="SalaryPeriod" Value="SalaryPeriod.Year">Anual</MudSelectItem>
+                            <MudSelectItem T="SalaryPeriod" Value="SalaryPeriod.Month">Mensual</MudSelectItem>
+                            <MudSelectItem T="SalaryPeriod" Value="SalaryPeriod.Hour">Por hora</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="6" md="2"><MudNumericField T="decimal" @bind-Value="_offer.HoursPerMonth" Label="Horas por mes" Disabled="@(_offer.Period != SalaryPeriod.Hour)" Min="1" Max="400" /></MudItem>
+                    <MudItem xs="6" md="2">
+                        <MudSelect T="EmploymentModel" @bind-Value="_offer.Model" Label="Modalidad">
+                            <MudSelectItem T="EmploymentModel" Value="EmploymentModel.Employee">Empleado</MudSelectItem>
+                            <MudSelectItem T="EmploymentModel" Value="EmploymentModel.Contractor">Contractor</MudSelectItem>
+                            <MudSelectItem T="EmploymentModel" Value="EmploymentModel.Eor">EOR</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="6" md="2"><MudNumericField T="int?" @bind-Value="_offer.PaidTimeOffDays" Label="Días pagos de vacaciones" Min="0" /></MudItem>
+                    <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_offer.AnnualBonus" Label="Bono anual" Min="0" /></MudItem>
+                    <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_offer.AnnualBenefits" Label="Beneficios por año (tu valuación)" Min="0" /></MudItem>
+                    <MudItem xs="6" md="4"><MudNumericField T="decimal" @bind-Value="_offer.AnnualEquity" Label="Equity por año (tu valuación)" Min="0" /></MudItem>
+                    <MudItem xs="12"><MudTextField @bind-Value="_offer.Notes" Label="Notas" Immediate="true" /></MudItem>
+                </MudGrid>
+                @foreach (var problem in _offerProblems)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-1">@problem</MudAlert>
+                }
+                <MudStack Row="true" Class="mt-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveOfferAsync">Guardar oferta</MudButton>
+                    @if (_offer.Id != 0)
+                    {
+                        <MudButton Variant="Variant.Text" OnClick="() => _offer = NewOffer()">Cancelar</MudButton>
+                    }
+                </MudStack>
+            </MudPaper>
+
+            <MudPaper Outlined="true" Class="pa-3">
+                <MudText Typo="Typo.subtitle1"><strong>Tus costos como contractor</strong></MudText>
+                <MudText Typo="Typo.body2">Se descuentan solo de las ofertas de contractor. Los ponés vos (contador, impuestos, días sin facturar).</MudText>
+                <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.End">
+                    <MudNumericField T="decimal" @bind-Value="_monthlyFixed" Label="Fijo por mes (USD)" Min="0" Style="max-width: 200px" />
+                    <MudNumericField T="decimal" @bind-Value="_percent" Label="% del bruto" Min="0" Max="90" Style="max-width: 160px" />
+                    <MudNumericField T="int" @bind-Value="_unpaidDays" Label="Días sin facturar por año (por hora)" Min="0" Max="200" Style="max-width: 260px" />
+                    <MudButton Variant="Variant.Outlined" OnClick="SaveCostsAsync">Guardar costos</MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudStack>
+    </MudTabPanel>
+
+    <MudTabPanel Text="Guion">
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body2">Un guion para negociar una oferta con tus números (ofertas, objetivo) y tu CV. Los números que no estén en esos datos quedan marcados.</MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.End">
+                <MudSelect T="long" Value="_scriptOfferId" ValueChanged="SelectScriptOfferAsync" Label="Oferta" Style="min-width: 260px">
+                    <MudSelectItem T="long" Value="0L">(elegí una oferta)</MudSelectItem>
+                    @foreach (var row in _rows)
+                    {
+                        <MudSelectItem T="long" Value="row.Offer.Id">@row.Offer.Company</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudTextField @bind-Value="_goals" Label="Qué querés lograr (opcional)" Immediate="true" Style="min-width: 320px" />
+                <MudButton Variant="Variant.Outlined" OnClick="PrepareScriptAsync" Disabled="@(_running || _scriptOfferId == 0)">Preparar guion</MudButton>
+            </MudStack>
+            @if (_scriptPrepared is not null)
+            {
+                <LlmPayloadPreview Prompt="_scriptPrepared.Prompt" Model="@_model" />
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RunScriptAsync" Disabled="_running">Generar guion con Gemini</MudButton>
+                    @if (_running) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /><MudButton Variant="Variant.Text" OnClick="Cancel">Cancelar</MudButton> }
+                </MudStack>
+            }
+            @if (_script is { } script)
+            {
+                <MudPaper Outlined="true" Class="pa-3" data-testid="negotiation-script">
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.caption">Generado el @LlmFormat.LocalTime(script.CreatedAtUtc) · @script.Model</MudText>
+                        @foreach (var line in script.Lines)
+                        {
+                            <div>
+                                <MudText Typo="Typo.caption"><strong>@line.Label</strong>@(line.Sources is null ? string.Empty : $" · fuentes: {line.Sources}")</MudText>
+                                <MudText>@line.Text</MudText>
+                                @foreach (var problem in line.Problems)
+                                {
+                                    <MudAlert Severity="Severity.Warning" Dense="true">@problem</MudAlert>
+                                }
+                            </div>
+                        }
+                        @if (script.Notes is not null)
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true">@script.Notes</MudAlert>
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+    </MudTabPanel>
+
+    <MudTabPanel Text="Simulacro">
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body2">
+                Gemini hace de recruiter y parte de la oferta que cargaste. El margen es un parámetro de práctica (cuánto puede mejorar la base si argumentás bien),
+                no una estimación del mercado.
+            </MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.End">
+                <MudSelect T="long" @bind-Value="_practiceOfferId" Label="Oferta" Style="min-width: 260px">
+                    <MudSelectItem T="long" Value="0L">(elegí una oferta)</MudSelectItem>
+                    @foreach (var row in _rows)
+                    {
+                        <MudSelectItem T="long" Value="row.Offer.Id">@row.Offer.Company</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudNumericField T="int" @bind-Value="_rounds" Label="Rondas" Min="1" Max="15" Style="max-width: 120px" />
+                <MudNumericField T="int" @bind-Value="_flex" Label="Margen de la simulación (%)" Min="0" Max="50" Style="max-width: 220px" />
+                <MudButton Variant="Variant.Outlined" OnClick="PreparePracticeAsync" Disabled="@(_running || _practiceOfferId == 0)">Preparar simulacro</MudButton>
+            </MudStack>
+            @if (_practicePrepared is not null)
+            {
+                <LlmPayloadPreview Prompt="_practicePrepared.Prompt" Model="@_model" />
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartPracticeAsync" Disabled="_running">Empezar simulacro</MudButton>
+                    @if (_running) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+                </MudStack>
+            }
+            <MudText Typo="Typo.h6">Historial</MudText>
+            <ScoreChart History="_history" Title="Evolución del puntaje en negociaciones" />
+            <MudSimpleTable Dense="true" Elevation="0">
+                <thead><tr><th>Fecha</th><th>Oferta</th><th>Estado</th><th>Puntaje</th></tr></thead>
+                <tbody>
+                    @foreach (var item in _history.Reverse())
+                    {
+                        <tr>
+                            <td><MudLink Href="@($"/practica/{item.Id}")">@LlmFormat.LocalTime(item.StartedAtUtc)</MudLink></td>
+                            <td>@item.Title</td>
+                            <td>@InterviewFormat.Status(item.Status)</td>
+                            <td>@(item.OverallScore?.ToString() ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudStack>
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private static readonly CultureInfo Culture = CultureInfo.GetCultureInfo("es-AR");
+    private IReadOnlyList<OfferComparisonRow> _rows = [];
+    private Dictionary<Guid, string> _postings = [];
+    private IReadOnlyList<PracticeHistoryItem> _history = [];
+    private CompensationOffer _offer = NewOffer();
+    private IReadOnlyList<string> _offerProblems = [];
+    private decimal _monthlyFixed;
+    private decimal _percent;
+    private int _unpaidDays;
+    private long _scriptOfferId;
+    private string? _goals;
+    private PreparedNegotiationScript? _scriptPrepared;
+    private NegotiationScript? _script;
+    private long _practiceOfferId;
+    private int _rounds;
+    private int _flex;
+    private PreparedPractice? _practicePrepared;
+    private string _model = string.Empty;
+    private bool _running;
+    private string? _message;
+    private Severity _severity = Severity.Info;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        (_rounds, _flex) = (PracticeOptions.Value.DefaultNegotiationRounds, PracticeOptions.Value.DefaultFlexPercent);
+        _postings = (await Applications.GetBoardAsync(CancellationToken.None))
+            .GroupBy(c => c.PostingId).ToDictionary(g => g.Key, g => $"{g.First().Title} — {g.First().Company}");
+        var costs = await Offers.GetCostsAsync(CancellationToken.None);
+        (_monthlyFixed, _percent, _unpaidDays) = (costs.MonthlyFixedUsd, costs.PercentOfGross, costs.UnpaidDaysOffPerYear);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _rows = await Offers.CompareAsync(CancellationToken.None);
+        _history = await Sessions.HistoryAsync(PracticeMode.Negotiation, CancellationToken.None);
+    }
+
+    private static CompensationOffer NewOffer() => new() { Company = string.Empty, Currency = "USD", Period = SalaryPeriod.Year, Model = EmploymentModel.Contractor };
+
+    private static string Usd(decimal? value) => value is { } v ? "US$ " + v.ToString("N0", Culture) : "—";
+
+    private static string Model(EmploymentModel model) => model switch { EmploymentModel.Employee => "Empleado", EmploymentModel.Contractor => "Contractor", _ => "EOR" };
+
+    private void Show(string? message, Severity severity) => (_message, _severity) = (message, severity);
+
+    private void Edit(CompensationOffer offer) => _offer = new CompensationOffer
+    {
+        Id = offer.Id, Company = offer.Company, Role = offer.Role, JobPostingId = offer.JobPostingId, Currency = offer.Currency, BaseAmount = offer.BaseAmount,
+        Period = offer.Period, HoursPerMonth = offer.HoursPerMonth, AnnualBonus = offer.AnnualBonus, AnnualBenefits = offer.AnnualBenefits,
+        AnnualEquity = offer.AnnualEquity, Model = offer.Model, PaidTimeOffDays = offer.PaidTimeOffDays, Notes = offer.Notes, CreatedAtUtc = offer.CreatedAtUtc,
+    };
+
+    private async Task SaveOfferAsync()
+    {
+        _offerProblems = await Offers.SaveAsync(_offer, CancellationToken.None);
+        if (_offerProblems.Count == 0)
+        {
+            Show($"Oferta de {_offer.Company} guardada.", Severity.Success);
+            _offer = NewOffer();
+            await LoadAsync();
+        }
+    }
+
+    private async Task DeleteAsync(CompensationOffer offer)
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync("Borrar oferta", $"¿Borrar la oferta de {offer.Company}?", yesText: "Borrar", cancelText: "Cancelar");
+        if (confirmed == true)
+        {
+            await Offers.DeleteAsync(offer.Id, CancellationToken.None);
+            await LoadAsync();
+        }
+    }
+
+    private async Task SaveCostsAsync()
+    {
+        var problems = await Offers.SaveCostsAsync(new ContractorCosts(_monthlyFixed, _percent, _unpaidDays), CancellationToken.None);
+        Show(problems.Count == 0 ? "Costos guardados." : string.Join(" ", problems), problems.Count == 0 ? Severity.Success : Severity.Error);
+        await LoadAsync();
+    }
+
+    private async Task SelectScriptOfferAsync(long offerId)
+    {
+        _scriptOfferId = offerId;
+        _scriptPrepared = null;
+        _script = offerId == 0 ? null : await Scripts.LastAsync(offerId, CancellationToken.None);
+    }
+
+    private async Task PrepareScriptAsync()
+    {
+        string? error;
+        (_scriptPrepared, error) = await Scripts.PrepareAsync(_scriptOfferId, _goals, CancellationToken.None);
+        Show(error, Severity.Error);
+        _model = (await Settings.ResolveAsync(LlmUseCases.NegotiationScript, CancellationToken.None)).Model;
+    }
+
+    private async Task PreparePracticeAsync()
+    {
+        string? error;
+        (_practicePrepared, error) = await Practice.PrepareAsync(new PracticeSetup(PracticeMode.Negotiation, null, _practiceOfferId, InterviewFocus.Mixed, _rounds, _flex), CancellationToken.None);
+        Show(error, Severity.Error);
+        _model = (await Settings.ResolveAsync(LlmUseCases.NegotiationRoleplay, CancellationToken.None)).Model;
+    }
+
+    private async Task RunAsync(Func<CancellationToken, Task<LlmError?>> action)
+    {
+        _running = true;
+        _message = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            if (await action(_cts.Token) is { } error)
+            {
+                Show(error.Message + (error.Detail is null ? string.Empty : $" ({error.Detail})"), Severity.Error);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Show("Cancelado.", Severity.Info);
+        }
+        finally
+        {
+            _running = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private async Task RunScriptAsync()
+    {
+        await RunAsync(async ct =>
+        {
+            var (script, error) = await Scripts.RunAsync(_scriptPrepared!, ct);
+            _script = script ?? _script;
+            return error;
+        });
+        if (_message is null)
+        {
+            _scriptPrepared = null;
+        }
+    }
+
+    private async Task StartPracticeAsync()
+    {
+        Guid? sessionId = null;
+        await RunAsync(async ct =>
+        {
+            var (id, error) = await Practice.StartAsync(_practicePrepared!, ct);
+            sessionId = id;
+            return error;
+        });
+        if (sessionId is { } id)
+        {
+            Navigation.NavigateTo($"/practica/{id}");
+        }
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

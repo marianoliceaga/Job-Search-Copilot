@@ -1,0 +1,215 @@
+@using JobPilot.Domain.Jobs
+@using JobPilot.Web.Features.Jobs.Sources
+@using JobPilot.Web.Infrastructure.Llm
+@implements IDisposable
+@inject ManualJobImport Import
+@inject LlmSettingsStore Settings
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h6">Agregar una oferta</MudText>
+    <MudText Typo="Typo.body2">
+        Las URLs de Greenhouse, Lever y Ashby se leen por su API pública. Para cualquier otro sitio (incluido LinkedIn, que
+        no permite el acceso automatizado) pegá el texto de la oferta.
+    </MudText>
+
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudTextField @bind-Value="_url" Label="URL de la oferta" Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1" Immediate="true" />
+        <MudButton Variant="Variant.Outlined" OnClick="ImportUrlAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_url))">Importar URL</MudButton>
+    </MudStack>
+
+    @if (_message is not null)
+    {
+        <MudAlert Severity="_messageSeverity">@_message</MudAlert>
+    }
+
+    @if (_draft is null)
+    {
+        <MudTextField @bind-Value="_text" Label="Texto de la oferta" Variant="Variant.Outlined" Lines="8" Sizing="InputSizing.Auto" MaxLines="20" Immediate="true"
+                      HelperText="Pegá el texto completo: puesto, empresa, ubicación, compensación y descripción." />
+        @if (_prepared is not null)
+        {
+            <LlmPayloadPreview Prompt="_prepared.Prompt" Model="@_model" />
+        }
+
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudButton Variant="Variant.Outlined" OnClick="PrepareAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_text))">Preparar extracción</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExtractAsync" Disabled="@(_busy || _prepared is null)">Extraer con Gemini</MudButton>
+            @if (_busy)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+            }
+        </MudStack>
+    }
+    else
+    {
+        <MudText Typo="Typo.subtitle1">Revisá los datos extraídos antes de guardar</MudText>
+        @foreach (var warning in _warnings)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true">@warning</MudAlert>
+        }
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_title" Immediate="true" Label="Puesto" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_company" Label="Empresa" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_location" Label="Ubicación / restricciones" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_employmentType" Label="Modalidad de contratación" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_salaryText" Label="Compensación (texto citado de la oferta)" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+            <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_salaryMin" Label="Mínimo" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+            <MudItem xs="6" md="3"><MudNumericField T="decimal?" @bind-Value="_salaryMax" Label="Máximo" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+            <MudItem xs="6" md="3"><MudTextField @bind-Value="_currency" Label="Moneda (ISO)" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+            <MudItem xs="6" md="3">
+                <MudSelect T="SalaryPeriod?" @bind-Value="_period" Label="Período" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="SalaryPeriod?" Value="@((SalaryPeriod?)null)">No informado</MudSelectItem>
+                    @foreach (var period in Enum.GetValues<SalaryPeriod>())
+                    {
+                        <MudSelectItem T="SalaryPeriod?" Value="@((SalaryPeriod?)period)">@period</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+        <MudStack Row="true">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@(string.IsNullOrWhiteSpace(_title))">Guardar oferta</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="Reset">Descartar</MudButton>
+        </MudStack>
+    }
+</MudStack>
+
+@code {
+    private string? _url;
+    private string? _text;
+    private string? _message;
+    private Severity _messageSeverity = Severity.Info;
+    private bool _busy;
+    private CancellationTokenSource? _cts;
+    private PreparedJobExtraction? _prepared;
+    private string _model = string.Empty;
+    private SourcedJob? _draft;
+    private IReadOnlyList<string> _warnings = [];
+
+    private string? _title, _company, _location, _employmentType, _salaryText, _currency;
+    private decimal? _salaryMin, _salaryMax;
+    private SalaryPeriod? _period;
+
+    [Parameter]
+    public EventCallback<Guid> OnAdded { get; set; }
+
+    private async Task ImportUrlAsync()
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            var result = await Import.ImportFromUrlAsync(_url!, CancellationToken.None);
+            _message = result.Message;
+            _messageSeverity = result.Outcome switch
+            {
+                UrlImportOutcome.Imported => Severity.Success,
+                UrlImportOutcome.NeedsText => Severity.Info,
+                _ => Severity.Warning,
+            };
+            if (result.PostingId is { } id)
+            {
+                await OnAdded.InvokeAsync(id);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _message = $"No se pudo leer la oferta: {ex.Message}";
+            _messageSeverity = Severity.Error;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task PrepareAsync()
+    {
+        try
+        {
+            _prepared = Import.PrepareExtraction(_text!, _url);
+            _model = (await Settings.ResolveAsync(LlmUseCases.JobExtraction, CancellationToken.None)).Model;
+            _message = null;
+        }
+        catch (ArgumentException ex)
+        {
+            _message = ex.Message;
+            _messageSeverity = Severity.Error;
+        }
+    }
+
+    private async Task ExtractAsync()
+    {
+        if (_prepared is null || _prepared.Text != _text?.Trim())
+        {
+            await PrepareAsync();
+            if (_prepared is null)
+            {
+                return;
+            }
+        }
+
+        _busy = true;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            var result = await Import.ExtractAsync(_prepared, _cts.Token);
+            if (result.Draft is null)
+            {
+                _message = result.Llm.Error!.Message;
+                _messageSeverity = Severity.Error;
+                return;
+            }
+
+            _draft = result.Draft;
+            _warnings = result.Warnings;
+            (_title, _company, _location, _employmentType) = (_draft.Title, _draft.Company, _draft.Location, _draft.EmploymentType);
+            (_salaryText, _salaryMin, _salaryMax, _currency, _period) = (_draft.SalaryText, _draft.SalaryMin, _draft.SalaryMax, _draft.SalaryCurrency, _draft.SalaryPeriod);
+        }
+        catch (OperationCanceledException)
+        {
+            _message = "Extracción cancelada.";
+            _messageSeverity = Severity.Info;
+        }
+        finally
+        {
+            _busy = false;
+            _cts.Dispose();
+            _cts = null;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        var hasAmounts = _salaryMin is not null || _salaryMax is not null;
+        var job = _draft! with
+        {
+            Title = _title!.Trim(),
+            Company = string.IsNullOrWhiteSpace(_company) ? "(sin empresa)" : _company.Trim(),
+            Location = _location,
+            EmploymentType = _employmentType,
+            SalaryText = string.IsNullOrWhiteSpace(_salaryText) ? null : _salaryText.Trim(),
+            SalaryMin = _salaryMin,
+            SalaryMax = _salaryMax,
+            SalaryCurrency = hasAmounts ? _currency?.Trim().ToUpperInvariant() : null,
+            SalaryPeriod = hasAmounts ? _period : null,
+        };
+        var id = await Import.SaveAsync(job, CancellationToken.None);
+        Reset();
+        await OnAdded.InvokeAsync(id);
+    }
+
+    private void Reset()
+    {
+        _draft = null;
+        _prepared = null;
+        _warnings = [];
+        _text = null;
+        _message = null;
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}
