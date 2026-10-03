@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // F5: builds, starts JobPilot.Web with the .NET debugger attached,
+      // then opens Chrome (JS debugger attached) once Kestrel is listening.
+      "name": "JobPilot.Web (Blazor Server + Chrome)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/JobPilot.Web/bin/Debug/net10.0/JobPilot.Web.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/JobPilot.Web",
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "justMyCode": true,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "serverReadyAction": {
+        "action": "debugWithChrome",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s",
+        "webRoot": "${workspaceFolder}/src/JobPilot.Web/wwwroot",
+        "killOnServerStop": true
+      }
+    },
+    {
+      "name": ".NET Core Attach",
+      "type": "coreclr",
+      "request": "attach"
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Launch Chrome against localhost",
+      "url": "http://localhost:5080",
+      "webRoot": "${workspaceFolder}/src/JobPilot.Web/wwwroot/"
+    }
+  ]
+}
