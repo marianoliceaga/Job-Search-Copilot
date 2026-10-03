@@ -204,6 +204,9 @@ docs/PLAN.md                 approved plan
 - The personal data check only allows `@example.com/.org/.net` exactly: subdomains such as `@contoso.example.com` fail.
 - Google OAuth for this app is a "Web application" client with the redirect `http://localhost:{port}/google/callback`
   (localhost is exempt from HTTPS). Starting the flow needs a full page load (`NavigateTo(..., forceLoad: true)`).
+- Google accounts in the Advanced Protection Program only allow verified third-party apps to read sensitive data such as
+  Gmail; JobPilot's own unverified client gets "Error 400: policy_enforced" (shown on Google's page, no callback). Use
+  "Solo Calendar". Sources: `https://support.google.com/accounts/answer/7519408`, `.../answer/7539956`.
 - Google may grant only some scopes (granular consent): check `GoogleStatus` before each feature; calls for a missing
   scope fail locally without reaching Google.
 - To exercise the Google flows without an account, point the `Google__*Endpoint` / `Google__*BaseUrl` settings to a local
@@ -273,6 +276,7 @@ docs/PLAN.md                 approved plan
 | 2026-10-02 | `NoSendingTests` fail if the app references mail libraries or contains sending APIs (`SmtpClient`, `mailto:`, LinkedIn/Gmail send endpoints) | "No code path sends messages" is enforced, not just documented. |
 | 2026-10-03 | Google integration over REST (no Google SDK): OAuth web flow with state, `access_type=offline`, `prompt=consent`; scopes `gmail.readonly`, `gmail.compose`, `calendar.app.created`, chosen by the owner | Fewer dependencies, fake-testable; minimal scopes available. |
 | 2026-10-03 | `gmail.compose` is the narrowest scope that creates drafts and Google describes it as "manage drafts and send"; the app only calls `drafts.create`, and `NoSendingTests` fail on any send endpoint or broader scope | Drafts in Gmail without ever sending; the owner accepted the scope knowingly. |
+| 2026-10-03 | "Solo Calendar" connection option (`GoogleAccess.CalendarOnly`, `/google/connect?alcance=calendario`) requests only `calendar.app.created` | Advanced Protection accounts block unverified apps from Gmail (`policy_enforced`); Calendar may still be allowed, to be confirmed by the owner. |
 | 2026-10-03 | Interviews go to a secondary "JobPilot" calendar (`calendar.app.created`), created on first use and recreated if deleted; events only after a confirmation dialog showing the event; the Google event id is stored on the interview so it can be removed | No access to the owner's primary calendar. |
 | 2026-10-03 | Gmail threads are linked per application (only thread id and subject stored); messages are read on demand, never sent to Gemini; "Registrar como respuesta" stores sender, subject and date only | Privacy; the timeline keeps facts, not mail bodies. |
 | 2026-10-03 | Token stored in `google-token.bin` in the data folder, encrypted with ASP.NET Core Data Protection (keys in `{data}/keys`, DPAPI on Windows); `invalid_grant` deletes it and asks to reconnect (7-day refresh tokens for "Testing" apps) | Secrets never in the repo or the database; clear recovery path. |

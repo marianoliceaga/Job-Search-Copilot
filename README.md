@@ -173,6 +173,11 @@ user-secrets (`Google:ClientId`, `Google:ClientSecret`) and restart. JobPilot as
 - `calendar.app.created`: create a separate "JobPilot" calendar and add interviews to it, after you confirm each one.
   JobPilot cannot see or change your primary calendar.
 
+Choose **Solo Calendar** before connecting to ask only for `calendar.app.created`. Use it when Gmail access is blocked:
+Google's Advanced Protection Program only lets verified third-party apps read Gmail, and JobPilot uses your own
+unverified OAuth client, so Google answers "Error 400: policy_enforced". Without Gmail, copy drafts with **Copiar** and
+record replies by hand. **Agregar Gmail** reconnects with all three scopes later.
+
 Every action shows exactly what will be sent to Google first. The token is stored encrypted in your data folder. With
 the app in "Testing" status Google expires the permission after 7 days; JobPilot asks you to reconnect.
 **Desconectar y revocar** revokes the permission at Google and deletes the local token.

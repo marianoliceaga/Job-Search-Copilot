@@ -9,6 +9,8 @@ using JobPilot.Web.Infrastructure.Google;
 using JobPilot.Web.Infrastructure.Persistence;
 using JobPilot.Web.Tests.Features.Pipeline;
 using JobPilot.Web.Tests.TestSupport;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -146,6 +148,17 @@ public class GoogleAuthTests
             query["scope"]);
         Assert.Equal(("code", "offline", "consent"), (query["response_type"], query["access_type"], query["prompt"]));
         Assert.Equal(64, query["state"]!.Length);
+    }
+
+    [Fact]
+    public async Task The_calendar_only_consent_url_asks_only_for_the_jobpilot_calendar()
+    {
+        await using var host = await GoogleTestHost.CreateAsync();
+
+        var query = System.Web.HttpUtility.ParseQueryString(new Uri(host.Auth.BuildAuthorizationUrl(GoogleAccess.CalendarOnly)).Query);
+
+        Assert.Equal("https://www.googleapis.com/auth/calendar.app.created", query["scope"]);
+        Assert.Equal(("offline", "consent"), (query["access_type"], query["prompt"]));
     }
 
     [Fact]
@@ -415,5 +428,26 @@ public class ApplicationMailTests
 
         await host.Applications.UnlinkAsync(id, link.Id, Ct);
         Assert.Empty(await host.Applications.LinkedThreadsAsync(id, Ct));
+    }
+}
+
+public class GoogleConnectEndpointTests(JobPilotWebFactory factory) : IClassFixture<JobPilotWebFactory>
+{
+    [Theory]
+    [InlineData("/google/connect", "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/calendar.app.created")]
+    [InlineData("/google/connect?alcance=calendario", "https://www.googleapis.com/auth/calendar.app.created")]
+    public async Task Connect_redirects_to_google_with_the_chosen_scopes(string path, string expectedScope)
+    {
+        using var app = factory.WithWebHostBuilder(builder => builder
+            .UseSetting("Google:ClientId", "client-id.apps.googleusercontent.com")
+            .UseSetting("Google:ClientSecret", "client-secret"));
+        using var client = app.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        using var response = await client.GetAsync(new Uri(path, UriKind.Relative), TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var location = response.Headers.Location!;
+        Assert.Equal("https://accounts.google.com/o/oauth2/v2/auth", location.GetLeftPart(UriPartial.Path));
+        Assert.Equal(expectedScope, System.Web.HttpUtility.ParseQueryString(location.Query)["scope"]);
     }
 }
