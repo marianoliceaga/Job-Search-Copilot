@@ -161,6 +161,10 @@ docs/PLAN.md                 approved plan
   not 401; the client maps it to `Authentication`.
 - The standard resilience handler validates `CircuitBreaker.SamplingDuration` ≥ 0.5 s and ≥ 2 × attempt
   timeout; it is set to `max(30 s, 2 × attempt timeout)`.
+- A network path that black-holes connections (e.g. broken IPv6, tried first by .NET) used to hang every Gemini attempt
+  until the 120 s attempt timeout. The Gemini client uses `SocketsHttpHandler.ConnectTimeout` (`Gemini:ConnectTimeoutSeconds`);
+  it throws `TaskCanceledException` with an inner `TimeoutException`, which the resilience pipeline does not retry and the
+  client maps to `LlmErrorKind.Network`.
 - User secrets are loaded in every environment (local app), not only Development.
 - Tests that cancel must cancel after the request reaches the fake handler, not after a fixed delay.
 - MudBlazor 9: `MudTextField.AutoGrow` → `Sizing="InputSizing.Auto"`; `MudFileUpload` uses `CustomContent`
@@ -233,6 +237,7 @@ docs/PLAN.md                 approved plan
 | 2026-10-02 | JSON schema generated from C# records with `JsonSchemaExporter` and sanitized to Gemini's supported keywords; strict deserialization (required members, nullability, no unknown properties, numbers as numbers) | One source of truth for schema and parsing; invalid output never reaches the app. |
 | 2026-10-02 | HTTP retries (429/5xx/timeouts, `Retry-After`) in `AddStandardResilienceHandler`; one extra attempt for invalid output, sending the model its previous answer and the reasons | Transient errors and malformed output are different failures. |
 | 2026-10-02 | One `LlmCalls` row per request sent (each attempt), including failures and cancellations; cost `null` when the model has no configured price | Faithful cost tracking; never invent prices. |
+| 2026-10-05 | Connect timeout for Gemini (`Gemini:ConnectTimeoutSeconds`, default 10 s), separate from the 120 s attempt timeout | The owner's broken IPv6 made "Probar conexión" wait 2 minutes per attempt; unreachable networks now fail fast with a clear message. |
 | 2026-10-02 | Model parameters: DB override (UI) → `Llm:UseCases` → `Llm:DefaultModel` | Editable from the app, defaults in configuration, nothing in code. |
 | 2026-10-02 | `IDbContextFactory` + migrations applied on startup; data in `LocalApplicationData/JobPilot` | Blazor Server needs short-lived contexts; zero-setup local app. |
 | 2026-10-02 | Prompts as `Prompts/<use-case>.v<N>.md`, highest version active; untrusted text auto-wrapped and announced in the system instruction | Versioned, reviewable prompts; prompt-injection defence in one place. |

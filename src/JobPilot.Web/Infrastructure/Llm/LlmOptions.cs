@@ -62,6 +62,13 @@ public sealed class GeminiOptions
 
     public double AttemptTimeoutSeconds { get; set; } = 120;
 
+    /// <summary>
+    /// Time allowed to open the TCP/TLS connection (DNS, proxy and handshake). Much shorter than the attempt timeout so
+    /// that a network that cannot reach Google (broken IPv6, firewall, VPN, proxy) fails fast instead of waiting for
+    /// Gemini's answer timeout.
+    /// </summary>
+    public double ConnectTimeoutSeconds { get; set; } = 10;
+
     public double TotalTimeoutSeconds { get; set; } = 360;
 
     public bool HasApiKey => !string.IsNullOrWhiteSpace(ApiKey);
