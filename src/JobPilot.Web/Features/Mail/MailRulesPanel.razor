@@ -1,0 +1,63 @@
+@inject MailRulesStore Rules
+@inject MailRulesSeed Seed
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.body2">
+        Las reglas ordenan el correo de la búsqueda cuando tocás "Actualizar correo" en el Panel: alertas de LinkedIn → "Te esperan" → "Filtrados".
+        Listas de palabras: <code>"entrevista"</code> coincide con la palabra o frase completa sin importar mayúsculas ni tildes; <code>"re:..."</code> es una
+        expresión regular sobre el texto en minúsculas y sin tildes; <code>"$nombre"</code> incluye la lista <code>sets.nombre</code>. En remitentes,
+        <code>"nombre@dominio"</code> es una dirección y <code>"dominio.com"</code> el dominio con sus subdominios.
+    </MudText>
+    <MudText Typo="Typo.body2">
+        Completá tu ciudad en <code>sets.home</code> (filtra presenciales e híbridos fuera de ella), empresas en <code>sets.domainCompanies</code>, y
+        <code>scoring.pay.monthlyFloorUsd</code> y <code>scoring.pay.usdPerUnit</code> si querés comparar el pago informado en las alertas (sin piso ni
+        tipo de cambio no se compara: nada se estima).
+    </MudText>
+
+    <MudTextField T="string" @bind-Value="_json" Label="Reglas de correo (JSON)" Variant="Variant.Outlined" Lines="28" Immediate="true"
+                  Style="font-family: monospace; font-size: 0.8rem" data-testid="mail-rules-json" />
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    @if (_saved)
+    {
+        <MudAlert Severity="Severity.Success">Reglas guardadas. Se usan en la próxima revisión del correo.</MudAlert>
+    }
+
+    <MudStack Row="true">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Guardar</MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="LoadAsync">Descartar cambios</MudButton>
+        <MudButton Variant="Variant.Text" OnClick="RestoreDefaults">Cargar las reglas iniciales</MudButton>
+    </MudStack>
+</MudStack>
+
+@code {
+    private string _json = string.Empty;
+    private string? _error;
+    private bool _saved;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _json = await Rules.GetJsonAsync(CancellationToken.None);
+        _error = null;
+        _saved = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        _error = await Rules.SaveJsonAsync(_json, CancellationToken.None);
+        _saved = _error is null;
+    }
+
+    // Loads the shipped rules into the editor; nothing is saved until "Guardar".
+    private void RestoreDefaults()
+    {
+        _json = MailRulesStore.DefaultJson(Seed);
+        _error = null;
+        _saved = false;
+    }
+}

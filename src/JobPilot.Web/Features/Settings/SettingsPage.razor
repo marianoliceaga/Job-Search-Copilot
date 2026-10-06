@@ -1,10 +1,11 @@
 @page "/configuracion"
+@using JobPilot.Web.Features.Mail
 
 <PageTitle>Configuración · JobPilot</PageTitle>
 
 <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Configuración</MudText>
 
-<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4" ActivePanelIndex="@(Google is null ? 0 : 3)">
+<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4" ActivePanelIndex="@(Correo is not null ? 4 : Google is null ? 0 : 3)">
     <MudTabPanel Text="Conexión con Gemini">
         <GeminiConnectionPanel />
     </MudTabPanel>
@@ -17,6 +18,9 @@
     <MudTabPanel Text="Google">
         <GooglePanel Result="@Google" Detail="@Detail" />
     </MudTabPanel>
+    <MudTabPanel Text="Reglas de correo">
+        <MailRulesPanel />
+    </MudTabPanel>
 </MudTabs>
 
 @code {
@@ -25,4 +29,7 @@
 
     [SupplyParameterFromQuery(Name = "mensaje")]
     public string? Detail { get; set; }
+
+    [SupplyParameterFromQuery(Name = "correo")]
+    public string? Correo { get; set; }
 }
