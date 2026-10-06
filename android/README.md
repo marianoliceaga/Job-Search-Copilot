@@ -7,8 +7,9 @@ The app is independent of the PC app: it has its own database on the phone. Data
 you export a file in one and import it in the other (phase A10). Like the web app, it prepares, analyses and drafts;
 you approve. It never sends an application, e-mail or message on your behalf.
 
-> **Status:** phase A0 (skeleton) delivered: the APK opens with the same sections as the web app, each one marked with
-> the phase that implements it. See [`docs/PLAN.md`](docs/PLAN.md). The UI is in Spanish.
+> **Status:** phases A0–A1 delivered: the APK opens with the same sections as the web app (each one marked with the phase
+> that implements it) and Configuración works: Gemini key, connection test, models per use case and call log. See
+> [`docs/PLAN.md`](docs/PLAN.md). The UI is in Spanish.
 
 ## Install on your phone
 
@@ -23,6 +24,16 @@ Android 8.0 (API 26) or later. The app is installed from an APK signed with your
    data.
 
 The app's data is excluded from Android's cloud backup (`allowBackup=false`).
+
+## Gemini API key
+
+Create a key in Google AI Studio (a paid-tier key is recommended, as for the web app), then in the app open
+**Configuración → Gemini**, paste it and tap **Guardar clave**. It is stored encrypted with Android's secure storage
+(`SecureStorage`), never in the database or a file, and never shown again; **Borrar clave** removes it. **Probar
+conexión** sends a minimal request without personal data and records it, with its estimated cost, in **Registro**.
+
+Models, parameters and prices are the web app's (`src/JobPilot.Web/appsettings.json`, embedded in the APK); per use case
+overrides are edited in **Configuración → Modelos** and stored on the phone.
 
 ## Signing key (once)
 

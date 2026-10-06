@@ -1,0 +1,15 @@
+@page "/configuracion"
+
+<MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Configuración</MudText>
+
+<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-3" MinimumTabWidth="0px">
+    <MudTabPanel Text="Gemini">
+        <GeminiConnectionPanel />
+    </MudTabPanel>
+    <MudTabPanel Text="Modelos">
+        <UseCaseModelsPanel />
+    </MudTabPanel>
+    <MudTabPanel Text="Registro">
+        <LlmCallLogPanel />
+    </MudTabPanel>
+</MudTabs>

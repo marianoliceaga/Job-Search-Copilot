@@ -386,4 +386,4 @@ and its plan in [`android/docs/PLAN.md`](android/docs/PLAN.md). Agreed with the 
 modify existing files, except short Android sections in this file, `README.md` and `docs/PLAN.md`, and the web app's
 export/import feature (phase A10).
 
-- [x] Phase A0 — Android skeleton (see `android/CLAUDE.md` for phases A1–A10)
+- [x] Phases A0–A1 — Android skeleton; persistence, Gemini and settings (see `android/CLAUDE.md` for the status of A0–A10)

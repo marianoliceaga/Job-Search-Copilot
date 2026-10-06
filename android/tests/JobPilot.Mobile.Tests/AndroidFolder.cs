@@ -5,6 +5,9 @@ internal static class AndroidFolder
 {
     public static string Root { get; } = Find();
 
+    /// <summary>The repository root (parent of android/), for the web app files the Android app reuses read-only.</summary>
+    public static string RepositoryRoot => Path.GetDirectoryName(Root)!;
+
     /// <summary>Source files of the Android app (android/src), without build output.</summary>
     public static IReadOnlyList<string> SourceFiles(params string[] extensions) =>
         Directory.EnumerateFiles(Path.Combine(Root, "src"), "*.*", SearchOption.AllDirectories)

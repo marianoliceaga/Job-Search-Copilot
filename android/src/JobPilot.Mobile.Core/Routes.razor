@@ -1,6 +1,42 @@
-<Router AppAssembly="typeof(Routes).Assembly" NotFoundPage="typeof(Pages.NotFound)">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-</Router>
+@using JobPilot.Mobile.Core.Infrastructure
+@inject AppInitializer Initializer
+
+@if (_error is not null)
+{
+    <div class="jp-startup" role="alert">
+        <h1>No se pudo abrir la base de datos del teléfono</h1>
+        <p>@_error</p>
+    </div>
+}
+else if (!_ready)
+{
+    <div class="jp-startup">Preparando JobPilot…</div>
+}
+else
+{
+    <Router AppAssembly="typeof(Routes).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+    </Router>
+}
+
+@code {
+    private bool _ready;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await Initializer.EnsureInitializedAsync();
+            _ready = true;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Shown instead of crashing: the owner can report the message.
+            _error = ex.Message;
+        }
+    }
+}

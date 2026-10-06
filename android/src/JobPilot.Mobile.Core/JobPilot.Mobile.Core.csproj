@@ -9,15 +9,25 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <SupportedPlatform Include="browser" />
+    <PackageReference Include="MudBlazor" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MudBlazor" />
+    <InternalsVisibleTo Include="JobPilot.Mobile.Tests" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\JobPilot.Domain\JobPilot.Domain.csproj" />
+  </ItemGroup>
+
+  <!-- Shared with the web app, read-only: the same versioned prompts and the same model, parameter and price defaults. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Prompts\*.md" Link="Shared\Prompts\%(Filename)%(Extension)" LogicalName="Prompts/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\appsettings.json" Link="Shared\web-appsettings.json" LogicalName="web-appsettings.json" />
   </ItemGroup>
 
 </Project>

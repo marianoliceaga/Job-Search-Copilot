@@ -49,6 +49,12 @@ there, and the owner checks the UI on the phone.
 ### Phase A1 — Persistence, Gemini and settings
 SQLite on the phone, Gemini client with the key in Android's secure storage, connection test, call log with costs,
 models per use case.
+- EF Core + SQLite chosen by the owner (2026-10-06); migrations applied on start, with a visible error instead of a crash.
+- The key is pasted in Configuración → Gemini, stored with `SecureStorage`, never shown, removable with confirmation.
+- Same Gemini behaviour as the web app (structured output, bounded retry, resilience, connect timeout, one log row per
+  request with cost), tests ported from the web app; prompts and defaults embedded from the web app's files.
+- Acceptance on the phone (owner): save the key, "Probar conexión" succeeds, the call appears in Registro and is still there
+  after closing and reopening the app.
 
 ### Phase A2 — Profile and master CV
 Profile and master CV with versions; import of PDF, DOCX or Markdown chosen with the file picker.

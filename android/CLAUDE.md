@@ -20,6 +20,10 @@ acceptance criteria per phase: [`docs/PLAN.md`](docs/PLAN.md).
 ## Commands
 
 ```bash
+# EF Core migrations of the phone database (dotnet-ef is the repo's local tool: dotnet tool restore)
+dotnet ef migrations add <Name> --project android/src/JobPilot.Mobile.Core --startup-project android/src/JobPilot.Mobile.Core \
+  --output-dir Infrastructure/Persistence/Migrations
+
 # One-time setup (container or PC)
 dotnet workload install maui-android
 dotnet build android/src/JobPilot.Mobile -t:InstallAndroidDependencies -f net10.0-android \
@@ -36,12 +40,26 @@ bash scripts/check-no-personal-data.sh && bash android/scripts/check-no-signing-
 JobPilot.Mobile.slnx         solution (includes ../src/JobPilot.Domain)
 Directory.Build.props        own copy of the repo settings without TargetFramework (MSBuild stops at the nearest file)
 Directory.Packages.props     central package versions for android/ (the root file is not inherited either)
-src/JobPilot.Mobile/         MAUI host, net10.0-android: MauiProgram (DI), App, MainPage (BlazorWebView → Core Routes),
-                             Platforms/Android (MainActivity, MainApplication, AndroidManifest), Resources (icon, splash),
-                             wwwroot/index.html + app.css (safe areas, error UI)
-src/JobPilot.Mobile.Core/    Razor class library, net10.0: Routes, Layout (MainLayout with a temporary drawer, NavMenu,
-                             AppSections with the Android phase of each section), Shared (PendingSection), Pages
-tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTests, manifest; AndroidFolder helper
+src/JobPilot.Mobile/         MAUI host, net10.0-android: MauiProgram (DI: Core services, MudBlazor, BlazorWebView, data folder
+                             = FileSystem.AppDataDirectory), Services/MauiSecretStore (SecureStorage), App, MainPage
+                             (BlazorWebView → Core Routes), Platforms/Android (MainActivity, MainApplication, AndroidManifest),
+                             Resources (icon, splash), wwwroot/index.html + app.css (safe areas, error UI, payload preview)
+src/JobPilot.Mobile.Core/    Razor class library, net10.0:
+  MobileServiceCollectionExtensions  AddJobPilotMobile(configuration, paths): the app's own services
+  Routes.razor               waits for AppInitializer (data folder + migrations), shows an error instead of crashing
+  Layout/, Shared/, Pages/   MainLayout (temporary drawer), NavMenu, AppSections (Android phase per section),
+                             PendingSection, LlmPayloadPreview, LlmFormat, placeholder pages
+  Infrastructure/            MobilePaths, MobileConfiguration (embedded web appsettings.json), AppInitializer
+    Persistence/             MobileDbContext (web table names and mappings, added per phase), migrations, SettingsDocumentStore,
+                             DomainJson, design-time factory for dotnet-ef
+    Llm/                     port of the web client: GeminiLlmClient (key from GeminiKeyStore), LlmJson, contracts, options,
+                             PromptLibrary.LoadEmbedded (web prompts), LlmSettingsStore, DbLlmCallLog, LlmUseCases (implemented)
+    Secrets/                 ISecretStore (host implements it), GeminiKeyStore
+  Features/Settings/         SettingsPage (/configuracion: Gemini / Modelos / Registro), GeminiConnectionPanel (key entry,
+                             connection test), UseCaseModelsPanel, LlmCallLogPanel, ConnectionTestHandler
+tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTests, manifest, Gemini client (port of the web
+                             tests), prompts, configuration, migrations, settings UI; TestSupport/ (LlmTestHost with the app's
+                             real registrations, FakeGeminiHandler, FakeLlmClient, InMemorySecretStore); AndroidFolder helper
 scripts/                     check-no-signing-keys.sh
 docs/PLAN.md                 Android plan
 ```
@@ -60,6 +78,17 @@ docs/PLAN.md                 Android plan
 - The page is drawn edge to edge (target API 36): `wwwroot/app.css` moves the app bar, drawer and content by
   `env(safe-area-inset-*)`.
 - No resources from the internet in `index.html` (no Google Fonts): Android's system font is already Roboto.
+- `AddJobPilotMobile` must not register MudBlazor: its services need `NavigationManager`/`IJSRuntime`, so a test provider built
+  with `ValidateOnBuild` fails. The host (and bUnit tests) call `AddMudServices()`.
+- `<SupportedPlatform Include="browser" />` (Razor class library template) turns `SocketsHttpHandler` into CA1416 errors; the Core
+  library does not declare it.
+- Release builds trim with `TrimMode=partial`: only assemblies marked trimmable are trimmed (MudBlazor, the framework). EF Core,
+  Microsoft.Data.Sqlite, the Core library and the domain are not (checked by comparing `obj/Release/.../linked` sizes), and
+  `JsonSerializerIsReflectionEnabledByDefault` is `true` in MAUI. Re-check when adding packages that rely on reflection.
+- Native libraries must have 16 KB ELF segment alignment for Android 15+ devices with 16 KB pages: `libe_sqlite3.so` from
+  SQLitePCLRaw 2.1.12 has `0x4000` (`readelf -lW`).
+- The Core library embeds `src/JobPilot.Web/Prompts/*.md` and `src/JobPilot.Web/appsettings.json` at build time (links, not
+  copies): a web prompt or price change reaches the phone with the next APK.
 
 ## Decision log
 
@@ -71,6 +100,11 @@ docs/PLAN.md                 Android plan
 | 2026-10-06 | CI signs the APK with the owner's keystore from GitHub secrets, only on pushes, written to the runner's temp folder; `ApplicationVersion` = run number; artifact kept 30 days | Chosen by the owner (no Android toolchain needed on the PC); every build installs as an update. |
 | 2026-10-06 | `allowBackup=false` | "All data stays local": the CV and applications are not copied to Google's cloud backup; moving data is the export/import file. |
 | 2026-10-06 | Temporary (overlay) navigation drawer that closes after navigating | Phone screen; same sections and routes as the web app. |
+| 2026-10-06 | Persistence with EF Core 10 + SQLite in `MobileDbContext`, web table names and mappings; migrations applied on start by `AppInitializer` before the router renders | Chosen by the owner over raw SQLite and sqlite-net: reuses the web model and queries in every phase; EF Core documents limitations on trimmed/AOT platforms, so the Release build keeps it untrimmed and the owner confirms it on the phone. |
+| 2026-10-06 | Gemini key pasted in Configuración and kept in MAUI `SecureStorage` behind `ISecretStore`; read on each request, never shown back | Plan A1; Android's encrypted storage; testable with an in-memory store. |
+| 2026-10-06 | Gemini client, JSON schema, call log and model settings ported from the web app (same behaviour, Spanish messages adapted to the phone); same `SocketsHttpHandler` with connect timeout | One behaviour in both apps; `SocketsHttpHandler` is a documented handler option on .NET for Android. |
+| 2026-10-06 | Prompts and defaults (models, parameters, prices) embedded from the web app's files instead of copied | One source of truth; prices change with a new APK, as they change with an `appsettings.json` edit on the PC. |
+| 2026-10-06 | `LlmUseCases` lists only the use cases implemented on Android, with the web names and labels | The models tab shows what exists on the phone; names in logs mean the same in both apps. |
 | 2026-10-06 | Own `NoSendingTests` with the web list plus Android/MAUI composers (`smsto:`, `SmsManager`, `Email.Default`, `ACTION_SENDTO`…) | The web test only scans `src/`; the same guarantee for `android/src`. |
 
 ## Verified external facts
@@ -82,13 +116,19 @@ Checked on 2026-10-06:
   `AndroidPackageFormats` (default `aab;apk` for Release, added in .NET 9). Source:
   `https://learn.microsoft.com/en-us/dotnet/android/building-apps/build-properties`.
 - `maui-android` workload 10.0.110 (SDK band 10.0.400): MAUI packages 10.0.110, target API 36, build-tools 36.0.0.
+- EF Core on .NET: supported on Android through .NET, with "some limitations" on platforms that use trimming and AOT. Source:
+  `https://learn.microsoft.com/en-us/ef/core/miscellaneous/platforms`.
+- .NET for Android HTTP handlers: `AndroidMessageHandler` is the default of `new HttpClient()`; `SocketsHttpHandler` is a
+  supported option. Source: `https://learn.microsoft.com/en-us/dotnet/api/xamarin.android.net.androidmessagehandler`,
+  `https://learn.microsoft.com/en-us/dotnet/android/building-apps/build-properties` (`AndroidHttpClientHandlerType`).
 - GitHub docs use `actions/upload-artifact@v4` with `retention-days`. Source:
   `https://docs.github.com/en/actions/tutorials/store-and-share-data`.
 
 ## Status
 
 - [x] Phase A0 — Skeleton (pending: the owner's signing secrets and a first install on the phone)
-- [ ] Phase A1 — Persistence, Gemini and settings
+- [x] Phase A1 — Persistence, Gemini and settings (pending: on the phone, saving the key, "Probar conexión" with the real key and
+  the call log after restarting the app, which confirms EF Core and secure storage at runtime)
 - [ ] Phase A2 — Profile and master CV
 - [ ] Phase A3 — Offers
 - [ ] Phase A4 — Tailored CV and cover letter

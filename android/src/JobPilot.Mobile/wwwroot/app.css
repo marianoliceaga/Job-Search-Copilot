@@ -62,3 +62,21 @@ h1:focus {
     .blazor-error-boundary::after {
         content: "Ocurrió un error.";
     }
+
+.jp-startup {
+    padding: calc(1.5rem + var(--jp-safe-top)) 1.5rem 1.5rem;
+    font-family: Roboto, sans-serif;
+}
+
+.jp-payload {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, "Roboto Mono", monospace;
+    font-size: 0.8rem;
+    background: var(--mud-palette-background-gray);
+    border-radius: 4px;
+    padding: 0.75rem;
+    max-height: 320px;
+    overflow: auto;
+    margin: 0.25rem 0 0.75rem;
+}
