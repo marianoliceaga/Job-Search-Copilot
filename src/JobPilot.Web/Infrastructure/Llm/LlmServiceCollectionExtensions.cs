@@ -20,6 +20,7 @@ public static class LlmServiceCollectionExtensions
             })
             .Validate(o => o.AttemptTimeoutSeconds > 0 && o.TotalTimeoutSeconds > o.AttemptTimeoutSeconds,
                 "Gemini:TotalTimeoutSeconds must be greater than Gemini:AttemptTimeoutSeconds.")
+            .Validate(o => o.ConnectTimeoutSeconds > 0, "Gemini:ConnectTimeoutSeconds must be greater than zero.")
             .ValidateOnStart();
 
         services.AddOptions<LlmOptions>()
@@ -38,6 +39,11 @@ public static class LlmServiceCollectionExtensions
                 http.BaseAddress = sp.GetRequiredService<IOptions<GeminiOptions>>().Value.BaseUrl;
                 // Timeouts are handled by the resilience pipeline (per attempt and total).
                 http.Timeout = Timeout.InfiniteTimeSpan;
+            })
+            // A connection that cannot be opened fails after ConnectTimeoutSeconds, not after the attempt timeout.
+            .ConfigurePrimaryHttpMessageHandler(sp => new SocketsHttpHandler
+            {
+                ConnectTimeout = TimeSpan.FromSeconds(sp.GetRequiredService<IOptions<GeminiOptions>>().Value.ConnectTimeoutSeconds),
             })
             .AddStandardResilienceHandler()
             .Configure((HttpStandardResilienceOptions resilience, IServiceProvider sp) =>

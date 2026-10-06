@@ -71,7 +71,9 @@ Probar conexión**.
   They can be overridden from **Configuración → Modelos por caso de uso** (stored in the local database).
 - `Llm:Pricing:<model>` in USD per million tokens, used for cost estimates. Update it when Google changes its
   prices; models without a price show "sin precio configurado".
-- `Gemini:*`: base URL, retries and timeouts.
+- `Gemini:*`: base URL, retries and timeouts. `ConnectTimeoutSeconds` (default 10) limits how long opening the connection
+  may take: if your network cannot reach Google (broken IPv6, firewall, VPN, proxy), the action fails with
+  "No se pudo conectar con Gemini" after that time instead of waiting for Gemini's answer timeout (120 s per attempt).
 
 ### Local data
 

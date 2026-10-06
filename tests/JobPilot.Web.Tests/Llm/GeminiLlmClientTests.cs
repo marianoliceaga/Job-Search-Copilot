@@ -4,6 +4,7 @@ using JobPilot.Domain.Llm;
 using JobPilot.Domain.Prompts;
 using JobPilot.Web.Infrastructure.Llm;
 using JobPilot.Web.Tests.TestSupport;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace JobPilot.Web.Tests.Llm;
@@ -251,6 +252,44 @@ public sealed class GeminiLlmClientTests
         Assert.Equal(LlmErrorKind.Timeout, result.Error?.Kind);
         Assert.Equal(2, host.Handler.Requests.Count);
         Assert.Equal(LlmErrorKind.Timeout, Assert.Single(await host.CallRecordsAsync()).ErrorKind);
+    }
+
+    [Fact]
+    public async Task A_connection_that_cannot_be_opened_is_reported_as_a_network_problem()
+    {
+        await using var host = await LlmTestHost.CreateAsync(new() { ["Gemini:MaxRetryAttempts"] = "1" });
+        // What SocketsHttpHandler throws when ConnectTimeout elapses.
+        host.Handler.Respond(_ => throw new TaskCanceledException("The operation was canceled.",
+            new TimeoutException("A connection could not be established within the configured ConnectTimeout.")));
+
+        var result = await host.Client.GenerateAsync(new LlmRequest<Sample>(Prompt), Ct);
+
+        Assert.Equal(LlmErrorKind.Network, result.Error?.Kind);
+        Assert.StartsWith("No se pudo conectar con Gemini.", result.Error?.Message, StringComparison.Ordinal);
+        Assert.Equal(LlmErrorKind.Network, Assert.Single(await host.CallRecordsAsync()).ErrorKind);
+        // Not retried: the owner sees the problem after one connect timeout instead of waiting for every attempt.
+        Assert.Single(host.Handler.Requests);
+    }
+
+    [Fact]
+    public void The_gemini_client_opens_connections_with_the_configured_connect_timeout()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Gemini:ConnectTimeoutSeconds"] = "7",
+            ["Llm:DefaultModel"] = "gemini-test-flash",
+        }).Build();
+        var services = new ServiceCollection().AddLogging();
+        services.AddLlm(configuration, Path.Combine(AppContext.BaseDirectory, "Prompts"));
+        using var provider = services.BuildServiceProvider();
+
+        HttpMessageHandler? handler = provider.GetRequiredService<IHttpMessageHandlerFactory>().CreateHandler(nameof(GeminiLlmClient));
+        while (handler is DelegatingHandler delegating)
+        {
+            handler = delegating.InnerHandler;
+        }
+
+        Assert.Equal(TimeSpan.FromSeconds(7), Assert.IsType<SocketsHttpHandler>(handler).ConnectTimeout);
     }
 
     [Fact]

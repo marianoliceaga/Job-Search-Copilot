@@ -397,6 +397,9 @@ public sealed partial class GeminiLlmClient(
         error = exception switch
         {
             TimeoutRejectedException => new LlmError(LlmErrorKind.Timeout, "Gemini no respondió a tiempo, incluso después de reintentar.", exception.Message),
+            // SocketsHttpHandler.ConnectTimeout: the connection itself could not be opened.
+            OperationCanceledException { InnerException: TimeoutException connect } when !cancellationToken.IsCancellationRequested =>
+                new LlmError(LlmErrorKind.Network, "No se pudo conectar con Gemini. Revisá tu conexión a internet, proxy, VPN o firewall (por ejemplo, IPv6 sin salida).", connect.Message),
             OperationCanceledException when !cancellationToken.IsCancellationRequested =>
                 new LlmError(LlmErrorKind.Timeout, "Gemini no respondió a tiempo.", exception.Message),
             BrokenCircuitException => new LlmError(LlmErrorKind.ServerError, "Demasiados errores recientes con Gemini; se pausaron los pedidos unos segundos. Probá de nuevo en un rato.", exception.Message),
