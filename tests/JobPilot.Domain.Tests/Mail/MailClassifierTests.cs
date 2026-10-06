@@ -8,7 +8,7 @@ public class MailClassifierTests
 {
     private static readonly Dictionary<string, string> AlertHeaders = new() { ["X-LinkedIn-Template"] = "email_job_alert_digest_01" };
 
-    private static AlertParseResult ParseAlert(MailMessageInfo message) =>
+    private static AlertParseResult ParseAlert(MailMessageInfo message, string threadId) =>
         message.Subject.Contains("empty", StringComparison.Ordinal)
             ? new AlertParseResult([], UsedTextFallback: true)
             : new AlertParseResult([Listing(message.Id, "Senior .NET Engineer")], UsedTextFallback: false);

@@ -116,7 +116,7 @@ public sealed partial class MailClassifier
     public MailClassification Classify(
         IReadOnlyList<MailThreadInfo> threads,
         IReadOnlyList<MailFetchFailure> failures,
-        Func<MailMessageInfo, AlertParseResult> parseAlert,
+        Func<MailMessageInfo, string, AlertParseResult> parseAlert,
         DateTimeOffset now,
         TimeZoneInfo zone)
     {
@@ -151,7 +151,7 @@ public sealed partial class MailClassifier
             var facts = new ThreadFacts(thread);
             if (IsJobAlert(facts))
             {
-                var parsed = thread.Messages.Select(parseAlert).ToList();
+                var parsed = thread.Messages.Select(m => parseAlert(m, thread.Id)).ToList();
                 var found = parsed.SelectMany(p => p.Listings).ToList();
                 if (found.Count == 0)
                 {
