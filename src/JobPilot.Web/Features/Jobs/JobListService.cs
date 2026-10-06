@@ -73,6 +73,40 @@ public sealed class JobListService(IDbContextFactory<JobPilotDbContext> dbFactor
             .ToList();
     }
 
+    /// <summary>
+    /// Stores the description the owner pasted for an offer that arrived without one (e.g. a LinkedIn alert). The text is
+    /// kept as pasted, never rewritten; an existing description is not replaced.
+    /// </summary>
+    public async Task<string?> SetPastedDescriptionAsync(Guid id, string text, CancellationToken cancellationToken)
+    {
+        var description = (text ?? string.Empty).Trim();
+        if (description.Length == 0)
+        {
+            return "Pegá el texto de la oferta.";
+        }
+
+        if (description.Length > ManualJobImport.MaxTextLength)
+        {
+            return $"El texto es demasiado largo (máximo {ManualJobImport.MaxTextLength:N0} caracteres).";
+        }
+
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+        var posting = await db.JobPostings.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+        if (posting is null)
+        {
+            return "La oferta no existe.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(posting.Description))
+        {
+            return "La oferta ya tiene descripción.";
+        }
+
+        posting.Description = description;
+        await db.SaveChangesAsync(cancellationToken);
+        return null;
+    }
+
     public async Task<JobListItem?> GetItemAsync(Guid id, CancellationToken cancellationToken)
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);

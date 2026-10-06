@@ -30,7 +30,7 @@ public static class IcsInviteParser
         var method = (calendar.Method ?? string.Empty).ToUpperInvariant();
         return calendar.Events.Select(ev =>
         {
-            var me = ownEmail is null ? null : ev.Attendees.FirstOrDefault(a => string.Equals(Mailto(a.Value), ownEmail, StringComparison.OrdinalIgnoreCase));
+            var me = ownEmail is null ? null : ev.Attendees.FirstOrDefault(a => string.Equals(Address(a.Value), ownEmail, StringComparison.OrdinalIgnoreCase));
             var start = ToOffset(ev.DtStart, zone);
             var end = ToOffset(ev.DtEnd, zone) ?? (start is { } s && ev.Duration is { } d ? s + d.ToTimeSpanUnspecified() : null);
             return new MailInvite(
@@ -41,7 +41,7 @@ public static class IcsInviteParser
                 start,
                 end,
                 ev.IsAllDay,
-                ev.Organizer is { } o ? new MailPerson(o.CommonName ?? string.Empty, Mailto(o.Value)) : null,
+                ev.Organizer is { } o ? new MailPerson(o.CommonName ?? string.Empty, Address(o.Value)) : null,
                 me?.ParticipationStatus?.ToUpperInvariant());
         }).ToList();
     }
@@ -62,9 +62,16 @@ public static class IcsInviteParser
         return new DateTimeOffset(DateTime.SpecifyKind(value.AsUtc, DateTimeKind.Utc));
     }
 
-    private static string Mailto(Uri? uri)
+    /// <summary>The address of an attendee or organizer URI (read only; the app never opens or creates such links).</summary>
+    private static string Address(Uri? uri)
     {
-        var text = Uri.UnescapeDataString(uri?.OriginalString ?? string.Empty);
-        return text.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase) ? text[7..] : text;
+        if (uri is null)
+        {
+            return string.Empty;
+        }
+
+        return uri.IsAbsoluteUri && uri.Scheme == Uri.UriSchemeMailto && uri.UserInfo.Length > 0
+            ? Uri.UnescapeDataString($"{uri.UserInfo}@{uri.Host}")
+            : Uri.UnescapeDataString(uri.OriginalString);
     }
 }
