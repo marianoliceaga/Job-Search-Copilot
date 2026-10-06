@@ -217,7 +217,6 @@ docs/PLAN.md                 approved plan
 - System.Text.Json escapes `'` as `\u0027` in request bodies: a fake server matching prompt text must avoid apostrophes.
 - Razor reserves `<text>` inside code blocks (RZ1023): SVG `<text>` elements inside loops are emitted as `MarkupString`.
 - `Uri.ToString()` unescapes (`%22` → `"`); fake HTTP handlers that assert on query strings must record `AbsoluteUri`.
-- The personal data check only allows `@example.com/.org/.net` exactly: subdomains such as `@contoso.example.com` fail.
 - Google OAuth for this app is a "Web application" client with the redirect `http://localhost:{port}/google/callback`
   (localhost is exempt from HTTPS). Starting the flow needs a full page load (`NavigateTo(..., forceLoad: true)`).
 - Google accounts in the Advanced Protection Program only allow verified third-party apps to read sensitive data such as
