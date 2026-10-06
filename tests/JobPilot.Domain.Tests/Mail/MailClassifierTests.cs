@@ -21,9 +21,9 @@ public class MailClassifierTests
     {
         var result = Classify(
             Thread("t-alert", Message("m1", "jobalerts-noreply@linkedin.com", "Senior .NET: 3 new jobs", headers: AlertHeaders)),
-            Thread("t-recruiter", Message("m2", "ana@contoso.example.com", "Opportunity at Contoso", "We have a role for you", name: "Ana Pérez")),
+            Thread("t-recruiter", Message("m2", "ana@example.com", "Opportunity at Contoso", "We have a role for you", name: "Ana Pérez")),
             Thread("t-news", Message("m3", "news@example.org", "Weekly digest", headers: new() { ["List-Unsubscribe"] = "<mailto:x>" })),
-            Thread("t-mine", Message("m4", "ana@contoso.example.com", "Interview"), Message("m5", "me@example.com", "Re: Interview", fromMe: true)));
+            Thread("t-mine", Message("m4", "ana@example.com", "Interview"), Message("m5", "me@example.com", "Re: Interview", fromMe: true)));
 
         Assert.Equal(new MailBucketCounts(Waiting: 1, Roles: 1, Filtered: 3, ThreadsRead: 5), result.Counts);
         Assert.True(result.Counts.Balanced);
@@ -36,9 +36,9 @@ public class MailClassifierTests
     public void A_waiting_card_has_the_sender_a_factual_timeline_and_one_next_action()
     {
         var result = Classify(Thread("t1",
-            Message("m1", "ana@contoso.example.com", "Interview availability", "Could you share your availability?", Now.AddDays(-1), name: "Ana Pérez via LinkedIn"),
+            Message("m1", "ana@example.com", "Interview availability", "Could you share your availability?", Now.AddDays(-1), name: "Ana Pérez via LinkedIn"),
             Message("m2", "me@example.com", "Re: Interview availability", received: Now.AddHours(-20), fromMe: true),
-            Message("m3", "ana@contoso.example.com", "Re: Interview availability", "Thursday works", Now.AddHours(-2), name: "Ana Pérez via LinkedIn")));
+            Message("m3", "ana@example.com", "Re: Interview availability", "Thursday works", Now.AddHours(-2), name: "Ana Pérez via LinkedIn")));
 
         var card = Assert.Single(result.Waiting);
         Assert.Equal("interview-scheduling", card.RuleId);
@@ -55,7 +55,7 @@ public class MailClassifierTests
     {
         var headers = new Dictionary<string, string> { ["X-LinkedIn-Template"] = "email_hire_inmail_initial_01", ["List-Unsubscribe"] = "<x>" };
 
-        var result = Classify(Thread("t1", Message("m1", "inmail-hit-reply@linkedin.com", "Ana sent you a message", headers: headers, name: "Ana Pérez")));
+        var result = Classify(Thread("t1", Message("m1", "inmail-noreply@linkedin.com", "Ana sent you a message", headers: headers, name: "Ana Pérez")));
 
         Assert.Equal("linkedin-inmail", Assert.Single(result.Waiting).RuleId);
     }
@@ -76,8 +76,8 @@ public class MailClassifierTests
         var past = invite with { Uid = "uid-2", Start = Now.AddDays(-1), End = Now.AddDays(-1).AddHours(1) };
 
         var result = Classify(
-            Thread("t1", Message("m1", "calendar-notification@google.com", "Invitation: Technical interview", invites: [invite])),
-            Thread("t2", Message("m2", "calendar-notification@google.com", "Invitation: Old interview", invites: [past])));
+            Thread("t1", Message("m1", "calendar@example.com", "Invitation: Technical interview", invites: [invite])),
+            Thread("t2", Message("m2", "calendar@example.com", "Invitation: Old interview", invites: [past])));
 
         var card = Assert.Single(result.Waiting);
         Assert.Equal(("rsvp", "t1", "Invitación"), (card.RuleId, card.ThreadId, card.RailNote));

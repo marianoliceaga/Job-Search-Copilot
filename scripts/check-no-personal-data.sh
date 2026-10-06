@@ -6,7 +6,8 @@
 #   1. Forbidden files: SQLite databases, secrets, .env, OAuth client secrets.
 #   2. CV-like documents (.pdf/.doc/.docx) outside tests/**/Fixtures/ (fixtures must be fictional).
 #   3. Google API keys, OAuth client secrets and non-empty secret values in JSON settings files.
-#   4. E-mail addresses outside the example/no-reply allowlist.
+#   4. E-mail addresses outside the allowlist: @example.com/.org/.net and service senders whose local part is a
+#      no-reply form (jobalerts-noreply@..., no-reply@...), which are never personal.
 #   5. Literals listed in the local, git-ignored .pii-denylist file (one per line), if present.
 set -euo pipefail
 
@@ -46,8 +47,9 @@ json_secrets=$(echo "$files" | grep -E '\.json$' | tr '\n' '\0' \
 [ -n "$json_secrets" ] && report "Secret values in JSON files (use user-secrets or environment variables):" "$json_secrets"
 
 emails=$(grep_files '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' \
-    | grep -viE '@(example\.(com|org|net)|users\.noreply\.github\.com)$' || true)
-[ -n "$emails" ] && report "E-mail addresses (only @example.com/.org/.net are allowed):" "$emails"
+    | grep -viE '@(example\.(com|org|net)|users\.noreply\.github\.com)$' \
+    | grep -viE ':([a-z0-9._]+-)?no-?reply@[a-z0-9.-]+$' || true)
+[ -n "$emails" ] && report "E-mail addresses (only @example.com/.org/.net and service no-reply senders are allowed):" "$emails"
 
 if [ -f .pii-denylist ]; then
     while IFS= read -r literal || [ -n "$literal" ]; do

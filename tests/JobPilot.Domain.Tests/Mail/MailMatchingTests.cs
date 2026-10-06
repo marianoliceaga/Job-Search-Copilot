@@ -29,13 +29,13 @@ public class MailMatchingTests
     }
 
     [Theory]
-    [InlineData("ana@talent.example.com", true)]
+    [InlineData("noreply@talent.example.com", true)]
     [InlineData("jobs@example.com", true)]
-    [InlineData("noreply@other.example.net", true)]
+    [InlineData("alerts@example.net", true)]
     [InlineData("ana@example.org", false)]
     public void Sender_sets_match_addresses_domains_with_subdomains_and_patterns(string address, bool expected)
     {
-        var senders = SenderSet.Compile(["jobs@example.com", "talent.example.com", "re:^no-?reply@"], "test");
+        var senders = SenderSet.Compile(["jobs@example.com", "talent.example.com", "re:^alerts@"], "test");
 
         Assert.Equal(expected, senders.IsMatch(address));
     }
