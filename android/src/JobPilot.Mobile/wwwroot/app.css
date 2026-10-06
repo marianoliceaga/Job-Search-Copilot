@@ -1,0 +1,64 @@
+/* The page is drawn edge to edge: keep the app bar, drawer and content clear of the status and navigation bars. */
+:root {
+    --jp-safe-top: env(safe-area-inset-top, 0px);
+    --jp-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.status-bar-safe-area {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: var(--jp-safe-top);
+    background-color: var(--mud-palette-primary, #594ae2);
+    z-index: 1400;
+}
+
+.mud-appbar.mud-appbar-fixed-top {
+    top: var(--jp-safe-top);
+}
+
+.mud-main-content {
+    padding-top: calc(var(--mud-appbar-height) + var(--jp-safe-top)) !important;
+    padding-bottom: var(--jp-safe-bottom);
+}
+
+.mud-drawer .mud-drawer-content {
+    padding-top: var(--jp-safe-top);
+    padding-bottom: var(--jp-safe-bottom);
+}
+
+h1:focus {
+    outline: none;
+}
+
+#blazor-error-ui {
+    color-scheme: light only;
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem calc(0.7rem + var(--jp-safe-bottom)) 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1500;
+}
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }
+
+.blazor-error-boundary {
+    background: #b32121;
+    padding: 1rem;
+    color: white;
+}
+
+    .blazor-error-boundary::after {
+        content: "Ocurrió un error.";
+    }

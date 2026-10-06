@@ -1,0 +1,9 @@
+# Signing material never belongs in the repo (keep the keystore outside it; CI reads it from GitHub secrets).
+*.keystore
+*.jks
+*.p12
+*.pfx
+signing*.txt
+# Built packages (CI publishes the signed APK as a workflow artifact)
+*.aab
+*.apk

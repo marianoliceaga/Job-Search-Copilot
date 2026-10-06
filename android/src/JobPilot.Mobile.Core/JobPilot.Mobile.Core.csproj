@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!-- UI and services of the Android app on plain net10.0, so they are testable without the Android toolchain.
+       Must not reference MAUI: platform services (secure storage, file picker, sharing) go behind interfaces
+       implemented in JobPilot.Mobile (enforced by a test). -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MudBlazor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\JobPilot.Domain\JobPilot.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

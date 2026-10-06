@@ -377,3 +377,13 @@ Checked on 2026-10-06 (phase 9):
 - [x] Phase 8 — Google integration (pending: the owner's OAuth client and a real connection)
 - [x] Phase 9 — Mail inbox and daily brief (pending: a real check on the owner's Gmail after leaving Advanced Protection,
   and the owner's city, pay floor and rates in the rules)
+
+## Android app
+
+The Android port lives in `android/` (own solution `android/JobPilot.Mobile.slnx`, tests, workflow
+`.github/workflows/android.yml`). Its rules, commands, decisions and status are in [`android/CLAUDE.md`](android/CLAUDE.md)
+and its plan in [`android/docs/PLAN.md`](android/docs/PLAN.md). Agreed with the owner on 2026-10-06: the port does not
+modify existing files, except short Android sections in this file, `README.md` and `docs/PLAN.md`, and the web app's
+export/import feature (phase A10).
+
+- [x] Phase A0 — Android skeleton (see `android/CLAUDE.md` for phases A1–A10)

@@ -241,6 +241,13 @@ Job listings belong to their publishers. JobPilot shows the source and the origi
 listing and respects each provider's terms and rate limits (for example Remotive, Remote OK, Himalayas
 and Jobicy require attribution and a link back).
 
+## Android app
+
+[`android/`](android/README.md) holds the Android version (.NET MAUI Blazor Hybrid, Android 8.0+), built in phases
+with its own solution, tests and CI workflow (`.github/workflows/android.yml`). It reuses `JobPilot.Domain`, keeps its
+own data on the phone and will exchange data with this app through an export/import file. Installing and signing:
+[`android/README.md`](android/README.md).
+
 ## License
 
 [MIT](LICENSE)

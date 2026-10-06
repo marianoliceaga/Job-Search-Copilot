@@ -174,3 +174,10 @@ and the owner unenrols from Advanced Protection to use Gmail.
 - Rules are a settings document seeded from a generic file; personal word lists stay local.
 - README: publishing the OAuth app "In production" (unverified) avoids the 7-day refresh token expiry of "Testing".
 - Tests with fictional alert, recruiter and invite e-mails; `NoSendingTests` unchanged.
+
+## Android app
+
+Approved on 2026-10-06: an Android version in `android/` (.NET MAUI Blazor Hybrid, Android 8.0+, own signed APK) with
+all features, delivered in phases A0–A10 with the owner's approval between them. It references `JobPilot.Domain`
+unchanged and keeps its own data; phase A10 adds an export/import file to both apps. Plan and acceptance criteria:
+[`android/docs/PLAN.md`](../android/docs/PLAN.md).
