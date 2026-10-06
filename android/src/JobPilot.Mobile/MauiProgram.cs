@@ -1,5 +1,6 @@
 using JobPilot.Mobile.Core;
 using JobPilot.Mobile.Core.Infrastructure;
+using JobPilot.Mobile.Core.Infrastructure.Files;
 using JobPilot.Mobile.Core.Infrastructure.Secrets;
 using JobPilot.Mobile.Services;
 using MudBlazor.Services;
@@ -18,6 +19,7 @@ public static class MauiProgram
         // Data in the app's private folder (removed when the app is uninstalled); secrets in Android's secure storage.
         builder.Services.AddJobPilotMobile(MobileConfiguration.Load(), new MobilePaths(FileSystem.AppDataDirectory));
         builder.Services.AddSingleton<ISecretStore, MauiSecretStore>();
+        builder.Services.AddSingleton<IFilePickerService, MauiFilePickerService>();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

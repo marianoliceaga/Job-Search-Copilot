@@ -1,3 +1,5 @@
+using JobPilot.Mobile.Core.Features.Profile;
+using JobPilot.Mobile.Core.Features.Profile.Import;
 using JobPilot.Mobile.Core.Features.Settings;
 using JobPilot.Mobile.Core.Infrastructure;
 using JobPilot.Mobile.Core.Infrastructure.Llm;
@@ -11,7 +13,7 @@ public static class MobileServiceCollectionExtensions
 {
     /// <summary>
     /// The app's own services. The host adds the platform and UI ones: <see cref="Infrastructure.Secrets.ISecretStore"/>,
-    /// the BlazorWebView and MudBlazor.
+    /// <see cref="Infrastructure.Files.IFilePickerService"/>, the BlazorWebView and MudBlazor.
     /// </summary>
     public static IServiceCollection AddJobPilotMobile(this IServiceCollection services, IConfiguration configuration, MobilePaths paths)
     {
@@ -22,6 +24,10 @@ public static class MobileServiceCollectionExtensions
         services.AddSingleton<SettingsDocumentStore>();
         services.AddMobileLlm(configuration);
         services.AddTransient<ConnectionTestHandler>();
+        services.AddSingleton<ProfileSeed>();
+        services.AddSingleton<ProfileStore>();
+        services.AddSingleton<MasterCvStore>();
+        services.AddTransient<CvImportHandler>();
         return services;
     }
 }

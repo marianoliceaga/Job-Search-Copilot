@@ -41,7 +41,8 @@ JobPilot.Mobile.slnx         solution (includes ../src/JobPilot.Domain)
 Directory.Build.props        own copy of the repo settings without TargetFramework (MSBuild stops at the nearest file)
 Directory.Packages.props     central package versions for android/ (the root file is not inherited either)
 src/JobPilot.Mobile/         MAUI host, net10.0-android: MauiProgram (DI: Core services, MudBlazor, BlazorWebView, data folder
-                             = FileSystem.AppDataDirectory), Services/MauiSecretStore (SecureStorage), App, MainPage
+                             = FileSystem.AppDataDirectory), Services/ (MauiSecretStore over SecureStorage,
+                             MauiFilePickerService over FilePicker with Android MIME types), App, MainPage
                              (BlazorWebView → Core Routes), Platforms/Android (MainActivity, MainApplication, AndroidManifest),
                              Resources (icon, splash), wwwroot/index.html + app.css (safe areas, error UI, payload preview)
 src/JobPilot.Mobile.Core/    Razor class library, net10.0:
@@ -55,11 +56,18 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
     Llm/                     port of the web client: GeminiLlmClient (key from GeminiKeyStore), LlmJson, contracts, options,
                              PromptLibrary.LoadEmbedded (web prompts), LlmSettingsStore, DbLlmCallLog, LlmUseCases (implemented)
     Secrets/                 ISecretStore (host implements it), GeminiKeyStore
+    Files/                   IFilePickerService (host implements it), PickedFile, PickResult
   Features/Settings/         SettingsPage (/configuracion: Gemini / Modelos / Registro), GeminiConnectionPanel (key entry,
                              connection test), UseCaseModelsPanel, LlmCallLogPanel, ConnectionTestHandler
-tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTests, manifest, Gemini client (port of the web
-                             tests), prompts, configuration, migrations, settings UI; TestSupport/ (LlmTestHost with the app's
-                             real registrations, FakeGeminiHandler, FakeLlmClient, InMemorySecretStore); AndroidFolder helper
+  Features/Profile/          port of the web slice: ProfilePage (/perfil: Perfil / CV maestro), ProfileForm, ProfileStore +
+                             ProfileSeed (embedded web seed), MasterCvStore (versions), MasterCvPanel, MasterCvEditor,
+                             CvImportPanel (Android picker), Import/ (CvTextExtractor with PdfPig/Open XML, ImportedCv,
+                             CvImportHandler); Shared/ PartialDateField, StringListEditor
+tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTests, manifest, Gemini client and profile/CV
+                             (ports of the web tests), prompts, configuration, migrations, settings and profile UI;
+                             TestSupport/ (LlmTestHost with the app's real registrations, TestDatabase, FakeGeminiHandler,
+                             FakeLlmClient, InMemorySecretStore, FakeFilePicker); the web's fictional CV fixtures are linked
+                             into Fixtures/Cv; AndroidFolder helper
 scripts/                     check-no-signing-keys.sh
 docs/PLAN.md                 Android plan
 ```
@@ -87,8 +95,17 @@ docs/PLAN.md                 Android plan
   `JsonSerializerIsReflectionEnabledByDefault` is `true` in MAUI. Re-check when adding packages that rely on reflection.
 - Native libraries must have 16 KB ELF segment alignment for Android 15+ devices with 16 KB pages: `libe_sqlite3.so` from
   SQLitePCLRaw 2.1.12 has `0x4000` (`readelf -lW`).
-- The Core library embeds `src/JobPilot.Web/Prompts/*.md` and `src/JobPilot.Web/appsettings.json` at build time (links, not
-  copies): a web prompt or price change reaches the phone with the next APK.
+- The Core library embeds `src/JobPilot.Web/Prompts/*.md`, `src/JobPilot.Web/appsettings.json` and the web seeds it needs
+  (`Seed/profile.seed.json`) at build time (links, not copies): a web prompt, price or seed change reaches the phone with
+  the next APK.
+- MAUI suppresses trim analysis warnings (`SuppressTrimAnalysisWarnings=true`), so "0 warnings" says nothing about trimming.
+  To see them: `dotnet build android/src/JobPilot.Mobile -c Release -p:SuppressTrimAnalysisWarnings=false
+  -p:TreatWarningsAsErrors=false -p:RuntimeIdentifier=android-arm64`. On 2026-10-06 the only ones were in the untrimmed
+  assemblies (EF Core, SQLitePCLRaw, the Core library's System.Text.Json use) and MudBlazor; PdfPig and Open XML (marked
+  trimmable) are trimmed without warnings.
+- `PickResult` cannot be created with `new(null)` inside the record: it binds to the copy constructor. Use `new(File: null)`.
+- Android's picker filters by MIME type; many file managers report `.md` as `application/octet-stream`, so the picker also
+  accepts it for Markdown and `CvTextExtractor` checks the extension afterwards.
 
 ## Decision log
 
@@ -105,6 +122,8 @@ docs/PLAN.md                 Android plan
 | 2026-10-06 | Gemini client, JSON schema, call log and model settings ported from the web app (same behaviour, Spanish messages adapted to the phone); same `SocketsHttpHandler` with connect timeout | One behaviour in both apps; `SocketsHttpHandler` is a documented handler option on .NET for Android. |
 | 2026-10-06 | Prompts and defaults (models, parameters, prices) embedded from the web app's files instead of copied | One source of truth; prices change with a new APK, as they change with an `appsettings.json` edit on the PC. |
 | 2026-10-06 | `LlmUseCases` lists only the use cases implemented on Android, with the web names and labels | The models tab shows what exists on the phone; names in logs mean the same in both apps. |
+| 2026-10-06 | CV files chosen with MAUI's `FilePicker` (Android document picker) behind `IFilePickerService`, read into memory with `OpenReadAsync`, never copied; `READ_EXTERNAL_STORAGE` only up to API 32, as MAUI documents; no media permissions | The plan's "selector de archivos"; works with `content://` URIs; testable with a fake. |
+| 2026-10-06 | Profile and master CV ported from the web slice unchanged in behaviour (seed, versions, restore, import verifier flags, review before save); same tables as the web app | One behaviour in both apps; A10 maps the tables one to one. |
 | 2026-10-06 | Own `NoSendingTests` with the web list plus Android/MAUI composers (`smsto:`, `SmsManager`, `Email.Default`, `ACTION_SENDTO`…) | The web test only scans `src/`; the same guarantee for `android/src`. |
 
 ## Verified external facts
@@ -121,6 +140,9 @@ Checked on 2026-10-06:
 - .NET for Android HTTP handlers: `AndroidMessageHandler` is the default of `new HttpClient()`; `SocketsHttpHandler` is a
   supported option. Source: `https://learn.microsoft.com/en-us/dotnet/api/xamarin.android.net.androidmessagehandler`,
   `https://learn.microsoft.com/en-us/dotnet/android/building-apps/build-properties` (`AndroidHttpClientHandlerType`).
+- MAUI file picker: Android filters by MIME type, `FullPath` may be a `content://` URI (read with `OpenReadAsync`),
+  `READ_EXTERNAL_STORAGE` (max SDK 32) for Android 12 and lower. Source:
+  `https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/file-picker?view=net-maui-10.0`.
 - GitHub docs use `actions/upload-artifact@v4` with `retention-days`. Source:
   `https://docs.github.com/en/actions/tutorials/store-and-share-data`.
 
@@ -129,7 +151,7 @@ Checked on 2026-10-06:
 - [x] Phase A0 — Skeleton (pending: the owner's signing secrets and a first install on the phone)
 - [x] Phase A1 — Persistence, Gemini and settings (pending: on the phone, saving the key, "Probar conexión" with the real key and
   the call log after restarting the app, which confirms EF Core and secure storage at runtime)
-- [ ] Phase A2 — Profile and master CV
+- [x] Phase A2 — Profile and master CV (pending: a real import on the phone with the owner's CV through Android's picker)
 - [ ] Phase A3 — Offers
 - [ ] Phase A4 — Tailored CV and cover letter
 - [ ] Phase A5 — Pipeline, reminders and dashboard

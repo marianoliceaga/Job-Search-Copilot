@@ -7,9 +7,9 @@ The app is independent of the PC app: it has its own database on the phone. Data
 you export a file in one and import it in the other (phase A10). Like the web app, it prepares, analyses and drafts;
 you approve. It never sends an application, e-mail or message on your behalf.
 
-> **Status:** phases A0–A1 delivered: the APK opens with the same sections as the web app (each one marked with the phase
-> that implements it) and Configuración works: Gemini key, connection test, models per use case and call log. See
-> [`docs/PLAN.md`](docs/PLAN.md). The UI is in Spanish.
+> **Status:** phases A0–A2 delivered: the APK opens with the same sections as the web app (each one marked with the phase
+> that implements it); Configuración (Gemini key, connection test, models, call log) and Perfil y CV maestro (profile,
+> CV import from a file on the phone, editor, versions) work. See [`docs/PLAN.md`](docs/PLAN.md). The UI is in Spanish.
 
 ## Install on your phone
 
@@ -34,6 +34,13 @@ conexión** sends a minimal request without personal data and records it, with i
 
 Models, parameters and prices are the web app's (`src/JobPilot.Web/appsettings.json`, embedded in the APK); per use case
 overrides are edited in **Configuración → Modelos** and stored on the phone.
+
+## Profile and master CV
+
+**Perfil y CV maestro → CV maestro → Elegir archivo** opens Android's document picker (PDF, DOCX or Markdown, up to
+10 MB). The text is extracted on the phone and shown before anything is sent; **Estructurar con Gemini** turns it into a
+draft that you review (values not found in the document are flagged) and save. The file is read once and not copied
+into the app. On Android 12 and lower the app asks for permission to read files the first time.
 
 ## Signing key (once)
 

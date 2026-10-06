@@ -1,4 +1,5 @@
 using JobPilot.Domain.Llm;
+using JobPilot.Domain.Profiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -10,9 +11,15 @@ namespace JobPilot.Mobile.Core.Infrastructure.Persistence;
 /// </summary>
 public sealed class MobileDbContext(DbContextOptions<MobileDbContext> options) : DbContext(options)
 {
+    public DbSet<Profile> Profiles => Set<Profile>();
+
     public DbSet<LlmCallRecord> LlmCalls => Set<LlmCallRecord>();
 
     public DbSet<LlmUseCaseSetting> LlmUseCaseSettings => Set<LlmUseCaseSetting>();
+
+    public DbSet<MasterCvDocument> MasterCvs => Set<MasterCvDocument>();
+
+    public DbSet<MasterCvVersion> MasterCvVersions => Set<MasterCvVersion>();
 
     public DbSet<SettingsDocument> SettingsDocuments => Set<SettingsDocument>();
 
@@ -26,6 +33,15 @@ public sealed class MobileDbContext(DbContextOptions<MobileDbContext> options) :
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
+
+        modelBuilder.Entity<Profile>(profile =>
+        {
+            profile.Property(p => p.Headline).HasMaxLength(300);
+            profile.Property(p => p.WorkFromCountry).HasMaxLength(100);
+            profile.Property(p => p.WorkModality).HasMaxLength(100);
+            profile.Property(p => p.Priorities).HasMaxLength(1000);
+            profile.Property(p => p.ApplicationLanguage).HasMaxLength(10);
+        });
 
         modelBuilder.Entity<LlmCallRecord>(call =>
         {
@@ -41,6 +57,14 @@ public sealed class MobileDbContext(DbContextOptions<MobileDbContext> options) :
             // SQLite cannot aggregate decimals; a double is precise enough for cost estimates.
             call.Property(c => c.EstimatedCostUsd).HasConversion<double?>();
             call.HasIndex(c => c.StartedAtUtc);
+        });
+
+        modelBuilder.Entity<MasterCvDocument>(cv => cv.ToTable("MasterCvs"));
+
+        modelBuilder.Entity<MasterCvVersion>(version =>
+        {
+            version.HasIndex(v => v.Version).IsUnique();
+            version.Property(v => v.Source).HasMaxLength(300);
         });
 
         modelBuilder.Entity<SettingsDocument>(document =>

@@ -12,6 +12,9 @@
     <!-- Persistence (same versions as the web app) -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
+    <!-- Documents (same versions as the web app) -->
+    <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
+    <PackageVersion Include="PdfPig" Version="0.1.16" />
     <!-- HTTP and configuration -->
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.12" />

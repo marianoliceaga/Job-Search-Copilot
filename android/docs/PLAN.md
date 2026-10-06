@@ -58,6 +58,11 @@ models per use case.
 
 ### Phase A2 — Profile and master CV
 Profile and master CV with versions; import of PDF, DOCX or Markdown chosen with the file picker.
+- Same behaviour as the web phase 2: profile seeded once from the web seed, master CV versions and restore, local text
+  extraction, `cv-import` with the payload preview, `CvImportVerifier` flags, review before saving.
+- Files come from Android's document picker and are read in memory (10 MB limit), never copied into the app.
+- Acceptance on the phone (owner): import the real CV (PDF or DOCX), review the flags, save, edit, save again and restore
+  version 1.
 
 ### Phase A3 — Offers
 The eight sources with their rate limits, manual entry, filters, analysis with Gemini and ranking.

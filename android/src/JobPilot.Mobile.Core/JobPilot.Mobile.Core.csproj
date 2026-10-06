@@ -14,6 +14,8 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="DocumentFormat.OpenXml" />
+    <PackageReference Include="PdfPig" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +30,7 @@
   <ItemGroup>
     <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Prompts\*.md" Link="Shared\Prompts\%(Filename)%(Extension)" LogicalName="Prompts/%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\..\src\JobPilot.Web\appsettings.json" Link="Shared\web-appsettings.json" LogicalName="web-appsettings.json" />
+    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Seed\profile.seed.json" Link="Shared\Seed\profile.seed.json" LogicalName="Seed/profile.seed.json" />
   </ItemGroup>
 
 </Project>
