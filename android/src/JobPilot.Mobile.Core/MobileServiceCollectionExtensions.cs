@@ -1,3 +1,4 @@
+using JobPilot.Mobile.Core.Features.Jobs;
 using JobPilot.Mobile.Core.Features.Profile;
 using JobPilot.Mobile.Core.Features.Profile.Import;
 using JobPilot.Mobile.Core.Features.Settings;
@@ -28,6 +29,7 @@ public static class MobileServiceCollectionExtensions
         services.AddSingleton<ProfileStore>();
         services.AddSingleton<MasterCvStore>();
         services.AddTransient<CvImportHandler>();
+        services.AddJobs(configuration);
         return services;
     }
 }

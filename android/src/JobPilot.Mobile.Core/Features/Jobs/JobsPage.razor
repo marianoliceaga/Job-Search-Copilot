@@ -1,0 +1,15 @@
+@page "/ofertas"
+
+<MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Ofertas</MudText>
+
+<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-3" MinimumTabWidth="0px" KeepPanelsAlive="false">
+    <MudTabPanel Text="Ofertas">
+        <JobListPanel />
+    </MudTabPanel>
+    <MudTabPanel Text="Fuentes y empresas">
+        <SourcesPanel />
+    </MudTabPanel>
+    <MudTabPanel Text="Preferencias">
+        <PreferencesPanel />
+    </MudTabPanel>
+</MudTabs>

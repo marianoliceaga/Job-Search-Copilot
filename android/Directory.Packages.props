@@ -15,6 +15,7 @@
     <!-- Documents (same versions as the web app) -->
     <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
     <PackageVersion Include="PdfPig" Version="0.1.16" />
+    <PackageVersion Include="AngleSharp" Version="1.8.3" />
     <!-- HTTP and configuration -->
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.12" />
@@ -22,5 +23,6 @@
     <PackageVersion Include="xunit.v3" Version="4.0.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
     <PackageVersion Include="bunit" Version="2.11.3" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
   </ItemGroup>
 </Project>

@@ -16,10 +16,18 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="PdfPig" />
+    <PackageReference Include="AngleSharp" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="JobPilot.Mobile.Tests" />
+  </ItemGroup>
+
+  <!-- Implicit usings of the web SDK that the ported web code relies on. -->
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,7 +38,7 @@
   <ItemGroup>
     <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Prompts\*.md" Link="Shared\Prompts\%(Filename)%(Extension)" LogicalName="Prompts/%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\..\src\JobPilot.Web\appsettings.json" Link="Shared\web-appsettings.json" LogicalName="web-appsettings.json" />
-    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Seed\profile.seed.json" Link="Shared\Seed\profile.seed.json" LogicalName="Seed/profile.seed.json" />
+    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Seed\profile.seed.json;..\..\..\src\JobPilot.Web\Seed\job-search.seed.json;..\..\..\src\JobPilot.Web\Seed\followed-companies.seed.json" Link="Shared\Seed\%(Filename)%(Extension)" LogicalName="Seed/%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

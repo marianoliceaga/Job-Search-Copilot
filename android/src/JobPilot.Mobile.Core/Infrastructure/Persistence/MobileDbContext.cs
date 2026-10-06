@@ -1,6 +1,9 @@
+using System.Text.Json;
+using JobPilot.Domain.Jobs;
 using JobPilot.Domain.Llm;
 using JobPilot.Domain.Profiles;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace JobPilot.Mobile.Core.Infrastructure.Persistence;
@@ -21,7 +24,15 @@ public sealed class MobileDbContext(DbContextOptions<MobileDbContext> options) :
 
     public DbSet<MasterCvVersion> MasterCvVersions => Set<MasterCvVersion>();
 
+    public DbSet<JobPosting> JobPostings => Set<JobPosting>();
+
+    public DbSet<FollowedCompany> FollowedCompanies => Set<FollowedCompany>();
+
+    public DbSet<SourceRun> SourceRuns => Set<SourceRun>();
+
     public DbSet<SettingsDocument> SettingsDocuments => Set<SettingsDocument>();
+
+    public DbSet<JobAnalysisRecord> JobAnalyses => Set<JobAnalysisRecord>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -65,6 +76,58 @@ public sealed class MobileDbContext(DbContextOptions<MobileDbContext> options) :
         {
             version.HasIndex(v => v.Version).IsUnique();
             version.Property(v => v.Source).HasMaxLength(300);
+        });
+
+        modelBuilder.Entity<JobPosting>(posting =>
+        {
+            posting.HasIndex(p => p.UrlKey).IsUnique();
+            posting.HasIndex(p => p.Fingerprint);
+            posting.HasIndex(p => p.FirstSeenAtUtc);
+            posting.Property(p => p.SourceKey).HasMaxLength(50);
+            posting.Property(p => p.SourceName).HasMaxLength(200);
+            posting.Property(p => p.SourceJobId).HasMaxLength(300);
+            posting.Property(p => p.Title).HasMaxLength(500);
+            posting.Property(p => p.Company).HasMaxLength(300);
+            posting.Property(p => p.Url).HasMaxLength(2000);
+            posting.Property(p => p.ApplyUrl).HasMaxLength(2000);
+            posting.Property(p => p.UrlKey).HasMaxLength(2000);
+            posting.Property(p => p.Fingerprint).HasMaxLength(800);
+            posting.Property(p => p.SalaryCurrency).HasMaxLength(10);
+            posting.Property(p => p.SalaryPeriod).HasConversion<string>().HasMaxLength(10);
+            posting.Property(p => p.Sightings).HasConversion(
+                value => JsonSerializer.Serialize(value, JsonSerializerOptions.Web),
+                json => JsonSerializer.Deserialize<List<JobSighting>>(json, JsonSerializerOptions.Web) ?? new List<JobSighting>(),
+                new ValueComparer<List<JobSighting>>(
+                    (a, b) => a!.SequenceEqual(b!),
+                    list => list.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode())),
+                    list => list.ToList()));
+            posting.Ignore(p => p.HasPublishedSalary);
+            posting.Ignore(p => p.SearchableText);
+        });
+
+        modelBuilder.Entity<FollowedCompany>(company =>
+        {
+            company.HasIndex(c => new { c.Ats, c.BoardToken }).IsUnique();
+            company.Property(c => c.Ats).HasConversion<string>().HasMaxLength(20);
+            company.Property(c => c.Name).HasMaxLength(200);
+            company.Property(c => c.BoardToken).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<SourceRun>(run =>
+        {
+            run.HasIndex(r => new { r.SourceKey, r.StartedAtUtc });
+            run.Property(r => r.SourceKey).HasMaxLength(50);
+            run.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+            run.Property(r => r.Message).HasMaxLength(4000);
+        });
+
+        modelBuilder.Entity<JobAnalysisRecord>(analysis =>
+        {
+            analysis.ToTable("JobAnalyses");
+            analysis.HasIndex(a => new { a.JobPostingId, a.CreatedAtUtc });
+            analysis.HasOne<JobPosting>().WithMany().HasForeignKey(a => a.JobPostingId).OnDelete(DeleteBehavior.Cascade);
+            analysis.Property(a => a.PromptId).HasMaxLength(150);
+            analysis.Property(a => a.Model).HasMaxLength(100);
         });
 
         modelBuilder.Entity<SettingsDocument>(document =>

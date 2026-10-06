@@ -66,6 +66,13 @@ Profile and master CV with versions; import of PDF, DOCX or Markdown chosen with
 
 ### Phase A3 — Offers
 The eight sources with their rate limits, manual entry, filters, analysis with Gemini and ranking.
+- Same sources, user agent and minimum intervals as the web app (owner's choice, 2026-10-06); each app keeps its own run
+  history and the Sources tab says so.
+- Same ingestion, dedup, filters, eligibility hint, compensation rules, analysis verifier and ranking as the web app;
+  tables identical to the web ones (checked against the web model snapshot).
+- Original postings open in the phone's browser.
+- Acceptance on the phone (owner): "Buscar" with the default sources, a manual entry (ATS URL and pasted text) and an
+  analysis of one offer with the real CV.
 
 ### Phase A4 — Tailored CV and cover letter
 Generation with traceability, approval, DOCX/PDF export shared through Android's share sheet. QuestPDF on Android is

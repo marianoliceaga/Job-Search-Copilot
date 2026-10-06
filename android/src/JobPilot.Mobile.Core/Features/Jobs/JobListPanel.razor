@@ -1,0 +1,218 @@
+@using JobPilot.Domain.Jobs
+@implements IDisposable
+@inject JobListService Jobs
+@inject JobSearchService Search
+@inject NavigationManager Navigation
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search" OnClick="SearchAsync" Disabled="_searching">
+            Buscar
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="() => _showAdd = !_showAdd">
+            @(_showAdd ? "Cerrar alta manual" : "Agregar oferta")
+        </MudButton>
+        @if (_searching)
+        {
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+            <MudText Typo="Typo.body2">@_progressText</MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+        }
+    </MudStack>
+
+    @if (_showAdd)
+    {
+        <MudPaper Outlined="true" Class="pa-4">
+            <AddJobPanel OnAdded="OnAddedAsync" />
+        </MudPaper>
+    }
+
+    @if (_reports.Count > 0)
+    {
+        <MudExpansionPanels Outlined="true" Elevation="0">
+            <MudExpansionPanel Text="@($"Resultado de la búsqueda: {_reports.Sum(r => r.Ingestion?.Added ?? 0)} ofertas nuevas")" Expanded="true">
+                @foreach (var report in _reports)
+                {
+                    <MudText Typo="Typo.body2" Color="@(report.Status == Infrastructure.Persistence.SourceRunStatus.Failed ? Color.Error : Color.Default)">
+                        <strong>@report.SourceName:</strong> @report.Message
+                    </MudText>
+                }
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    }
+
+    <MudGrid Spacing="2">
+        <MudItem xs="12" md="4">
+            <MudTextField T="string" Value="_text" ValueChanged="OnTextChangedAsync" Label="Buscar en las ofertas" Variant="Variant.Outlined"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.FilterList" DebounceInterval="300" Margin="Margin.Dense" />
+        </MudItem>
+        <MudItem xs="6" md="2">
+            <MudSelect T="int?" Value="_maxAgeDays" ValueChanged="OnAgeChangedAsync" Label="Publicadas" Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem T="int?" Value="@((int?)null)">Cualquier fecha</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)3)">Últimos 3 días</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)7)">Última semana</MudSelectItem>
+                <MudSelectItem T="int?" Value="@((int?)30)">Último mes</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" md="2">
+            <MudSelect T="string" Value="_source" ValueChanged="OnSourceChangedAsync" Label="Fuente" Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem T="string" Value="@string.Empty">Todas</MudSelectItem>
+                @foreach (var source in Search.Sources)
+                {
+                    <MudSelectItem T="string" Value="@source.Key">@source.DisplayName</MudSelectItem>
+                }
+                <MudSelectItem T="string" Value="@ManualJobImport.ManualSourceKey">Alta manual</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" md="2">
+            <MudSelect T="string" Value="_analyzed" ValueChanged="OnAnalyzedChangedAsync" Label="Análisis" Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem T="string" Value="@string.Empty">Todas</MudSelectItem>
+                <MudSelectItem T="string" Value="@("yes")">Analizadas</MudSelectItem>
+                <MudSelectItem T="string" Value="@("no")">Sin analizar</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" md="2">
+            <MudStack Spacing="0">
+                <MudCheckBox T="bool" Value="_hideIneligible" ValueChanged="OnHideIneligibleChangedAsync" Label="Ocultar no elegibles" Dense="true" />
+                <MudCheckBox T="bool" Value="_onlyRemote" ValueChanged="OnRemoteChangedAsync" Label="Solo remotas" Dense="true" />
+                <MudCheckBox T="bool" Value="_discarded" ValueChanged="OnDiscardedChangedAsync" Label="Ver descartadas" Dense="true" />
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+
+    <MudTable Items="_items" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true" Loading="_loading"
+              OnRowClick="@((TableRowClickEventArgs<JobListItem> args) => Navigation.NavigateTo($"/ofertas/{args.Item!.Posting.Id}"))"
+              RowClass="cursor-pointer" RowsPerPage="50">
+        <NoRecordsContent>
+            <MudText>No hay ofertas con estos filtros. Probá "Buscar" o agregá una a mano.</MudText>
+        </NoRecordsContent>
+        <HeaderContent>
+            <MudTh>Puntaje</MudTh>
+            <MudTh>Oferta</MudTh>
+            <MudTh>Ubicación y elegibilidad</MudTh>
+            <MudTh>Compensación</MudTh>
+            <MudTh>Fuente</MudTh>
+            <MudTh>Publicada</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Puntaje">
+                <MudText Typo="Typo.h6">@context.Rank.Score.ToString("0")</MudText>
+                @if (context.Rank.IsPreliminary)
+                {
+                    <MudText Typo="Typo.caption">preliminar</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Oferta">
+                <MudText><strong>@context.Posting.Title</strong></MudText>
+                <MudText Typo="Typo.body2">@context.Posting.Company</MudText>
+            </MudTd>
+            <MudTd DataLabel="Ubicación">
+                <MudText Typo="Typo.body2">@JobFormat.Short(context.Posting.Location, 60)</MudText>
+                <MudChip T="string" Size="Size.Small" Color="@JobFormat.EligibilityColor(context.Eligibility.Status)">
+                    @JobFormat.EligibilityLabel(context.Eligibility.Status, context.EligibilityFromAnalysis)
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Compensación">@JobFormat.Compensation(context)</MudTd>
+            <MudTd DataLabel="Fuente">
+                @context.Posting.SourceName
+                @if (context.Posting.Sightings.Count > 0)
+                {
+                    <MudText Typo="Typo.caption">+ @context.Posting.Sightings.Count fuente(s)</MudText>
+                }
+            </MudTd>
+            <MudTd DataLabel="Publicada">@JobFormat.Date(context.Posting.PublishedAtUtc ?? context.Posting.FirstSeenAtUtc)</MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager RowsPerPageString="Filas por página:" />
+        </PagerContent>
+    </MudTable>
+</MudStack>
+
+@code {
+    private IReadOnlyList<JobListItem> _items = [];
+    private IReadOnlyList<SourceRunReport> _reports = [];
+    private bool _loading = true;
+    private bool _searching;
+    private bool _showAdd;
+    private string _progressText = string.Empty;
+    private CancellationTokenSource? _cts;
+
+    private string? _text;
+    private int? _maxAgeDays;
+    private string _source = string.Empty;
+    private string _analyzed = string.Empty;
+    private bool _hideIneligible;
+    private bool _onlyRemote;
+    private bool _discarded;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _items = await Jobs.GetAsync(new JobListFilter
+        {
+            Text = _text,
+            MaxAgeDays = _maxAgeDays,
+            SourceKey = string.IsNullOrEmpty(_source) ? null : _source,
+            Analyzed = _analyzed switch { "yes" => true, "no" => false, _ => null },
+            HideUnlikelyEligible = _hideIneligible,
+            OnlyRemote = _onlyRemote,
+            OnlyDiscarded = _discarded,
+        }, CancellationToken.None);
+        _loading = false;
+    }
+
+    private async Task SearchAsync()
+    {
+        _searching = true;
+        _reports = [];
+        _cts = new CancellationTokenSource();
+        var progress = new Progress<SearchProgress>(p =>
+        {
+            _progressText = p.Current is null ? "Terminando…" : $"Leyendo {p.Current} ({p.Completed + 1} de {p.Total})…";
+            InvokeAsync(StateHasChanged);
+        });
+        try
+        {
+            _reports = await Search.RunAsync(progress, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _reports = [new SourceRunReport("-", "Búsqueda", Infrastructure.Persistence.SourceRunStatus.Cancelled, "Cancelada. Lo ya leído quedó guardado.", null)];
+        }
+        finally
+        {
+            _searching = false;
+            _cts.Dispose();
+            _cts = null;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task OnAddedAsync(Guid id)
+    {
+        _showAdd = false;
+        Navigation.NavigateTo($"/ofertas/{id}");
+        await Task.CompletedTask;
+    }
+
+    private Task OnTextChangedAsync(string? value) { _text = value; return LoadAsync(); }
+
+    private Task OnAgeChangedAsync(int? value) { _maxAgeDays = value; return LoadAsync(); }
+
+    private Task OnSourceChangedAsync(string value) { _source = value; return LoadAsync(); }
+
+    private Task OnAnalyzedChangedAsync(string value) { _analyzed = value; return LoadAsync(); }
+
+    private Task OnHideIneligibleChangedAsync(bool value) { _hideIneligible = value; return LoadAsync(); }
+
+    private Task OnRemoteChangedAsync(bool value) { _onlyRemote = value; return LoadAsync(); }
+
+    private Task OnDiscardedChangedAsync(bool value) { _discarded = value; return LoadAsync(); }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

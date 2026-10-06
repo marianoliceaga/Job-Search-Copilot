@@ -63,11 +63,18 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
                              ProfileSeed (embedded web seed), MasterCvStore (versions), MasterCvPanel, MasterCvEditor,
                              CvImportPanel (Android picker), Import/ (CvTextExtractor with PdfPig/Open XML, ImportedCv,
                              CvImportHandler); Shared/ PartialDateField, StringListEditor
+  Features/Jobs/             port of the web slice: JobsPage (/ofertas: Ofertas / Fuentes y empresas / Preferencias), JobDetailPage
+                             (/ofertas/{id}; the Empresa, Outreach, Pipeline and tailoring parts arrive in A4–A6), SourcesPanel
+                             (cards instead of tables), Sources/ (8 IJobSource providers, web settings and intervals),
+                             JobIngestion, JobSearchService, FollowedCompanyStore, JobPreferencesStore + JobSeedFiles (embedded
+                             web seeds), ManualJobImport, JobListService, Analysis/ (job-analysis, AnalysisVerifier)
+  Infrastructure/Text/       HtmlText (AngleSharp): third-party HTML → plain text
 tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTests, manifest, Gemini client and profile/CV
                              (ports of the web tests), prompts, configuration, migrations, settings and profile UI;
-                             TestSupport/ (LlmTestHost with the app's real registrations, TestDatabase, FakeGeminiHandler,
-                             FakeLlmClient, InMemorySecretStore, FakeFilePicker); the web's fictional CV fixtures are linked
-                             into Fixtures/Cv; AndroidFolder helper
+                             TestSupport/ (LlmTestHost with the app's real registrations, TestDatabase, JobsTestContext,
+                             FakeGeminiHandler, FakeLlmClient, InMemorySecretStore, FakeFilePicker); the web's fictional
+                             fixtures are linked into Fixtures/Cv and Fixtures/Sources; WebSchemaTests compares both EF
+                             model snapshots; AndroidFolder helper
 scripts/                     check-no-signing-keys.sh
 docs/PLAN.md                 Android plan
 ```
@@ -103,6 +110,14 @@ docs/PLAN.md                 Android plan
   -p:TreatWarningsAsErrors=false -p:RuntimeIdentifier=android-arm64`. On 2026-10-06 the only ones were in the untrimmed
   assemblies (EF Core, SQLitePCLRaw, the Core library's System.Text.Json use) and MudBlazor; PdfPig and Open XML (marked
   trimmable) are trimmed without warnings.
+- The Core library adds the web SDK's implicit usings it needs (`Microsoft.Extensions.Configuration`, `DependencyInjection`,
+  `Logging`) so ported web files compile unchanged.
+- External links (`target="_blank"` or another host) open in the phone's browser: that is BlazorWebView's default
+  (`UrlLoadingStrategy.OpenExternally`); the app never loads third-party pages inside the WebView.
+- Tables with more than three columns do not fit a phone screen: the Android UI uses cards where the web uses tables
+  (sources, followed companies).
+- `JobSeedFiles` reads embedded seeds; tests pass a folder through its internal constructor.
+- `WebSchemaTests` fails when a phone table is mapped differently from the web one: copy the web mapping, not a variant.
 - `PickResult` cannot be created with `new(null)` inside the record: it binds to the copy constructor. Use `new(File: null)`.
 - Android's picker filters by MIME type; many file managers report `.md` as `application/octet-stream`, so the picker also
   accepts it for Markdown and `CvTextExtractor` checks the extension afterwards.
@@ -124,6 +139,8 @@ docs/PLAN.md                 Android plan
 | 2026-10-06 | `LlmUseCases` lists only the use cases implemented on Android, with the web names and labels | The models tab shows what exists on the phone; names in logs mean the same in both apps. |
 | 2026-10-06 | CV files chosen with MAUI's `FilePicker` (Android document picker) behind `IFilePickerService`, read into memory with `OpenReadAsync`, never copied; `READ_EXTERNAL_STORAGE` only up to API 32, as MAUI documents; no media permissions | The plan's "selector de archivos"; works with `content://` URIs; testable with a fake. |
 | 2026-10-06 | Profile and master CV ported from the web slice unchanged in behaviour (seed, versions, restore, import verifier flags, review before save); same tables as the web app | One behaviour in both apps; A10 maps the tables one to one. |
+| 2026-10-06 | Offers ported from the web slice with the same 8 sources, user agent and minimum intervals (embedded web settings); each app keeps its own `SourceRuns` | Chosen by the owner ("mismos intervalos que la web"); the Sources tab tells the owner that both apps count separately against each source's limits. |
+| 2026-10-06 | Phone tables mapped exactly like the web ones, enforced by comparing both EF model snapshots | A10 imports and exports rows without translation. |
 | 2026-10-06 | Own `NoSendingTests` with the web list plus Android/MAUI composers (`smsto:`, `SmsManager`, `Email.Default`, `ACTION_SENDTO`…) | The web test only scans `src/`; the same guarantee for `android/src`. |
 
 ## Verified external facts
@@ -143,6 +160,11 @@ Checked on 2026-10-06:
 - MAUI file picker: Android filters by MIME type, `FullPath` may be a `content://` URI (read with `OpenReadAsync`),
   `READ_EXTERNAL_STORAGE` (max SDK 32) for Android 12 and lower. Source:
   `https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/storage/file-picker?view=net-maui-10.0`.
+- Himalayas API: no CORS headers, so browsers cannot call it ("call the API from your backend"); a native app's HTTP client
+  is not affected. Attribution and no resubmission to aggregators still apply; data is refreshed every 24 h. Source:
+  `https://himalayas.app/api`.
+- Blazor Hybrid links: external links (other host or `target="_blank"`) open in the device's handler by default. Source:
+  `https://learn.microsoft.com/en-us/aspnet/core/blazor/hybrid/routing?view=aspnetcore-10.0`.
 - GitHub docs use `actions/upload-artifact@v4` with `retention-days`. Source:
   `https://docs.github.com/en/actions/tutorials/store-and-share-data`.
 
@@ -152,7 +174,7 @@ Checked on 2026-10-06:
 - [x] Phase A1 — Persistence, Gemini and settings (pending: on the phone, saving the key, "Probar conexión" with the real key and
   the call log after restarting the app, which confirms EF Core and secure storage at runtime)
 - [x] Phase A2 — Profile and master CV (pending: a real import on the phone with the owner's CV through Android's picker)
-- [ ] Phase A3 — Offers
+- [x] Phase A3 — Offers (pending: a real "Buscar", a manual entry and an analysis with the owner's key on the phone)
 - [ ] Phase A4 — Tailored CV and cover letter
 - [ ] Phase A5 — Pipeline, reminders and dashboard
 - [ ] Phase A6 — Companies and outreach
