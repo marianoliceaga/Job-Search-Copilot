@@ -81,7 +81,25 @@ else
                 </MudSimpleTable>
             </MudExpansionPanel>
             <MudExpansionPanel Text="Descripción (texto de la fuente)" Expanded="@(_item.Analysis is null)">
-                <pre class="jp-payload" style="max-height: 480px">@posting.Description</pre>
+                @if (string.IsNullOrWhiteSpace(posting.Description))
+                {
+                    <MudStack Spacing="2" data-testid="paste-description">
+                        <MudText Typo="Typo.body2">
+                            Esta oferta llegó sin descripción. Abrila en <MudLink Href="@posting.Url" Target="_blank" rel="noopener noreferrer">la fuente</MudLink>,
+                            copiá el texto completo y pegalo acá: se guarda tal cual y se usa para el análisis.
+                        </MudText>
+                        <MudTextField @bind-Value="_pastedDescription" Label="Descripción de la oferta" Variant="Variant.Outlined" Lines="8" Immediate="true" />
+                        @if (_pasteError is not null)
+                        {
+                            <MudAlert Severity="Severity.Warning">@_pasteError</MudAlert>
+                        }
+                        <div><MudButton Variant="Variant.Outlined" Disabled="@string.IsNullOrWhiteSpace(_pastedDescription)" OnClick="SaveDescriptionAsync">Guardar descripción</MudButton></div>
+                    </MudStack>
+                }
+                else
+                {
+                    <pre class="jp-payload" style="max-height: 480px">@posting.Description</pre>
+                }
             </MudExpansionPanel>
         </MudExpansionPanels>
 
@@ -214,6 +232,8 @@ else
     private bool _running;
     private string? _error;
     private CancellationTokenSource? _cts;
+    private string _pastedDescription = string.Empty;
+    private string? _pasteError;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -236,6 +256,16 @@ else
         (_prepared, _prepareError) = await Analyzer.PrepareAsync(Id, CancellationToken.None);
         _model = (await Settings.ResolveAsync(LlmUseCases.JobAnalysis, CancellationToken.None)).Model;
         _country = (await Profiles.GetAsync(CancellationToken.None)).WorkFromCountry ?? "tu país";
+    }
+
+    private async Task SaveDescriptionAsync()
+    {
+        _pasteError = await Jobs.SetPastedDescriptionAsync(Id, _pastedDescription, CancellationToken.None);
+        if (_pasteError is null)
+        {
+            _pastedDescription = string.Empty;
+            await LoadAsync();
+        }
     }
 
     private async Task AnalyzeAsync()

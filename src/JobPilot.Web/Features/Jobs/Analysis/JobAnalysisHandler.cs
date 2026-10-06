@@ -31,6 +31,11 @@ public sealed class JobAnalysisHandler(
             return (null, "La oferta no existe.");
         }
 
+        if (string.IsNullOrWhiteSpace(posting.Description))
+        {
+            return (null, "La oferta no tiene descripción (por ejemplo, llegó por una alerta de LinkedIn): abrila en la fuente y pegá el texto en \"Descripción\" para analizarla.");
+        }
+
         var cv = await cvs.GetAsync(cancellationToken);
         if (cv is null)
         {

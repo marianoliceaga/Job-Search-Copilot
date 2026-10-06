@@ -1,3 +1,5 @@
+using JobPilot.Domain.Mail;
+
 namespace JobPilot.Web.Infrastructure.Persistence;
 
 /// <summary>A JSON document stored by key (preferences, one-time seeding flags).</summary>
@@ -196,4 +198,100 @@ public sealed class ApplicationMailThread
     public required string Subject { get; set; }
 
     public DateTime LinkedAtUtc { get; set; }
+}
+
+/// <summary>
+/// One "Actualizar correo" run: counts, filter chips, warnings and the alert roles that became offers. Facts only: no
+/// message bodies are stored.
+/// </summary>
+public sealed class MailCheckRecord
+{
+    public long Id { get; set; }
+
+    public DateTime StartedAtUtc { get; set; }
+
+    public DateTime FinishedAtUtc { get; set; }
+
+    /// <summary>Start of the inbox window that was read.</summary>
+    public DateTime WindowSinceUtc { get; set; }
+
+    public bool Succeeded { get; set; }
+
+    public string? Error { get; set; }
+
+    public int ThreadsRead { get; set; }
+
+    public int Waiting { get; set; }
+
+    public int AlertThreads { get; set; }
+
+    public int Filtered { get; set; }
+
+    public int Listings { get; set; }
+
+    public int OffersAdded { get; set; }
+
+    public List<FilterChip> FilteredChips { get; set; } = [];
+
+    public List<FilterChip> RoleFilters { get; set; } = [];
+
+    public List<string> Warnings { get; set; } = [];
+
+    public List<MailRoleSummary> Roles { get; set; } = [];
+}
+
+/// <summary>An alert role shown in the brief and the offer it became.</summary>
+public sealed record MailRoleSummary(
+    Guid PostingId,
+    string Title,
+    string Company,
+    string Location,
+    string Workplace,
+    RoleFit Fit,
+    int Score,
+    IReadOnlyList<string> Why,
+    decimal? PayMonthlyUsd,
+    int Listings,
+    bool IsNew);
+
+/// <summary>
+/// A "Te esperan" card, one per Gmail thread, refreshed by every check that reads the thread. "Listo" hides it until a new
+/// message arrives in the thread.
+/// </summary>
+public sealed class MailWaitingRecord
+{
+    public long Id { get; set; }
+
+    public required string ThreadId { get; set; }
+
+    public required string LastMessageId { get; set; }
+
+    public long LastCheckId { get; set; }
+
+    public required string RuleId { get; set; }
+
+    public required string Pill { get; set; }
+
+    public MailTone Tone { get; set; }
+
+    public required string Subject { get; set; }
+
+    public required string SenderName { get; set; }
+
+    public required string SenderAddress { get; set; }
+
+    public required string Timeline { get; set; }
+
+    public required string NextAction { get; set; }
+
+    public DateTime LastReceivedUtc { get; set; }
+
+    public DateTime RailUtc { get; set; }
+
+    public required string RailNote { get; set; }
+
+    public DateTime FirstSeenUtc { get; set; }
+
+    /// <summary>Set by "Listo"; cleared when a newer message arrives in the thread.</summary>
+    public DateTime? DoneAtUtc { get; set; }
 }

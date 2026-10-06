@@ -23,7 +23,9 @@
         <MudText Typo="Typo.subtitle1"><strong>Cómo configurarlo (una sola vez)</strong></MudText>
         <ol>
             <li>En <MudLink Href="https://console.cloud.google.com/" Target="_blank" rel="noopener noreferrer">Google Cloud Console</MudLink> creá un proyecto y habilitá <strong>Gmail API</strong> y <strong>Google Calendar API</strong> (para conectar solo el calendario alcanza con Google Calendar API).</li>
-            <li>En <em>Google Auth Platform</em> configurá la pantalla de consentimiento: tipo <strong>External</strong>, estado <strong>Testing</strong>, y agregá tu cuenta como <em>test user</em>.</li>
+            <li>En <em>Google Auth Platform</em> configurá la pantalla de consentimiento: tipo <strong>External</strong> y agregá tu cuenta como <em>test user</em>.
+                Para que el permiso no venza cada 7 días, publicala (<em>Audience → Publish app → In production</em>) sin pedir verificación: Google lo permite para
+                uso personal y al conectar vas a ver el aviso "Google no verificó esta app" (Avanzado → Ir a la app).</li>
             <li>Creá un cliente OAuth de tipo <strong>Web application</strong> con este redirect URI: <code>@Auth.RedirectUri</code></li>
             <li>Guardá las credenciales con user-secrets (nunca en el repositorio) y reiniciá la app:
                 <pre class="jp-payload">dotnet user-secrets set "Google:ClientId" "&lt;client id&gt;" --project src/JobPilot.Web
@@ -31,7 +33,7 @@ dotnet user-secrets set "Google:ClientSecret" "&lt;client secret&gt;" --project 
             </li>
         </ol>
         <MudText Typo="Typo.body2">
-            Con la app en estado Testing, Google hace vencer el permiso a los 7 días: cuando pase, JobPilot te avisa y volvés a conectar.
+            Si la dejás en estado Testing, Google hace vencer el permiso a los 7 días: cuando pase, JobPilot te avisa y volvés a conectar.
         </MudText>
     }
     else if (!_status.Connected)

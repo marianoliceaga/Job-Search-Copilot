@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using JobPilot.Domain.Pipeline;
+using JobPilot.Web.Features.Mail;
 using JobPilot.Web.Features.Pipeline;
 using JobPilot.Web.Infrastructure;
 using JobPilot.Web.Infrastructure.Google;
@@ -79,6 +80,10 @@ public sealed class GoogleTestHost : IAsyncDisposable
 
     public ApplicationGoogleService Applications => _services.GetRequiredService<ApplicationGoogleService>();
 
+    public MailCheckService MailCheck => _services.GetRequiredService<MailCheckService>();
+
+    public MailRulesStore MailRules => _services.GetRequiredService<MailRulesStore>();
+
     public static async Task<GoogleTestHost> CreateAsync()
     {
         var pipeline = await PipelineTestContext.CreateAsync();
@@ -104,6 +109,9 @@ public sealed class GoogleTestHost : IAsyncDisposable
             .AddSingleton(pipeline.Jobs.Db)
             .AddSingleton(pipeline.Store)
             .AddTransient<ApplicationGoogleService>()
+            .AddSingleton(pipeline.Jobs.Ingestion)
+            .AddSingleton(pipeline.Jobs.Preferences)
+            .AddMail(Path.Combine(AppContext.BaseDirectory, "Seed"))
             .AddGoogle(configuration);
         services.ConfigureHttpClientDefaults(builder => builder.ConfigurePrimaryHttpMessageHandler(() => handler));
         return new GoogleTestHost(services.BuildServiceProvider(), pipeline, data, handler, time);

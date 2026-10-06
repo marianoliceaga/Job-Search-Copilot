@@ -1,0 +1,143 @@
+{
+  "gmail": {
+    "inboxQuery": "in:inbox {since}",
+    "followUpQuery": "is:unread newer_than:5d (interview OR entrevista OR recruiter OR reclutador OR invitation OR invitación OR opportunity OR oportunidad)",
+    "maxThreadsPerQuery": 50,
+    "lookbackCapDays": 4
+  },
+  "sets": {
+    "hiringSystems": [ "greenhouse.io", "greenhouse-mail.io", "lever.co", "hire.lever.co", "workable.com", "ashbyhq.com",
+                       "smartrecruiters.com", "teamtailor.com", "myworkdayjobs.com", "workday.com", "bamboohr.com", "breezy.hr" ],
+    "interviewTerms": [ "interview", "entrevista", "availability", "disponibilidad", "schedule a call", "agendar", "agendemos",
+                        "calendly", "next steps", "proximos pasos", "book a time", "coordinar una llamada" ],
+    "recruiterTerms": [ "opportunity", "oportunidad", "role", "rol", "position", "posicion", "busqueda", "recruiter",
+                        "reclutador", "reclutadora", "talent", "hiring", "vacante", "your profile", "tu perfil" ],
+    "applicationActionTerms": [ "assessment", "test", "challenge", "desafio", "take-home", "complete", "completar",
+                                "next steps", "proximos pasos", "action required" ],
+    "dotnet": [ "re:(?<![\\p{L}\\p{N}])\\.net\\b", "asp.net", "dotnet", "re:(?<![\\p{L}\\p{N}])c#" ],
+    "azureStack": [ "azure", "ef core", "entity framework", "blazor" ],
+    "backend": [ "backend", "back-end", "back end", "api", "apis" ],
+    "otherStack": [ "java", "python", "node", "node.js", "nodejs", "golang", "php", "ruby", "rails", "scala", "kotlin", "elixir" ],
+    "levelTop": [ "principal", "staff", "architect", "arquitecto", "lead", "leader", "lider", "head of", "tech lead" ],
+    "levelSenior": [ "senior", "sr", "sr." ],
+    "levelJunior": [ "semi senior", "semi sr", "semisenior", "semi-senior", "ssr", "mid", "mid-level", "junior", "jr",
+                     "trainee", "intern", "pasante" ],
+    "domain": [ "bank", "banking", "banco", "bancario", "bancaria", "fintech", "payments", "pagos", "e-commerce",
+                "ecommerce", "commerce", "retail", "wallet", "billetera", "lending", "credit", "credito" ],
+    "domainCompanies": [],
+    "latam": [ "latin america", "latam", "latinoamerica", "america latina", "south america", "sudamerica", "argentina" ],
+    "home": [],
+    "anywhere": [ "worldwide", "anywhere", "global" ],
+    "remote": [ "remote", "remoto", "100% remote", "work from home", "wfh", "teletrabajo" ],
+    "usdSignals": [ "usd", "dollars", "dolares", "contractor", "contract", "contratista" ],
+    "usdCompanies": [],
+    "usOnly": [ "united states", "usa", "u.s.", "bay area", "new york city",
+                "re:,\\s?(al|ak|az|ca|co|ct|de|fl|ga|hi|id|il|in|ia|ks|ky|la|me|md|ma|mi|mn|ms|mo|mt|ne|nv|nh|nj|nm|ny|nc|nd|oh|ok|or|pa|ri|sc|sd|tn|tx|ut|vt|va|wa|wv|wi|wy|dc)$" ]
+  },
+  "automatedSenders": [
+    "re:^(no-?reply|do-?not-?reply|no-responder|notifications?|notificaciones|mailer-daemon|postmaster|alertas?|updates|news|newsletters?|info|hello|team|support|soporte|marketing|comunicaciones)[@+._-]",
+    "re:-noreply@",
+    "$hiringSystems"
+  ],
+  "linkedIn": {
+    "alertSenders": [ "jobalerts-noreply@linkedin.com" ],
+    "templateHeader": "X-LinkedIn-Template",
+    "templateMatches": [ "re:job_alert" ]
+  },
+  "waitingRules": [
+    {
+      "id": "rsvp", "kind": "InviteNeedsReply", "pill": "RSVP", "tone": "Act",
+      "nextAction": "Respondé la invitación a “{inviteTitle}”, {inviteWhen}. Si ya respondiste, marcala como lista."
+    },
+    {
+      "id": "interview-upcoming", "kind": "InviteUpcoming", "pill": "Entrevista", "tone": "Hold",
+      "nextAction": "Preparate para “{inviteTitle}”, {inviteWhen}."
+    },
+    {
+      "id": "linkedin-inmail", "pill": "Responder", "tone": "Act",
+      "match": { "from": [ "linkedin.com" ], "headers": { "X-LinkedIn-Template": [ "re:inmail_initial" ] } },
+      "nextAction": "Respondele a {senderName} en LinkedIn: te interesa o no."
+    },
+    {
+      "id": "linkedin-message", "pill": "Responder", "tone": "Act",
+      "match": { "from": [ "linkedin.com" ], "headers": { "X-LinkedIn-Template": [ "re:inmail_reply", "re:member_message" ] } },
+      "nextAction": "Contestale a {senderName} en LinkedIn."
+    },
+    {
+      "id": "application-action", "pill": "Decidir", "tone": "Act",
+      "match": { "from": [ "$hiringSystems" ], "hasInvite": false, "text": [ "$applicationActionTerms" ] },
+      "nextAction": "Abrilo y decidí: completá el paso o retirate."
+    },
+    {
+      "id": "interview-scheduling", "pill": "Responder", "tone": "Act",
+      "match": { "humanSender": true, "hasInvite": false, "text": [ "$interviewTerms" ] },
+      "nextAction": "Mandale tu disponibilidad a {senderName} o confirmá el horario que propuso."
+    },
+    {
+      "id": "recruiter-outreach", "pill": "Responder", "tone": "Act",
+      "match": { "humanSender": true, "hasInvite": false, "text": [ "$recruiterTerms" ] },
+      "nextAction": "Respondele a {senderName}: te interesa o no."
+    }
+  ],
+  "filterCategories": [
+    { "id": "you-wrote-last", "chip": "Escribiste último", "match": { "lastFromMe": true } },
+    { "id": "linkedin-social", "chip": "Notificaciones de LinkedIn", "match": { "from": [ "updates-noreply@linkedin.com", "notifications-noreply@linkedin.com" ] } },
+    { "id": "linkedin-jobs", "chip": "Sugerencias de empleo de LinkedIn (no alertas)", "match": { "from": [ "jobs-noreply@linkedin.com" ] } },
+    { "id": "linkedin-other", "chip": "LinkedIn, otros", "match": { "from": [ "linkedin.com" ] } },
+    { "id": "past-interview", "chip": "Avisos de entrevistas ya pasadas", "match": { "hasInvite": true } },
+    { "id": "applications", "chip": "Novedades de postulaciones, sin acción", "match": { "from": [ "$hiringSystems" ] } },
+    { "id": "newsletters", "chip": "Newsletters y listas", "match": { "bulk": true } },
+    { "id": "other", "chip": "Otros (no son de la búsqueda)", "match": {} }
+  ],
+  "scoring": {
+    "rules": [
+      { "id": "dotnet", "why": "+.NET en el título", "group": "stack", "weight": 3, "when": [ { "field": "title", "any": [ "$dotnet" ] } ] },
+      { "id": "azure", "why": "+Azure/EF/Blazor", "group": "stack", "weight": 2, "when": [ { "field": "title", "any": [ "$azureStack" ] } ] },
+      { "id": "backend", "why": "+backend", "group": "stack", "weight": 1, "when": [ { "field": "title", "any": [ "$backend" ] } ] },
+      { "id": "no-stack", "why": "-no dice stack", "group": "stack", "weight": -1, "when": [ { "field": "title", "none": [ "$dotnet", "$azureStack", "$backend", "$otherStack" ] } ] },
+      { "id": "other-stack", "why": "-otro stack, no .NET", "group": "stack", "weight": -3, "when": [ { "field": "title", "any": [ "$otherStack" ], "none": [ "$dotnet" ] } ] },
+      { "id": "level-top", "why": "+principal/staff/lead", "group": "level", "weight": 2, "when": [ { "field": "title", "any": [ "$levelTop" ] } ] },
+      { "id": "level-senior", "why": "+senior", "group": "level", "weight": 1, "when": [ { "field": "title", "any": [ "$levelSenior" ], "none": [ "$levelJunior" ] } ] },
+      { "id": "level-junior", "why": "-por debajo de senior", "group": "level", "weight": -4, "when": [ { "field": "title", "any": [ "$levelJunior" ] } ] },
+      { "id": "domain", "why": "+banca/e-commerce/retail", "group": "domain", "weight": 1, "when": [ { "field": "title,company", "any": [ "$domain", "$domainCompanies" ] } ] },
+      { "id": "remote-latam", "why": "+remoto LatAm/Argentina", "group": "location", "weight": 3,
+        "when": [ { "field": "workplace,title", "any": [ "$remote" ] }, { "field": "title,location", "any": [ "$latam" ] } ] },
+      { "id": "remote-any", "why": "+remoto sin región", "group": "location", "weight": 2,
+        "when": [ { "field": "workplace,title", "any": [ "$remote" ] }, { "field": "title,location", "any": [ "$anywhere" ], "none": [ "$latam" ] } ] },
+      { "id": "argentina", "why": "+todo Argentina", "group": "location", "weight": 1,
+        "when": [ { "field": "location", "any": [ "re:^argentina$" ] }, { "field": "workplace", "empty": true } ] },
+      { "id": "hybrid-away", "why": "-híbrido fuera de tu ciudad", "group": "location", "weight": -2,
+        "when": [ { "field": "workplace", "any": [ "hybrid" ] }, { "field": "location", "none": [ "$home" ] } ] },
+      { "id": "pay-above", "why": "+pago hasta {payMonthly}/mes", "group": "pay", "weight": 2, "when": [ { "pay": "atOrAboveFloor" } ] },
+      { "id": "pay-below", "why": "-pago tope {payMonthly}/mes", "group": "pay", "weight": -3, "when": [ { "pay": "belowFloor" } ] },
+      { "id": "usd", "why": "+señal de USD", "group": "pay", "weight": 1, "when": [ { "field": "title,company", "any": [ "$usdSignals", "$usdCompanies" ] } ] }
+    ],
+    "filters": [
+      {
+        "id": "onsite-away", "chip": "Presencial fuera de tu ciudad",
+        "when": [ { "field": "workplace", "any": [ "onsite" ] }, { "field": "location", "none": [ "$home" ] } ],
+        "unlessGroupAtLeast": { "stack": 5 }
+      },
+      {
+        "id": "remote-us-only", "chip": "Remoto, solo EE. UU.",
+        "when": [ { "field": "workplace,title", "any": [ "$remote" ] },
+                  { "field": "location", "any": [ "$usOnly" ] },
+                  { "field": "title,location", "none": [ "$latam", "$anywhere" ] } ]
+      },
+      {
+        "id": "us-unstated", "chip": "En EE. UU., modalidad sin indicar",
+        "when": [ { "field": "workplace", "empty": true },
+                  { "field": "location", "any": [ "$usOnly" ] },
+                  { "field": "title,location", "none": [ "$latam", "$anywhere", "$remote" ] } ]
+      }
+    ],
+    "thresholds": { "strong": 6, "maybe": 3, "weak": 0 },
+    "belowLevelChip": "Por debajo del nivel",
+    "pay": {
+      "monthlyFloorUsd": null,
+      "hoursPerMonth": 160,
+      "usdPerUnit": { "USD": 1 },
+      "maxPlausibleMonthlyUsd": 60000
+    }
+  }
+}

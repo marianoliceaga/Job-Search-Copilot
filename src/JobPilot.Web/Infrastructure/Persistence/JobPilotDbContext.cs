@@ -1,6 +1,7 @@
 using System.Text.Json;
 using JobPilot.Domain.Companies;
 using JobPilot.Domain.Jobs;
+using JobPilot.Domain.Mail;
 using JobPilot.Domain.Negotiation;
 using JobPilot.Domain.Practice;
 using JobPilot.Domain.Llm;
@@ -55,6 +56,10 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
     public DbSet<CompensationOffer> CompensationOffers => Set<CompensationOffer>();
 
     public DbSet<ApplicationMailThread> ApplicationMailThreads => Set<ApplicationMailThread>();
+
+    public DbSet<MailCheckRecord> MailChecks => Set<MailCheckRecord>();
+
+    public DbSet<MailWaitingRecord> MailWaiting => Set<MailWaitingRecord>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -286,6 +291,35 @@ public sealed class JobPilotDbContext(DbContextOptions<JobPilotDbContext> option
             thread.HasOne<JobApplication>().WithMany().HasForeignKey(t => t.ApplicationId).OnDelete(DeleteBehavior.Cascade);
             thread.Property(t => t.ThreadId).HasMaxLength(200);
             thread.Property(t => t.Subject).HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<MailCheckRecord>(check =>
+        {
+            check.ToTable("MailChecks");
+            check.HasIndex(c => c.StartedAtUtc);
+            check.Property(c => c.Error).HasMaxLength(2000);
+            check.Property(c => c.FilteredChips).HasConversion(JsonList<FilterChip>(), JsonListComparer<FilterChip>());
+            check.Property(c => c.RoleFilters).HasConversion(JsonList<FilterChip>(), JsonListComparer<FilterChip>());
+            check.Property(c => c.Warnings).HasConversion(JsonList<string>(), JsonListComparer<string>());
+            check.Property(c => c.Roles).HasConversion(JsonList<MailRoleSummary>(), JsonListComparer<MailRoleSummary>());
+        });
+
+        modelBuilder.Entity<MailWaitingRecord>(waiting =>
+        {
+            waiting.ToTable("MailWaiting");
+            waiting.HasIndex(w => w.ThreadId).IsUnique();
+            waiting.HasIndex(w => w.LastCheckId);
+            waiting.Property(w => w.ThreadId).HasMaxLength(200);
+            waiting.Property(w => w.LastMessageId).HasMaxLength(200);
+            waiting.Property(w => w.RuleId).HasMaxLength(100);
+            waiting.Property(w => w.Pill).HasMaxLength(100);
+            waiting.Property(w => w.Tone).HasConversion<string>().HasMaxLength(10);
+            waiting.Property(w => w.Subject).HasMaxLength(1000);
+            waiting.Property(w => w.SenderName).HasMaxLength(300);
+            waiting.Property(w => w.SenderAddress).HasMaxLength(300);
+            waiting.Property(w => w.Timeline).HasMaxLength(2000);
+            waiting.Property(w => w.NextAction).HasMaxLength(1000);
+            waiting.Property(w => w.RailNote).HasMaxLength(50);
         });
 
         modelBuilder.Entity<SettingsDocument>(document =>
