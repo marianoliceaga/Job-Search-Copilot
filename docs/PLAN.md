@@ -153,3 +153,24 @@ create interview events after explicit confirmation.
   never sends, enforced by tests) and `calendar.app.created` (a dedicated "JobPilot" calendar, no access to the primary one).
 - Tests with a fake Google server: OAuth state, code exchange, refresh, revocation, granular consent, Gmail search/read,
   draft MIME (reply headers, no header injection), calendar creation and events.
+
+### Phase 9 — Mail inbox and daily brief (from JobSearchDesk)
+Port the job-search parts of the owner's JobSearchDesk ("LinkedMail Job Finder") into JobPilot: rule-based, no LLM, on
+demand, nothing sent. Agreed with the owner on 2026-10-06: the brief lives only inside JobPilot (no e-mail), mail is
+read only when the owner asks (no scheduler), only job-search mail is classified (no banks, bills or security notices),
+and the owner unenrols from Advanced Protection to use Gmail.
+
+- Secrets removed from `appsettings.json`; the personal data check rejects `GOCSPX-` client secrets and non-empty
+  `ApiKey`/`ClientSecret`/`ClientId`/token values in JSON files.
+- Domain: LinkedIn job-alert parser (the e-mail only, linkedin.com is never fetched), duplicate merging, role scoring
+  (Strong/Maybe/Weak with the rules that fired, on-site and US-only filters), thread classification into LinkedIn
+  alerts / Waiting on you / Filtered out with the invariant that the buckets add up to the threads read.
+- "Actualizar correo" on the Panel reads Gmail with the existing `gmail.readonly` scope since the last check (at most
+  4 days back, 24 h the first time). Only facts are stored (thread id, sender, subject, date, bucket, rule); bodies are
+  never stored or sent to Gemini.
+- Alert roles feed Ofertas as the source "LinkedIn (alertas por mail)" with dedup, attribution and the canonical link.
+- Waiting-on-you threads are matched to applications by company; one click links the thread or records a response.
+- Panel "Hoy": replies needed, new strong roles, interviews in the next 48 h.
+- Rules are a settings document seeded from a generic file; personal word lists stay local.
+- README: publishing the OAuth app "In production" (unverified) avoids the 7-day refresh token expiry of "Testing".
+- Tests with fictional alert, recruiter and invite e-mails; `NoSendingTests` unchanged.

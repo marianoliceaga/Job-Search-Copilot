@@ -5,7 +5,7 @@
 # Checks:
 #   1. Forbidden files: SQLite databases, secrets, .env, OAuth client secrets.
 #   2. CV-like documents (.pdf/.doc/.docx) outside tests/**/Fixtures/ (fixtures must be fictional).
-#   3. Google API keys.
+#   3. Google API keys, OAuth client secrets and non-empty secret values in JSON settings files.
 #   4. E-mail addresses outside the example/no-reply allowlist.
 #   5. Literals listed in the local, git-ignored .pii-denylist file (one per line), if present.
 set -euo pipefail
@@ -35,6 +35,15 @@ grep_files() {
 
 keys=$(grep_files 'AIza[0-9A-Za-z_-]{35}' | sed -E 's/AIza[0-9A-Za-z_-]{35}/AIza*** (masked)/')
 [ -n "$keys" ] && report "Google API keys:" "$keys"
+
+client_secrets=$(grep_files 'GOCSPX-[0-9A-Za-z_-]{10,}' | sed -E 's/GOCSPX-[0-9A-Za-z_-]+/GOCSPX-*** (masked)/')
+[ -n "$client_secrets" ] && report "Google OAuth client secrets:" "$client_secrets"
+
+# Secrets belong in user-secrets or environment variables, never in a settings file (any key format).
+json_secrets=$(echo "$files" | grep -E '\.json$' | tr '\n' '\0' \
+    | xargs -0 -r grep -nIoE -- '"(ApiKey|ClientSecret|ClientId|RefreshToken|AccessToken)"[[:space:]]*:[[:space:]]*"[^"]+"' 2>/dev/null \
+    | sed -E 's/:[[:space:]]*"[^"]+"$/: "*** (masked)"/' || true)
+[ -n "$json_secrets" ] && report "Secret values in JSON files (use user-secrets or environment variables):" "$json_secrets"
 
 emails=$(grep_files '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' \
     | grep -viE '@(example\.(com|org|net)|users\.noreply\.github\.com)$' || true)
