@@ -6,7 +6,7 @@ and MudBlazor**, using the **Gemini API** as its only LLM.
 JobPilot prepares, analyses and drafts; you approve. It never sends an application, e-mail or message on
 your behalf. All data stays on your machine.
 
-> **Status:** all 8 phases delivered (Google integration included). Pending: checks with your own Gemini key and Google account. See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
+> **Status:** all 9 phases delivered (Google integration and the mail brief included). Pending: checks with your own Gemini key and Google account. See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
 > acceptance criteria per phase. The UI is in Spanish.
 
 ## Planned features
@@ -22,6 +22,8 @@ your behalf. All data stays on your machine.
 - **Pipeline** Kanban, follow-up reminders and `.ics` export.
 - **Company research** with cited sources, **outreach drafts**, **interview practice** and a
   **negotiation** helper.
+- **Daily brief from your mail**: LinkedIn job alerts become offers, recruiter mail and invites become "waiting on you"
+  cards linked to your applications. Rule-based, read-only, on demand.
 
 ## Requirements
 
@@ -164,7 +166,7 @@ follow-ups, upcoming interviews and the estimated LLM cost by use case.
 ### Google (optional)
 
 **Configuración → Google** explains the one-time setup: a Google Cloud project with Gmail API and Google Calendar API
-enabled, an OAuth consent screen (External, Testing, your account as test user) and an OAuth client of type
+enabled, an OAuth consent screen (External, your account as test user) and an OAuth client of type
 **Web application** with the redirect URI `http://localhost:5080/google/callback`. Store its id and secret with
 user-secrets (`Google:ClientId`, `Google:ClientSecret`) and restart. JobPilot asks for three scopes:
 
@@ -181,8 +183,38 @@ unverified OAuth client, so Google answers "Error 400: policy_enforced". Without
 record replies by hand. **Agregar Gmail** reconnects with all three scopes later.
 
 Every action shows exactly what will be sent to Google first. The token is stored encrypted in your data folder. With
-the app in "Testing" status Google expires the permission after 7 days; JobPilot asks you to reconnect.
+the consent screen in "Testing" status Google expires the permission after 7 days and JobPilot asks you to reconnect. To
+avoid that, publish it (Google Auth Platform → Audience → Publish app → "In production") without submitting it for
+verification: Google allows unverified apps for personal use (fewer than 100 users); you click through the "Google hasn't
+verified this app" warning when connecting. Sources: [refresh token expiration](https://developers.google.com/identity/protocols/oauth2#expiration),
+[when verification is not needed](https://support.google.com/cloud/answer/13464323).
 **Desconectar y revocar** revokes the permission at Google and deletes the local token.
+
+### Mail inbox and daily brief
+
+The **Hoy** section of the Panel is JobSearchDesk's morning brief inside JobPilot. **Actualizar correo** reads your Gmail
+(the `gmail.readonly` permission) since the last check (the last day the first time, at most 4 days back) plus unread
+job-related mail from the last 5 days, and sorts every thread into exactly one bucket:
+
+- **LinkedIn alerts**: roles are read from the alert e-mail only (linkedin.com is never fetched), duplicates across
+  cities and alerts are merged, and each role gets a fit (Muy buena / Puede ser / Floja) with the rules that fired.
+  Roles that pass the filters become offers from the source "LinkedIn (alertas por mail)", with the canonical link. The
+  alert has no description: open the offer, paste the text in **Descripción** and then analyse it.
+- **Te esperan**: recruiter mail, LinkedIn InMails and messages, interview scheduling, steps in a hiring system and
+  invites to answer, each with who wrote, a factual timeline and one next action. **Registrar en &lt;empresa&gt;** links
+  the thread to the matching application and records the response in its timeline; **Listo** hides the card until a new
+  message arrives in the thread. Invites are judged from the e-mail copy only (your calendar is not read), so mark an
+  invite as done once you answered it.
+- **Filtrados**: everything else, counted by category with example senders, so nothing disappears unseen.
+
+The buckets always add up to the threads read; a check that broke this stops instead of showing a partial brief.
+JobPilot only reads: it never sends, archives, labels or marks mail as read. Only the facts are stored (thread id,
+sender, subject, dates, which rule matched); message bodies are never stored or sent to Gemini.
+
+**Configuración → Reglas de correo** holds the rules as JSON (seeded from `Seed/mail-rules.seed.json`, which has no
+personal data). Add your city to `sets.home`, companies you like to `sets.domainCompanies`, and a pay floor and exchange
+rates under `scoring.pay` if you want stated pay compared (without them pay is not compared; nothing is estimated). The
+rules are validated before saving.
 
 ### LLM call log
 

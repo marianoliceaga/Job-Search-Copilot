@@ -103,9 +103,12 @@ src/JobPilot.Web/
                              GoogleCalendarClient (JobPilot calendar), DI + /google/connect and /google/callback endpoints
   Features/Google/           GoogleUi (confirmation dialogs showing exactly what is sent to Google)
   Features/Settings/         GooglePanel (setup steps, connect, granted scopes, disconnect)
+  Features/Mail/             TodayPanel ("Hoy" on the Panel), MailCheckService (on-demand Gmail read, classify, alert roles →
+                             offers, waiting cards), LinkedInAlertParser (AngleSharp), MailRulesStore + MailRulesPanel (rules
+                             JSON in Configuración); pure rules, scoring and classifier in JobPilot.Domain/Mail
   Features/Pipeline/         ApplicationMailPanel (Correo tab), ApplicationGoogleService (link threads, record responses, reply
                              drafts, interview events)
-  Seed/                      profile, job-search preferences, followed companies (verified boards),
+  Seed/                      profile, job-search preferences, followed companies (verified boards), mail rules (generic),
                              technology-terms.txt (technology names checked in generated texts)
   wwwroot/app.js             jobPilot.downloadFile (browser download of exported files), jobPilot.copyText (clipboard)
   Infrastructure/Text/       HtmlText: third-party HTML → plain text (source HTML is never rendered)
@@ -165,6 +168,15 @@ docs/PLAN.md                 approved plan
   until the 120 s attempt timeout. The Gemini client uses `SocketsHttpHandler.ConnectTimeout` (`Gemini:ConnectTimeoutSeconds`);
   it throws `TaskCanceledException` with an inner `TimeoutException`, which the resilience pipeline does not retry and the
   client maps to `LlmErrorKind.Network`.
+- `NoSendingTests` forbid MimeKit and the literal `mailto:` anywhere in `src`: Gmail messages are read from the
+  `format=full` JSON payload (parts, headers, charset), and .ics attendee addresses come from `Uri` parts, not string prefixes.
+- The personal data check allows `@example.com/.org/.net` and service senders whose local part is a no-reply form
+  (`jobalerts-noreply@linkedin.com`); for a subdomain in a test, use such a local part (`noreply@contoso.example.com`).
+  Do not pipe the check into `tail` before `&&`: the pipe hides its exit code and the commit goes through.
+- `FakeGoogleHandler` matches routes by path prefix and checks the latest registration first: register the thread list
+  (`/threads`) before the individual threads (`/threads/t1`), or the list route answers everything.
+- Mail rules JSON uses enum names (`"kind": "InviteNeedsReply"`, `"tone": "Act"`); invites are judged from the e-mail copy
+  only (the primary calendar is not read), so an answered invite stays until the owner marks it "Listo".
 - User secrets are loaded in every environment (local app), not only Development.
 - Tests that cancel must cancel after the request reaches the fake handler, not after a fixed delay.
 - MudBlazor 9: `MudTextField.AutoGrow` → `Sizing="InputSizing.Auto"`; `MudFileUpload` uses `CustomContent`
@@ -285,6 +297,13 @@ docs/PLAN.md                 approved plan
 | 2026-10-03 | Interviews go to a secondary "JobPilot" calendar (`calendar.app.created`), created on first use and recreated if deleted; events only after a confirmation dialog showing the event; the Google event id is stored on the interview so it can be removed | No access to the owner's primary calendar. |
 | 2026-10-03 | Gmail threads are linked per application (only thread id and subject stored); messages are read on demand, never sent to Gemini; "Registrar como respuesta" stores sender, subject and date only | Privacy; the timeline keeps facts, not mail bodies. |
 | 2026-10-03 | Token stored in `google-token.bin` in the data folder, encrypted with ASP.NET Core Data Protection (keys in `{data}/keys`, DPAPI on Windows); `invalid_grant` deletes it and asks to reconnect (7-day refresh tokens for "Testing" apps) | Secrets never in the repo or the database; clear recovery path. |
+| 2026-10-06 | Phase 9 ports the job-search parts of the owner's JobSearchDesk ("LinkedMail Job Finder"): LinkedIn alert parser, role scoring, thread classifier; agreed: brief only inside JobPilot (no e-mail, `gmail.send` still forbidden), mail read only on "Actualizar correo" (no scheduler), job-search mail only (no banks, bills, security notices), primary calendar not read | Keeps "never sends" and "nothing runs unattended"; the owner unenrols from Advanced Protection to use Gmail. |
+| 2026-10-06 | Mail rules (sets, waiting rules, filter categories, scoring) are a settings document seeded from a generic Spanish `Seed/mail-rules.seed.json` and edited as JSON; saving compiles every rule; pay is compared only with the owner's floor and exchange rates | Same rule language as JobSearchDesk; personal lists (city, companies) stay local; never estimate pay. |
+| 2026-10-06 | Every thread read lands in exactly one bucket (LinkedIn alerts / Te esperan / Filtrados, unreadable threads counted as filtered); an unbalanced result throws instead of being shown | Nothing disappears silently, as in JobSearchDesk. |
+| 2026-10-06 | Mail is read from Gmail's `format=full` JSON (bodies in memory only); stored facts: `MailChecks` (counts, chips, warnings, roles) and `MailWaiting` (one card per thread: sender, subject, dates, rule, timeline, next action); "Listo" hides a card until a new message | Privacy: no bodies stored or sent to Gemini; MimeKit is forbidden by `NoSendingTests`. |
+| 2026-10-06 | Alert roles that pass the filters are ingested one by one as offers from `linkedin-alerts` without the keyword filters (the rules decide) and without description; the owner pastes the description on the offer page (stored as pasted) before analysis | No scraping of LinkedIn; analysis never runs on an empty posting. |
+| 2026-10-06 | Waiting cards suggest applications by contact address, company in the sender domain, then company in subject/name (`MailApplicationMatcher`); "Registrar en <empresa>" links the thread and records the response | One click from the brief to the pipeline timeline; the owner decides. |
+| 2026-10-06 | Personal data check rejects `GOCSPX-` client secrets and non-empty `ApiKey`/`ClientSecret`/`ClientId`/token values in JSON files | The owner's key and client secret were committed in `appsettings.json` (removed; rotation needed). |
 | 2026-10-02 | `.ics` via Ical.Net 5.2.3 (MIT): upcoming interviews (UTC) and the next reminder (all-day, owner's time zone), stable UIDs; generated on demand and downloaded | Import into any calendar without OAuth (phase 8 still pending). |
 
 ## Verified external facts (re-check when they matter)
@@ -337,6 +356,15 @@ Checked on 2026-10-03 (phase 8):
   apps with External user type in "Testing" get refresh tokens that expire in 7 days. Sources:
   `https://developers.google.com/identity/protocols/oauth2/web-server`, `https://developers.google.com/identity/protocols/oauth2`.
 
+Checked on 2026-10-06 (phase 9):
+
+- OAuth consent screens of External type in "Testing" get refresh tokens that expire in 7 days unless only name, e-mail and
+  profile are requested; apps for personal use (fewer than 100 users) may stay unverified "In production", with the
+  "unverified app" screen. Sources: `https://developers.google.com/identity/protocols/oauth2#expiration`,
+  `https://support.google.com/cloud/answer/13464323`.
+- Advanced Protection only lets Google apps and verified third-party apps read Gmail. Sources:
+  `https://support.google.com/accounts/answer/7519408`, `https://support.google.com/accounts/answer/7539956`.
+
 ## Status
 
 - [x] Phase 0 — Skeleton
@@ -348,3 +376,5 @@ Checked on 2026-10-03 (phase 8):
 - [x] Phase 6 — Companies and outreach (pending: real research, outreach and LinkedIn review with the owner's key)
 - [x] Phase 7 — Interviews and negotiation (pending: real practice sessions with the owner's key)
 - [x] Phase 8 — Google integration (pending: the owner's OAuth client and a real connection)
+- [x] Phase 9 — Mail inbox and daily brief (pending: a real check on the owner's Gmail after leaving Advanced Protection,
+  and the owner's city, pay floor and rates in the rules)
