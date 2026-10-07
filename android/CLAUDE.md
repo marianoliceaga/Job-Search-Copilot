@@ -90,6 +90,11 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
   Features/Companies/        port of the web slice: CompaniesPage (/empresas, cards instead of a table), CompanyPage
                              (/empresas/{id}), CompanyButton (offer page), CompanyStore, CompanyResearchHandler (URL context +
                              CompanyFactVerifier), CompanyFormat
+  Features/Interviews/       port of the web slice: InterviewsPage (/entrevistas, section chips), PracticeSessionPage
+                             (/practica/{id}, chat; rubric as a list), InterviewPrep (question bank, STAR stories), PracticeHandler
+                             + PracticeStore, ScoreChart (inline SVG, larger text on the phone), StarStoryCard, InterviewFormat
+  Features/Negotiation/      port of the web slice: NegotiationPage (/negociacion, section chips, comparison as cards), OfferStore,
+                             NegotiationScriptHandler
   Features/Outreach/         port of the web slice: OutreachPage (/outreach?oferta=|empresa=), OutreachMessagesPanel (copy or
                              share, no Gmail drafts), LinkedInReviewPanel (copy), OutreachHandler, OutreachStore,
                              LinkedInReviewHandler; OutreachRecord in Persistence/SupportRecords.cs
@@ -194,6 +199,7 @@ docs/PLAN.md                 Android plan
 | 2026-10-07 | Notifications are private: the lock screen shows a generic public version ("Tenés un recordatorio"); tapping opens the application's page; only `/pipeline/{guid}` routes are accepted from intents | Chosen by the owner; the launcher activity is exported, so intent extras are untrusted. |
 | 2026-10-07 | Pipeline as stage chips + one list with a "Mover a…" menu instead of the drag-and-drop Kanban | Chosen by the owner: dragging with a finger is unreliable in a WebView. |
 | 2026-10-07 | `.ics`, sent documents and follow-up drafts leave through the share sheet; follow-ups can also be copied (MAUI `Clipboard`); no Gmail/Calendar until A8 | No downloads on Android; the owner sends from their own mail app. |
+| 2026-10-07 | Interviews and negotiation ported unchanged (practice rules, rubrics, comparator, script checks); sections as chips, comparison and history as cards, the score chart's SVG text doubled (its 640-wide viewBox is drawn at about half size on a phone) | Same rules as the web app; readable on a 360-400 px screen. |
 | 2026-10-07 | Companies and outreach ported unchanged (URL context research, fact verifier, three tones, only verified facts, LinkedIn review on pasted text); outreach drafts are copied or shared through the share sheet, LinkedIn proposals copied | Same "never invent" and "never send" rules as the web app; the share sheet hands the text to LinkedIn or a mail app where the owner sends it. |
 
 ## Verified external facts
@@ -258,7 +264,8 @@ Checked on 2026-10-07 (phase A5):
   real follow-up draft with the owner's key)
 - [x] Phase A6 — Companies and outreach (pending: a real company research, an outreach draft shared to LinkedIn or the mail app
   and a LinkedIn review with the owner's key)
-- [ ] Phase A7 — Interviews and negotiation
+- [x] Phase A7 — Interviews and negotiation (pending: on the phone, a question bank, STAR stories, a mock interview with feedback, an
+  offer comparison, a script and a roleplay with the owner's key)
 - [ ] Phase A8 — Google
 - [ ] Phase A9 — Mail brief
 - [ ] Phase A10 — Export and import between PC and phone

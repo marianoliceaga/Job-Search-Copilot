@@ -7,11 +7,10 @@ The app is independent of the PC app: it has its own database on the phone. Data
 you export a file in one and import it in the other (phase A10). Like the web app, it prepares, analyses and drafts;
 you approve. It never sends an application, e-mail or message on your behalf.
 
-> **Status:** phases A0–A6 delivered: Configuración (Gemini key, connection test, models, notifications, call log),
-> Perfil y CV maestro (profile, CV import from a file on the phone, editor, versions), Ofertas (the web app's sources,
-> manual entry, filters, analysis, ranking, and tailored CV and cover letter), Pipeline (stages, timeline, reminders,
-> follow-up drafts, interviews, `.ics`), the Panel, Empresas and Outreach work; the other sections show the phase that
-> implements them. See
+> **Status:** phases A0–A7 delivered: every section works — Configuración (Gemini key, connection test, models,
+> notifications, call log), Perfil y CV maestro, Ofertas (sources, manual entry, analysis, ranking, tailored CV and cover
+> letter), Pipeline, the Panel, Empresas, Outreach, Entrevistas and Negociación. Still to come: Google (A8), the mail brief
+> (A9) and moving data between the PC and the phone (A10). See
 > [`docs/PLAN.md`](docs/PLAN.md). The UI is in Spanish.
 
 ## Install on your phone
@@ -83,6 +82,15 @@ clipboard and **Compartir** opens Android's share sheet (LinkedIn, your mail app
 yourself. **Ya lo envié** records it, and in the offer's timeline when it is in the pipeline. **Perfil de LinkedIn**
 reviews the headline and About you paste (the app never opens LinkedIn) and proposes texts that cite your CV. Gmail
 drafts arrive with phase A8.
+
+## Interviews and negotiation
+
+**Entrevistas** works as in the PC app: for an offer in your pipeline, a question bank (each question quotes the part of
+the posting that motivates it) and STAR stories built only from your master CV; **Simulacros** is a chat where Gemini
+interviews you one question at a time, with rubric feedback and a score history. **Negociación** compares the offers you
+enter in annual USD with your exchange rates and contractor costs (nothing is estimated), drafts a negotiation script
+with your numbers and runs a recruiter roleplay. On the phone, sections are chips that wrap instead of tabs, and wide
+tables are cards.
 
 ## Signing key (once)
 

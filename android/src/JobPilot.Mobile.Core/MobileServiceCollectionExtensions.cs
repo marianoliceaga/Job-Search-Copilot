@@ -1,3 +1,4 @@
+using JobPilot.Mobile.Core.Features.Interviews;
 using JobPilot.Mobile.Core.Features.Jobs;
 using JobPilot.Mobile.Core.Features.Outreach;
 using JobPilot.Mobile.Core.Features.Pipeline;
@@ -37,6 +38,7 @@ public static class MobileServiceCollectionExtensions
         services.AddTailoring();
         services.AddPipeline();
         services.AddCompaniesAndOutreach(configuration);
+        services.AddInterviewsAndNegotiation(configuration);
         return services;
     }
 }

@@ -108,6 +108,13 @@ Company research with cited sources; outreach drafts copied or shared, never sen
 
 ### Phase A7 — Interviews and negotiation
 Question bank, STAR stories, practice sessions with rubric feedback, offer comparator, negotiation script and roleplay.
+- Ported unchanged from the web app (question quotes checked against the posting, STAR stories traced to the CV,
+  practice rules enforced by the app, fixed rubrics with the score computed by the app, comparator only with the owner's
+  rates and costs, script numbers checked); tables identical to the web ones.
+- Phone layout: section chips instead of tabs, cards instead of the comparison and history tables, rubric as a list, the
+  score chart's text enlarged for the phone.
+- Acceptance on the phone (owner): a question bank and STAR stories for a real offer, a mock interview with feedback, an
+  offer comparison, a negotiation script and a recruiter roleplay with the owner's key.
 
 ### Phase A8 — Google
 Needs an Android OAuth client in Google Cloud; the current procedure is verified and given to the owner before coding.

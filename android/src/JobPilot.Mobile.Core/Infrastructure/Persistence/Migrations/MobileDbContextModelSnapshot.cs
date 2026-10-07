@@ -322,6 +322,71 @@ namespace JobPilot.Mobile.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("LlmUseCaseSettings");
                 });
 
+            modelBuilder.Entity("JobPilot.Domain.Negotiation.CompensationOffer", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double>("AnnualBenefits")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("AnnualBonus")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("AnnualEquity")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("BaseAmount")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Company")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("HoursPerMonth")
+                        .HasColumnType("REAL");
+
+                    b.Property<Guid?>("JobPostingId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("PaidTimeOffDays")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Period")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobPostingId");
+
+                    b.ToTable("CompensationOffers", (string)null);
+                });
+
             modelBuilder.Entity("JobPilot.Domain.Pipeline.ApplicationContact", b =>
                 {
                     b.Property<long>("Id")
@@ -445,6 +510,83 @@ namespace JobPilot.Mobile.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("Applications", (string)null);
                 });
 
+            modelBuilder.Entity("JobPilot.Domain.Practice.PracticeSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Feedback")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Focus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("JobPostingId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MaxFollowUps")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("OfferId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("OpeningMessage")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("OverallScore")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PlannedQuestions")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PromptId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SystemInstruction")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Turns")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobPostingId");
+
+                    b.HasIndex("OfferId");
+
+                    b.HasIndex("StartedAtUtc");
+
+                    b.ToTable("PracticeSessions", (string)null);
+                });
+
             modelBuilder.Entity("JobPilot.Domain.Profiles.Profile", b =>
                 {
                     b.Property<int>("Id")
@@ -498,6 +640,39 @@ namespace JobPilot.Mobile.Core.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Profiles");
+                });
+
+            modelBuilder.Entity("JobPilot.Mobile.Core.Infrastructure.Persistence.InterviewQuestionSetRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("JobPostingId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PromptId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobPostingId", "CreatedAtUtc");
+
+                    b.ToTable("InterviewQuestionSets", (string)null);
                 });
 
             modelBuilder.Entity("JobPilot.Mobile.Core.Infrastructure.Persistence.JobAnalysisRecord", b =>
@@ -716,6 +891,45 @@ namespace JobPilot.Mobile.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("SourceRuns");
                 });
 
+            modelBuilder.Entity("JobPilot.Mobile.Core.Infrastructure.Persistence.StarStoryRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("JobPostingId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Json")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MasterCvVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PromptId")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobPostingId");
+
+                    b.ToTable("StarStories", (string)null);
+                });
+
             modelBuilder.Entity("JobPilot.Mobile.Core.Infrastructure.Persistence.TailoredDocumentRecord", b =>
                 {
                     b.Property<long>("Id")
@@ -772,6 +986,14 @@ namespace JobPilot.Mobile.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("TailoredDocuments", (string)null);
                 });
 
+            modelBuilder.Entity("JobPilot.Domain.Negotiation.CompensationOffer", b =>
+                {
+                    b.HasOne("JobPilot.Domain.Jobs.JobPosting", null)
+                        .WithMany()
+                        .HasForeignKey("JobPostingId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
             modelBuilder.Entity("JobPilot.Domain.Pipeline.ApplicationContact", b =>
                 {
                     b.HasOne("JobPilot.Domain.Pipeline.JobApplication", null)
@@ -799,6 +1021,28 @@ namespace JobPilot.Mobile.Core.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("JobPilot.Domain.Practice.PracticeSession", b =>
+                {
+                    b.HasOne("JobPilot.Domain.Jobs.JobPosting", null)
+                        .WithMany()
+                        .HasForeignKey("JobPostingId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("JobPilot.Domain.Negotiation.CompensationOffer", null)
+                        .WithMany()
+                        .HasForeignKey("OfferId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("JobPilot.Mobile.Core.Infrastructure.Persistence.InterviewQuestionSetRecord", b =>
+                {
+                    b.HasOne("JobPilot.Domain.Jobs.JobPosting", null)
+                        .WithMany()
+                        .HasForeignKey("JobPostingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("JobPilot.Mobile.Core.Infrastructure.Persistence.JobAnalysisRecord", b =>
                 {
                     b.HasOne("JobPilot.Domain.Jobs.JobPosting", null)
@@ -815,6 +1059,14 @@ namespace JobPilot.Mobile.Core.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CompanyId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("JobPilot.Domain.Jobs.JobPosting", null)
+                        .WithMany()
+                        .HasForeignKey("JobPostingId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("JobPilot.Mobile.Core.Infrastructure.Persistence.StarStoryRecord", b =>
+                {
                     b.HasOne("JobPilot.Domain.Jobs.JobPosting", null)
                         .WithMany()
                         .HasForeignKey("JobPostingId")

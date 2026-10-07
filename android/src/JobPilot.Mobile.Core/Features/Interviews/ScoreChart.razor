@@ -1,0 +1,86 @@
+@using System.Globalization
+@* Score evolution of completed practice sessions: one series, 0-100, hover tooltips and a table view. *@
+
+@if (_points.Count == 0)
+{
+    <MudText Typo="Typo.body2">Todavía no hay simulacros con feedback.</MudText>
+}
+else if (_points.Count == 1)
+{
+    <MudText Typo="Typo.body2">Primer puntaje: <strong>@_points[0].Score/100</strong> (@PipelineDate(_points[0].At)). El gráfico aparece desde el segundo simulacro.</MudText>
+}
+else
+{
+    <figure class="jp-score-chart" data-testid="score-chart" aria-label="@Title">
+        <svg viewBox="0 0 @Width @Height" role="img" aria-labelledby="@_titleId">
+            <title id="@_titleId">@Title</title>
+            @foreach (var tick in Ticks)
+            {
+                var y = Y(tick);
+                <line x1="@Left" x2="@(Width - Right)" y1="@F(y)" y2="@F(y)" class="jp-grid" />
+                @SvgText(Left - 8, y + 4, "end", "jp-axis", tick.ToString(CultureInfo.InvariantCulture))
+            }
+            <polyline points="@string.Join(" ", _points.Select((p, i) => $"{F(X(i))},{F(Y(p.Score))}"))" class="jp-line" />
+            @for (var i = 0; i < _points.Count; i++)
+            {
+                var point = _points[i];
+                <circle cx="@F(X(i))" cy="@F(Y(point.Score))" r="5" class="jp-dot" />
+                <circle cx="@F(X(i))" cy="@F(Y(point.Score))" r="14" class="jp-hit">
+                    <title>@PipelineDate(point.At) · @point.Label · @point.Score/100</title>
+                </circle>
+                @if (i == 0 || i == _points.Count - 1)
+                {
+                    @SvgText(X(i), Height - 6, i == 0 ? "start" : "end", "jp-axis", PipelineDate(point.At))
+                }
+            }
+            <text x="@F(X(_points.Count - 1) - 8)" y="@F(Y(_points[^1].Score) - 10)" text-anchor="end" class="jp-value">@_points[^1].Score</text>
+        </svg>
+        <figcaption class="mud-typography-caption">@Title (0-100, calculado por la app con la rúbrica). El detalle de cada punto está en la tabla.</figcaption>
+    </figure>
+    <MudExpansionPanels Outlined="true" Elevation="0" Class="mt-2">
+        <MudExpansionPanel Text="Ver como tabla">
+            <MudSimpleTable Dense="true" Elevation="0">
+                <thead><tr><th>Fecha</th><th>Simulacro</th><th>Puntaje</th></tr></thead>
+                <tbody>
+                    @foreach (var point in _points)
+                    {
+                        <tr><td>@PipelineDate(point.At)</td><td>@point.Label</td><td>@point.Score</td></tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+}
+
+@code {
+    private const int Width = 640;
+    private const int Height = 220;
+    private const int Left = 40;
+    private const int Right = 24;
+    private const int Top = 16;
+    private const int Bottom = 30;
+    private static readonly int[] Ticks = [0, 25, 50, 75, 100];
+    private readonly string _titleId = "score-" + Guid.NewGuid().ToString("N")[..8];
+    private List<(DateTime At, string Label, int Score)> _points = [];
+
+    [Parameter, EditorRequired]
+    public required IReadOnlyList<PracticeHistoryItem> History { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "Evolución del puntaje";
+
+    protected override void OnParametersSet() =>
+        _points = History.Where(h => h.OverallScore is not null).Select(h => (h.StartedAtUtc, h.Title, h.OverallScore!.Value)).ToList();
+
+    private double X(int index) => _points.Count == 1 ? Left : Left + index * (Width - Left - Right) / (double)(_points.Count - 1);
+
+    private static double Y(int score) => Top + (100 - score) * (Height - Top - Bottom) / 100.0;
+
+    // Razor reserves <text> inside code blocks, so SVG text elements are written as markup.
+    private static MarkupString SvgText(double x, double y, string anchor, string cssClass, string content) =>
+        new($"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{anchor}\" class=\"{cssClass}\">{System.Net.WebUtility.HtmlEncode(content)}</text>");
+
+    private static string F(double value) => value.ToString("0.#", CultureInfo.InvariantCulture);
+
+    private static string PipelineDate(DateTime utc) => JobPilot.Mobile.Core.Features.Pipeline.PipelineFormat.Date(utc);
+}
