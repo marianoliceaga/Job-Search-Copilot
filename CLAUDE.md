@@ -389,4 +389,5 @@ export/import feature (phase A10).
 - [x] Phases A0–A7 — Android skeleton; persistence, Gemini and settings; profile and master CV; offers; tailored CV and cover letter;
   pipeline, reminders, notifications and dashboard; companies and outreach; interviews and negotiation (see `android/CLAUDE.md`
   for the status of A0–A10)
-- [x] Phase A8 — Google on the phone through Android's authorization API (Android OAuth client created by the owner)
+- [x] Phase A8 — Google on the phone through Android's authorization API (pending: the owner's Android OAuth client and a real
+  connection on the phone)
