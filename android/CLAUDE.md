@@ -14,7 +14,8 @@ acceptance criteria per phase: [`docs/PLAN.md`](docs/PLAN.md).
 - One phase at a time with the owner's approval in between (`docs/PLAN.md`).
 - The app never sends messages: `tests/JobPilot.Mobile.Tests/NoSendingTests.cs` scans `android/src` (the web app's test
   only scans the repo's `src/`). Sharing goes through Android's share sheet, where the owner sends it themselves.
-- Secrets (Gemini key, Google token) go to Android's secure storage, never to files, preferences or the repo. The signing
+- Secrets (the Gemini key) go to Android's secure storage, never to files, preferences or the repo. There is no Google token
+  to store: Android's authorization API hands out a short-lived access token each session (kept in memory only). The signing
   keystore never enters the repo (`scripts/check-no-signing-keys.sh`, `.gitignore`).
 - The only thing that runs without the owner opening the app is local notifications (agreed for A5): alarms scheduled
   from the pipeline, restored after a reboot. They never use the network, Gemini or any account.
@@ -47,8 +48,9 @@ src/JobPilot.Mobile/         MAUI host, net10.0-android: MauiProgram (DI: Core s
                              MauiFilePickerService over FilePicker with Android MIME types, MauiShareService over Share and
                              Clipboard with files in cache/sharing-root), Platforms/Android/Notifications
                              (AndroidNotificationScheduler over AlarmManager, ReminderReceiver shows a notification,
-                             RescheduleReceiver restores alarms after boot/update), MainActivity (single top, opens the page
-                             of a tapped notification), App, MainPage
+                             RescheduleReceiver restores alarms after boot/update), Platforms/Android/Google
+                             (AndroidGoogleAuthorizer over Play services AuthorizationClient), MainActivity (single top, opens
+                             the page of a tapped notification, receives Google's consent result), App, MainPage
                              (BlazorWebView → Core Routes), Platforms/Android (MainActivity, MainApplication, AndroidManifest),
                              Platforms/Android/Resources/xml (FileProvider limited to cache/sharing-root), Resources (icon,
                              splash), wwwroot/index.html + app.css (safe areas, error UI, payload preview)
@@ -98,6 +100,11 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
   Features/Outreach/         port of the web slice: OutreachPage (/outreach?oferta=|empresa=), OutreachMessagesPanel (copy or
                              share, no Gmail drafts), LinkedInReviewPanel (copy), OutreachHandler, OutreachStore,
                              LinkedInReviewHandler; OutreachRecord in Persistence/SupportRecords.cs
+  Infrastructure/Google/     IGoogleAuthorizer (host implements it), GoogleAuthService (no stored tokens; google-connection.json
+                             keeps granted scopes, e-mail and date), GoogleApiClient (401 → clear token, retry once), GmailClient,
+                             GoogleCalendarClient, IcsInviteParser (ports), GoogleOptions + GoogleScopes (endpoints only)
+  Features/Google/           GooglePanel (Configuración → Google: Android client steps, connect, scopes, disconnect), GoogleUi
+                             (confirmation dialogs, port); Pipeline/ApplicationGoogleService + ApplicationMailPanel ("Correo")
   Infrastructure/Notifications/ INotificationScheduler (host implements it), ScheduledNotification, AppNavigationRequests
                              (routes from tapped notifications, only /pipeline/{guid})
 tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTests, manifest, Gemini client and profile/CV
@@ -141,7 +148,8 @@ docs/PLAN.md                 Android plan
   To see them: `dotnet build android/src/JobPilot.Mobile -c Release -p:SuppressTrimAnalysisWarnings=false
   -p:TreatWarningsAsErrors=false -p:RuntimeIdentifier=android-arm64`. On 2026-10-06 the only ones were in the untrimmed
   assemblies (EF Core, SQLitePCLRaw, the Core library's System.Text.Json use) and MudBlazor; PdfPig and Open XML (marked
-  trimmable) are trimmed without warnings.
+  trimmable) are trimmed without warnings. On 2026-10-07 (A8) the new ones were only IL2026 in the untrimmed Core Google code
+  (JSON helpers, options binding); none from the Play services bindings or the host authorizer.
 - The Core library adds the web SDK's implicit usings it needs (`Microsoft.Extensions.Configuration`, `DependencyInjection`,
   `Logging`) so ported web files compile unchanged.
 - External links (`target="_blank"` or another host) open in the phone's browser: that is BlazorWebView's default
@@ -168,6 +176,13 @@ docs/PLAN.md                 Android plan
   ids from its stored schedule (`files/scheduled-notifications.json`, source-generated JSON) before scheduling new ones.
 - Ical.Net is not trimmed (not marked trimmable; it reports IL2104 in the trim analysis but its linked size equals the
   package's).
+- Xamarin.GooglePlayServices.Auth 122.0.0 raises AndroidX Fragment, Collection and Lifecycle above MAUI 10.0.110's
+  versions; the Kotlin extension packages MAUI references only accept the old ones (NU1608 is an error here), so five of
+  them are pinned to the resolved versions in `Directory.Packages.props`. Re-check them when MAUI is updated.
+- Binding names: Java static `builder()` becomes `InvokeBuilder()` (`AuthorizationRequest`, `ClearTokenRequest`); Play
+  services tasks are awaited with `AsAsync<T>()` (`Android.Gms.Extensions`). The package's XML docs are empty: list the API
+  from the DLL metadata.
+- Configuración has five sections: chips, like every page with more sections than fit a phone's tab bar.
 - Android's picker filters by MIME type; many file managers report `.md` as `application/octet-stream`, so the picker also
   accepts it for Markdown and `CvTextExtractor` checks the extension afterwards.
 
@@ -199,6 +214,8 @@ docs/PLAN.md                 Android plan
 | 2026-10-07 | Notifications are private: the lock screen shows a generic public version ("Tenés un recordatorio"); tapping opens the application's page; only `/pipeline/{guid}` routes are accepted from intents | Chosen by the owner; the launcher activity is exported, so intent extras are untrusted. |
 | 2026-10-07 | Pipeline as stage chips + one list with a "Mover a…" menu instead of the drag-and-drop Kanban | Chosen by the owner: dragging with a finger is unreliable in a WebView. |
 | 2026-10-07 | `.ics`, sent documents and follow-up drafts leave through the share sheet; follow-ups can also be copied (MAUI `Clipboard`); no Gmail/Calendar until A8 | No downloads on Android; the owner sends from their own mail app. |
+| 2026-10-07 | Google through Android's authorization API (Play services `AuthorizationClient`, play-services-auth 22.0.0) with an "Android" OAuth client (package + SHA-1); no client id/secret in the app, no refresh token, a one-hour access token per session in memory; only granted scopes, e-mail and date in `google-connection.json`; revocation through Google's revoke endpoint | Verified procedure approved by the owner: custom URI schemes are no longer supported for Android and loopback redirects are deprecated for mobile; Google discourages refresh tokens on devices. |
+| 2026-10-07 | Same Google scope as the web app (Gmail threads, responses, drafts; JobPilot calendar; "Solo Calendar") with the web confirmation dialogs; the Gmail client, calendar client and application service are ports | Chosen by the owner; one behaviour in both apps; `NoSendingTests` keep "never sends". |
 | 2026-10-07 | Interviews and negotiation ported unchanged (practice rules, rubrics, comparator, script checks); sections as chips, comparison and history as cards, the score chart's SVG text doubled (its 640-wide viewBox is drawn at about half size on a phone) | Same rules as the web app; readable on a 360-400 px screen. |
 | 2026-10-07 | Companies and outreach ported unchanged (URL context research, fact verifier, three tones, only verified facts, LinkedIn review on pasted text); outreach drafts are copied or shared through the share sheet, LinkedIn proposals copied | Same "never invent" and "never send" rules as the web app; the share sheet hands the text to LinkedIn or a mail app where the owner sends it. |
 
@@ -247,6 +264,15 @@ Checked on 2026-10-07 (phase A5):
   `https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/appmodel/permissions?view=net-maui-10.0`.
 - A receiver with `android:exported="false"` still receives broadcasts sent by the system. Source:
   `https://developer.android.com/guide/topics/manifest/receiver-element`.
+- Google OAuth for native apps: custom URI schemes are no longer supported on Android; the loopback redirect for mobile apps is
+  deprecated; Android apps use the Android authorization docs. Source: `https://developers.google.com/identity/protocols/oauth2/native-app`.
+- Android authorization: `AuthorizationClient.authorize()` with the requested scopes returns an access token (or a pending
+  intent for consent); access tokens last one hour; later sessions call `authorize()` again without user interaction;
+  offline access needs a backend and refresh tokens should not be stored on the device; setup: Android client ID with package
+  name and SHA-1 of the signing certificate. Source: `https://developer.android.com/identity/authorization`.
+- Android OAuth client: package name and SHA-1 (`keytool -list -v -keystore <keystore> -alias <alias>`). Source:
+  `https://support.google.com/cloud/answer/15549257`.
+- Xamarin.GooglePlayServices.Auth 122.0.0 (MIT binding of play-services-auth 22.0.0) targets net10.0-android36.0.
 - WorkManager does not guarantee the execution time (system optimizations), so it was not used for timed notifications.
   Source: `https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work`.
 
@@ -266,6 +292,7 @@ Checked on 2026-10-07 (phase A5):
   and a LinkedIn review with the owner's key)
 - [x] Phase A7 — Interviews and negotiation (pending: on the phone, a question bank, STAR stories, a mock interview with feedback, an
   offer comparison, a script and a roleplay with the owner's key)
-- [ ] Phase A8 — Google
+- [x] Phase A8 — Google (pending: the owner's Android OAuth client in Google Cloud, a signed APK, and a real connection, thread
+  link, Gmail draft and calendar event on the phone)
 - [ ] Phase A9 — Mail brief
 - [ ] Phase A10 — Export and import between PC and phone

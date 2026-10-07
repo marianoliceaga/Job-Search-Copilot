@@ -25,6 +25,7 @@ public sealed class JobsPageTests : BunitContext, IAsyncLifetime
         Services.AddJobPilotMobile(MobileConfiguration.Load(), new MobilePaths(_directory.Path));
         Services.AddSingleton<ISecretStore>(new InMemorySecretStore());
         Services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Notifications.INotificationScheduler>(new FakeNotificationScheduler());
+        Services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Google.IGoogleAuthorizer>(new FakeGoogleAuthorizer());
         Services.AddSingleton<IFilePickerService>(new FakeFilePicker());
     }
 

@@ -11,8 +11,11 @@
 @inject LlmSettingsStore Settings
 @inject IOptions<OutreachOptions> Options
 @inject JobPilot.Mobile.Core.Infrastructure.Files.IShareService Share
+@inject JobPilot.Mobile.Core.Infrastructure.Google.GoogleAuthService GoogleAuth
+@inject JobPilot.Mobile.Core.Infrastructure.Google.GmailClient Gmail
+@inject IDialogService Dialogs
 
-@* Port of the web panel without Gmail drafts (phase A8): drafts are copied or shared, and the owner sends them. *@
+@* Port of the web panel: drafts are copied, shared or saved in Gmail, and the owner sends them. *@
 
 <MudStack Spacing="3">
     <MudSelect T="Guid" @bind-Value="_postingId" Label="Oferta">
@@ -44,6 +47,10 @@
     <MudTextField @bind-Value="_recipientName" Label="Nombre del destinatario (opcional)" Immediate="true" />
     <MudTextField @bind-Value="_recipientRole" Label="Rol (recruiter, hiring manager…)" Immediate="true" />
     <MudTextField @bind-Value="_instructions" Label="Qué querés decir (opcional)" Immediate="true" />
+    @if (_channel == OutreachChannel.Email && _canDraft)
+    {
+        <MudTextField @bind-Value="_recipientEmail" Label="E-mail del destinatario (para el borrador en Gmail, opcional)" Immediate="true" InputType="InputType.Email" />
+    }
     @if (_channel == OutreachChannel.LinkedInConnection)
     {
         <MudText Typo="Typo.caption">La nota de invitación tiene un máximo de @Options.Value.ConnectionNoteMaxLength caracteres (300 con Premium; el valor viene de la configuración de la app de la PC).</MudText>
@@ -109,6 +116,10 @@
                                 }
                                 <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="() => CopyAsync(draft.Body)">Copiar</MudButton>
                                 <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Share" OnClick="() => ShareAsync(draft)" data-testid="share-outreach">Compartir</MudButton>
+                                @if (draft.Subject is not null && _canDraft)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Drafts" OnClick="() => CreateGmailDraftAsync(draft)">Borrador en Gmail</MudButton>
+                                }
                                 <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" OnClick="() => MarkSentAsync(recordId, draft)">Ya lo envié</MudButton>
                             </MudStack>
                         </MudStack>
@@ -177,6 +188,8 @@
     private string? _notes;
     private string? _copied;
     private CancellationTokenSource? _cts;
+    private bool _canDraft;
+    private string? _recipientEmail;
 
     [Parameter]
     public Guid? PostingId { get; set; }
@@ -197,6 +210,21 @@
         _postingId = PostingId is { } p && _offers.ContainsKey(p) ? p : Guid.Empty;
         _companyId = CompanyId is { } c && _companies.Any(x => x.Id == c) ? c : Guid.Empty;
         _history = await Store.RecentAsync(20, CancellationToken.None);
+        var google = GoogleAuth.Status();
+        _canDraft = google.Connected && google.CanCreateDrafts;
+    }
+
+    private async Task CreateGmailDraftAsync(EditableDraft draft)
+    {
+        var request = new JobPilot.Mobile.Core.Infrastructure.Google.DraftRequest(
+            string.IsNullOrWhiteSpace(_recipientEmail) ? null : _recipientEmail.Trim(), draft.Subject ?? string.Empty, draft.Body, null, null);
+        if (await JobPilot.Mobile.Core.Features.Google.GoogleUi.ConfirmDraftAsync(Dialogs, request) != true)
+        {
+            return;
+        }
+
+        var created = await Gmail.CreateDraftAsync(request, CancellationToken.None);
+        _copied = created.IsSuccess ? "Borrador creado en Gmail. Envialo desde Gmail y después marcalo como enviado acá." : created.Error;
     }
 
     private OutreachInput Input() => new(

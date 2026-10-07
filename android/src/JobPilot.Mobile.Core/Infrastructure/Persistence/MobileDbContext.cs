@@ -58,6 +58,8 @@ public sealed class MobileDbContext(DbContextOptions<MobileDbContext> options) :
 
     public DbSet<CompensationOffer> CompensationOffers => Set<CompensationOffer>();
 
+    public DbSet<ApplicationMailThread> ApplicationMailThreads => Set<ApplicationMailThread>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         ArgumentNullException.ThrowIfNull(configurationBuilder);
@@ -278,6 +280,15 @@ public sealed class MobileDbContext(DbContextOptions<MobileDbContext> options) :
             session.Ignore(p => p.AwaitingAnswer);
             session.Ignore(p => p.AwaitingCoach);
             session.Ignore(p => p.HasAnswers);
+        });
+
+        modelBuilder.Entity<ApplicationMailThread>(thread =>
+        {
+            thread.ToTable("ApplicationMailThreads");
+            thread.HasIndex(t => new { t.ApplicationId, t.ThreadId }).IsUnique();
+            thread.HasOne<JobApplication>().WithMany().HasForeignKey(t => t.ApplicationId).OnDelete(DeleteBehavior.Cascade);
+            thread.Property(t => t.ThreadId).HasMaxLength(200);
+            thread.Property(t => t.Subject).HasMaxLength(1000);
         });
 
         modelBuilder.Entity<SettingsDocument>(document =>

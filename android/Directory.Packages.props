@@ -18,6 +18,15 @@
     <PackageVersion Include="AngleSharp" Version="1.8.3" />
     <!-- PDF on Android (QuestPDF has no Android binaries): pure .NET, MIT -->
     <PackageVersion Include="PDFsharp" Version="6.2.4" />
+    <!-- Google authorization on Android (Play services AuthorizationClient, play-services-auth 22.0.0); binding: MIT -->
+    <PackageVersion Include="Xamarin.GooglePlayServices.Auth" Version="122.0.0" />
+    <!-- Play services raises AndroidX Fragment, Collection and Lifecycle above the versions MAUI 10.0.110 references; the Kotlin
+         extension packages MAUI brings only accept the older ones (NU1608), so they are aligned with the resolved versions. -->
+    <PackageVersion Include="Xamarin.AndroidX.Collection.Ktx" Version="1.6.0.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Fragment.Ktx" Version="1.9.0" />
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.LiveData" Version="2.11.0.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx" Version="2.11.0.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.Process" Version="2.11.0.1" />
     <!-- Calendar files (.ics), same version as the web app -->
     <PackageVersion Include="Ical.Net" Version="5.2.3" />
     <!-- HTTP and configuration -->

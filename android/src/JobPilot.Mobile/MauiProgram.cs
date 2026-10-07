@@ -1,8 +1,10 @@
 using JobPilot.Mobile.Core;
 using JobPilot.Mobile.Core.Infrastructure;
 using JobPilot.Mobile.Core.Infrastructure.Files;
+using JobPilot.Mobile.Core.Infrastructure.Google;
 using JobPilot.Mobile.Core.Infrastructure.Notifications;
 using JobPilot.Mobile.Core.Infrastructure.Secrets;
+using JobPilot.Mobile.Platforms.Android.Google;
 using JobPilot.Mobile.Platforms.Android.Notifications;
 using JobPilot.Mobile.Services;
 using MudBlazor.Services;
@@ -24,6 +26,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IFilePickerService, MauiFilePickerService>();
         builder.Services.AddSingleton<IShareService, MauiShareService>();
         builder.Services.AddSingleton<INotificationScheduler, AndroidNotificationScheduler>();
+        builder.Services.AddSingleton<IGoogleAuthorizer, AndroidGoogleAuthorizer>();
         // Exports shared in an earlier session are not kept.
         MauiShareService.ClearSharedFiles();
 

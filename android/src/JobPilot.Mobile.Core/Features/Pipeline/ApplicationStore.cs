@@ -152,6 +152,15 @@ public sealed class ApplicationStore(
     public static SentDocument? ReadSnapshot(ApplicationEvent sent) =>
         sent?.DocumentSnapshot is { } json ? JsonSerializer.Deserialize<SentDocument>(json, DomainJson.Options) : null;
 
+    /// <summary>Stores (or clears) the Google Calendar event id of a scheduled interview.</summary>
+    public async Task SetExternalIdAsync(Guid id, long eventId, string? externalId, CancellationToken cancellationToken)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+        var item = await db.ApplicationEvents.FirstAsync(e => e.Id == eventId && e.ApplicationId == id, cancellationToken);
+        item.ExternalId = externalId;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     /// <summary>Deletes a note or a scheduled interview. Stage changes and other records cannot be deleted.</summary>
     public async Task DeleteEventAsync(Guid id, long eventId, CancellationToken cancellationToken)
     {

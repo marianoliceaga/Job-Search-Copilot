@@ -642,6 +642,36 @@ namespace JobPilot.Mobile.Core.Infrastructure.Persistence.Migrations
                     b.ToTable("Profiles");
                 });
 
+            modelBuilder.Entity("JobPilot.Mobile.Core.Infrastructure.Persistence.ApplicationMailThread", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("ApplicationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LinkedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ThreadId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId", "ThreadId")
+                        .IsUnique();
+
+                    b.ToTable("ApplicationMailThreads", (string)null);
+                });
+
             modelBuilder.Entity("JobPilot.Mobile.Core.Infrastructure.Persistence.InterviewQuestionSetRecord", b =>
                 {
                     b.Property<long>("Id")
@@ -1032,6 +1062,15 @@ namespace JobPilot.Mobile.Core.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("OfferId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("JobPilot.Mobile.Core.Infrastructure.Persistence.ApplicationMailThread", b =>
+                {
+                    b.HasOne("JobPilot.Domain.Pipeline.JobApplication", null)
+                        .WithMany()
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("JobPilot.Mobile.Core.Infrastructure.Persistence.InterviewQuestionSetRecord", b =>

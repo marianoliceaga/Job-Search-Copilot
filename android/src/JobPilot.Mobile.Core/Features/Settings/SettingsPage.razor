@@ -2,17 +2,36 @@
 
 <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Configuración</MudText>
 
-<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-3" MinimumTabWidth="0px">
-    <MudTabPanel Text="Gemini">
-        <GeminiConnectionPanel />
-    </MudTabPanel>
-    <MudTabPanel Text="Modelos">
-        <UseCaseModelsPanel />
-    </MudTabPanel>
-    <MudTabPanel Text="Avisos">
-        <JobPilot.Mobile.Core.Features.Pipeline.NotificationsPanel />
-    </MudTabPanel>
-    <MudTabPanel Text="Registro">
-        <LlmCallLogPanel />
-    </MudTabPanel>
-</MudTabs>
+@* Section chips wrap onto several lines (a scrolling tab bar hides labels on a phone). *@
+<MudChipSet T="string" @bind-SelectedValue="_section" SelectionMode="SelectionMode.SingleSelection" CheckMark="false"
+            SelectedColor="Color.Primary" Variant="Variant.Outlined" Class="mb-2">
+    <MudChip T="string" Value="@("gemini")" Text="Gemini" />
+    <MudChip T="string" Value="@("models")" Text="Modelos" />
+    <MudChip T="string" Value="@("notifications")" Text="Avisos" />
+    <MudChip T="string" Value="@("google")" Text="Google" />
+    <MudChip T="string" Value="@("log")" Text="Registro" />
+</MudChipSet>
+<MudPaper Outlined="true" Class="pa-3">
+    @switch (_section)
+    {
+        case "models":
+            <UseCaseModelsPanel />
+            break;
+        case "notifications":
+            <JobPilot.Mobile.Core.Features.Pipeline.NotificationsPanel />
+            break;
+        case "google":
+            <JobPilot.Mobile.Core.Features.Google.GooglePanel />
+            break;
+        case "log":
+            <LlmCallLogPanel />
+            break;
+        default:
+            <GeminiConnectionPanel />
+            break;
+    }
+</MudPaper>
+
+@code {
+    private string _section = "gemini";
+}

@@ -72,6 +72,7 @@ public sealed class LlmTestHost : IAsyncDisposable
         services.AddJobPilotMobile(MobileConfiguration.Load(settings), new MobilePaths(directory.Path));
         services.AddSingleton<ISecretStore>(secrets);
         services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Notifications.INotificationScheduler>(new FakeNotificationScheduler());
+        services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Google.IGoogleAuthorizer>(new FakeGoogleAuthorizer());
         services.AddHttpClient<GeminiLlmClient>().ConfigurePrimaryHttpMessageHandler(() => handler);
 
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });

@@ -3,6 +3,7 @@ using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using JobPilot.Mobile.Core.Infrastructure.Notifications;
+using JobPilot.Mobile.Platforms.Android.Google;
 using JobPilot.Mobile.Platforms.Android.Notifications;
 
 namespace JobPilot.Mobile;
@@ -21,6 +22,15 @@ public class MainActivity : MauiAppCompatActivity
     {
         base.OnNewIntent(intent);
         OpenRequestedPage(intent);
+    }
+
+    /// <summary>Google's consent screen (Android authorization API) returns here.</summary>
+    protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
+    {
+        if (!AndroidGoogleAuthorizer.OnActivityResult(requestCode, resultCode, data))
+        {
+            base.OnActivityResult(requestCode, resultCode, data);
+        }
     }
 
     /// <summary>A tapped notification carries the page to open; <see cref="AppNavigationRequests"/> accepts only app routes.</summary>

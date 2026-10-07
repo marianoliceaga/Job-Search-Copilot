@@ -118,6 +118,14 @@ Question bank, STAR stories, practice sessions with rubric feedback, offer compa
 
 ### Phase A8 — Google
 Needs an Android OAuth client in Google Cloud; the current procedure is verified and given to the owner before coding.
+- Verified on 2026-10-07 and approved by the owner: Google's authorization API for Android (Play services
+  `AuthorizationClient`); custom URI schemes are no longer supported for Android clients and loopback redirects are
+  deprecated for mobile apps. Android OAuth client (package `com.vidi.jobpilot` + SHA-1 of the signing keystore) in the
+  same Google Cloud project; no client id or secret in the app; no tokens stored on the phone.
+- Same scope as the web app (owner's choice): Gmail threads linked to applications, responses recorded, Gmail drafts
+  (never sent), the "JobPilot" calendar for interviews, and the "Solo Calendar" option.
+- Acceptance on the phone (owner): create the Android client, connect, link a thread, record a response, create a
+  follow-up draft in Gmail, add an interview to the JobPilot calendar, and disconnect.
 
 ### Phase A9 — Mail brief ("Hoy")
 The phase 9 brief on the phone, with the same rules and read-only Gmail access.

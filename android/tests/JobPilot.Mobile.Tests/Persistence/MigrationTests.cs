@@ -19,6 +19,7 @@ public class MigrationTests
         await using var services = new ServiceCollection().AddLogging()
             .AddJobPilotMobile(MobileConfiguration.Load(), paths)
             .AddSingleton<JobPilot.Mobile.Core.Infrastructure.Notifications.INotificationScheduler>(new FakeNotificationScheduler())
+            .AddSingleton<JobPilot.Mobile.Core.Infrastructure.Google.IGoogleAuthorizer>(new FakeGoogleAuthorizer())
             .BuildServiceProvider();
         var ct = TestContext.Current.CancellationToken;
 

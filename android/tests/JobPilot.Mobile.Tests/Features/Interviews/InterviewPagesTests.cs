@@ -37,6 +37,7 @@ public sealed class InterviewPagesTests : BunitContext, IAsyncLifetime
         Services.AddJobPilotMobile(MobileConfiguration.Load(), new MobilePaths(_directory.Path));
         Services.AddSingleton<ISecretStore>(new InMemorySecretStore());
         Services.AddSingleton<INotificationScheduler>(new FakeNotificationScheduler());
+        Services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Google.IGoogleAuthorizer>(new FakeGoogleAuthorizer());
         Services.AddSingleton<IFilePickerService>(new FakeFilePicker());
         Services.AddSingleton<IShareService>(new FakeShareService());
         Services.AddSingleton<ILlmClient>(_llm);

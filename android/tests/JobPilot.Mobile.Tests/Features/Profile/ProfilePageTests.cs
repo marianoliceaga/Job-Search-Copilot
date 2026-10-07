@@ -30,6 +30,7 @@ public sealed class ProfilePageTests : BunitContext, IAsyncLifetime
             new MobilePaths(_directory.Path));
         Services.AddSingleton<ISecretStore>(_secrets);
         Services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Notifications.INotificationScheduler>(new FakeNotificationScheduler());
+        Services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Google.IGoogleAuthorizer>(new FakeGoogleAuthorizer());
         Services.AddSingleton<IFilePickerService>(_picker);
         Services.AddHttpClient<GeminiLlmClient>().ConfigurePrimaryHttpMessageHandler(() => _gemini);
     }

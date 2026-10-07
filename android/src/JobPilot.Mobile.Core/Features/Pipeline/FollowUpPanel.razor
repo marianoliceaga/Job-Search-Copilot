@@ -3,8 +3,12 @@
 @inject ApplicationStore Store
 @inject LlmSettingsStore Settings
 @inject JobPilot.Mobile.Core.Infrastructure.Files.IShareService Share
+@inject JobPilot.Mobile.Core.Infrastructure.Google.GoogleAuthService GoogleAuth
+@inject JobPilot.Mobile.Core.Infrastructure.Google.GmailClient Gmail
+@inject ApplicationGoogleService Google
+@inject IDialogService Dialogs
 
-@* Port of the web panel without Gmail drafts (phase A8): the owner copies or shares the draft and sends it themselves. *@
+@* Port of the web panel: the owner copies, shares or saves the draft in Gmail, and sends it themselves. *@
 
 <MudStack Spacing="3">
     <MudText Typo="Typo.body2">
@@ -67,6 +71,19 @@
                 {
                     <MudText Typo="Typo.caption">@_copied</MudText>
                 }
+                @if (_canDraft)
+                {
+                    <MudDivider />
+                    <MudTextField @bind-Value="_to" Label="Para (opcional)" Immediate="true" InputType="InputType.Email" />
+                    <MudSelect T="string" @bind-Value="_threadId" Label="Hilo">
+                        <MudSelectItem T="string" Value="@string.Empty">(correo nuevo)</MudSelectItem>
+                        @foreach (var thread in _threads)
+                        {
+                            <MudSelectItem T="string" Value="thread.ThreadId">Responder en: @thread.Subject</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <div><MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Drafts" OnClick="CreateGmailDraftAsync" data-testid="gmail-draft">Crear borrador en Gmail</MudButton></div>
+                }
             </MudStack>
         </MudPaper>
     }
@@ -84,6 +101,10 @@
     private string _body = string.Empty;
     private string? _copied;
     private CancellationTokenSource? _cts;
+    private bool _canDraft;
+    private string? _to;
+    private string _threadId = string.Empty;
+    private IReadOnlyList<JobPilot.Mobile.Core.Infrastructure.Persistence.ApplicationMailThread> _threads = [];
 
     [Parameter, EditorRequired]
     public required ApplicationDetail Detail { get; set; }
@@ -92,10 +113,49 @@
     [Parameter]
     public EventCallback Changed { get; set; }
 
+    protected override async Task OnParametersSetAsync()
+    {
+        var status = GoogleAuth.Status();
+        _canDraft = status.Connected && status.CanCreateDrafts;
+        _threads = _canDraft && status.CanReadMail ? await Google.LinkedThreadsAsync(Detail.Application.Id, CancellationToken.None) : [];
+    }
+
+    private async Task CreateGmailDraftAsync()
+    {
+        var to = string.IsNullOrWhiteSpace(_to) ? null : _to.Trim();
+        JobPilot.Mobile.Core.Infrastructure.Google.DraftRequest draft;
+        if (_threadId.Length > 0)
+        {
+            var reply = await Google.ReplyDraftAsync(_threadId, to, _body, GoogleAuth.Status().Email, CancellationToken.None);
+            if (reply.Value is null)
+            {
+                _copied = reply.Error;
+                return;
+            }
+
+            draft = reply.Value;
+        }
+        else
+        {
+            draft = new JobPilot.Mobile.Core.Infrastructure.Google.DraftRequest(to, _subject, _body, null, null);
+        }
+
+        if (await JobPilot.Mobile.Core.Features.Google.GoogleUi.ConfirmDraftAsync(Dialogs, draft) != true)
+        {
+            return;
+        }
+
+        var created = await Gmail.CreateDraftAsync(draft, CancellationToken.None);
+        _copied = created.IsSuccess
+            ? "Borrador creado en Gmail. Revisalo y envialo desde Gmail; después marcalo como enviado acá."
+            : created.Error;
+    }
+
     private async Task PrepareAsync()
     {
         _error = null;
         (_prepared, _error) = await Handler.PrepareAsync(Detail.Application.Id, _contactId == 0 ? null : _contactId, _instructions, CancellationToken.None);
+        _to = Detail.Application.Contacts.FirstOrDefault(c => c.Id == _contactId)?.Email;
         if (_prepared is not null)
         {
             _model = (await Settings.ResolveAsync(LlmUseCases.FollowUpEmail, CancellationToken.None)).Model;

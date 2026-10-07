@@ -9,8 +9,8 @@ you approve. It never sends an application, e-mail or message on your behalf.
 
 > **Status:** phases A0–A7 delivered: every section works — Configuración (Gemini key, connection test, models,
 > notifications, call log), Perfil y CV maestro, Ofertas (sources, manual entry, analysis, ranking, tailored CV and cover
-> letter), Pipeline, the Panel, Empresas, Outreach, Entrevistas and Negociación. Still to come: Google (A8), the mail brief
-> (A9) and moving data between the PC and the phone (A10). See
+> letter), Pipeline, the Panel, Empresas, Outreach, Entrevistas and Negociación, plus the optional Google connection
+> (A8). Still to come: the mail brief (A9) and moving data between the PC and the phone (A10). See
 > [`docs/PLAN.md`](docs/PLAN.md). The UI is in Spanish.
 
 ## Install on your phone
@@ -91,6 +91,27 @@ interviews you one question at a time, with rubric feedback and a score history.
 enter in annual USD with your exchange rates and contractor costs (nothing is estimated), drafts a negotiation script
 with your numbers and runs a recruiter roleplay. On the phone, sections are chips that wrap instead of tabs, and wide
 tables are cards.
+
+## Google (optional)
+
+With Google connected the phone can link Gmail threads to an application, record a company's reply in the timeline,
+create Gmail **drafts** (never sends) and add interviews to a secondary "JobPilot" calendar, as the PC app does. Every
+action shows what is sent before it happens.
+
+The phone uses Android's own authorization (Google Play services), which Google documents for Android apps; the PC app's
+web OAuth client does not work on a phone. One-time setup in the same Google Cloud project as the PC app (same consent
+screen, test users, Gmail API and Google Calendar API):
+
+1. **Google Auth Platform → Clients → Create client**, application type **Android**.
+2. Package name: `com.vidi.jobpilot`.
+3. SHA-1 fingerprint of your signing keystore (the one in the GitHub secrets):
+   `keytool -list -v -keystore jobpilot.keystore -alias jobpilot`.
+
+Nothing is pasted into the app: Google recognises it by package and signature, so only the APK signed with that keystore
+can connect. Then **Configuración → Google → Conectar con Google** shows Google's consent screen ("Solo Calendar" asks
+only for the calendar, for accounts with Advanced Protection, where Gmail is blocked). The phone keeps no Google token:
+Android gives the app a one-hour access token each session, silently while the grant lasts; **Desconectar y revocar**
+revokes it. Phones without Google Play services cannot connect.
 
 ## Signing key (once)
 

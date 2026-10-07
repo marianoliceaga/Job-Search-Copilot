@@ -23,6 +23,7 @@ public class LayoutComponentTests : BunitContext, IAsyncLifetime
         Services.AddMudServices();
         Services.AddJobPilotMobile(MobileConfiguration.Load(), new MobilePaths(_directory.Path));
         Services.AddSingleton<INotificationScheduler>(_notifications);
+        Services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Google.IGoogleAuthorizer>(new FakeGoogleAuthorizer());
     }
 
     public async ValueTask InitializeAsync() => await Services.GetRequiredService<AppInitializer>().EnsureInitializedAsync();

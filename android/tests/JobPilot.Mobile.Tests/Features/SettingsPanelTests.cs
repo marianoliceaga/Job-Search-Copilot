@@ -27,6 +27,7 @@ public sealed partial class SettingsPanelTests : BunitContext, IAsyncLifetime
             new MobilePaths(_directory.Path));
         Services.AddSingleton<ISecretStore>(_secrets);
         Services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Notifications.INotificationScheduler>(new FakeNotificationScheduler());
+        Services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Google.IGoogleAuthorizer>(new FakeGoogleAuthorizer());
         Services.AddHttpClient<GeminiLlmClient>().ConfigurePrimaryHttpMessageHandler(() => _gemini);
     }
 
@@ -87,11 +88,13 @@ public sealed partial class SettingsPanelTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
-    public void The_settings_page_has_the_gemini_models_notifications_and_log_tabs()
+    public void The_settings_page_shows_its_sections_as_chips()
     {
         var cut = Render<SettingsPage>();
 
-        Assert.Equal(["Gemini", "Modelos", "Avisos", "Registro"], cut.FindAll(".mud-tab").Select(t => t.TextContent.Trim()));
+        // Five sections do not fit a phone's tab bar: chips wrap and keep every section visible.
+        Assert.Equal(["Gemini", "Modelos", "Avisos", "Google", "Registro"], cut.FindAll(".mud-chipset .mud-chip").Select(t => t.TextContent.Trim()));
+        Assert.Empty(cut.FindAll(".mud-tab"));
     }
 
     [GeneratedRegex("jp[0-9a-f]{8}")]
