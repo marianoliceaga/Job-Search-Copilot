@@ -1,0 +1,59 @@
+@page "/configuracion"
+
+<MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Configuración</MudText>
+
+@* Section chips wrap onto several lines (a scrolling tab bar hides labels on a phone). *@
+<MudChipSet T="string" @bind-SelectedValue="_section" SelectionMode="SelectionMode.SingleSelection" CheckMark="false"
+            SelectedColor="Color.Primary" Variant="Variant.Outlined" Class="mb-2">
+    <MudChip T="string" Value="@("gemini")" Text="Gemini" />
+    <MudChip T="string" Value="@("modelos")" Text="Modelos" />
+    <MudChip T="string" Value="@("avisos")" Text="Avisos" />
+    <MudChip T="string" Value="@("google")" Text="Google" />
+    <MudChip T="string" Value="@("correo")" Text="Reglas de correo" />
+    <MudChip T="string" Value="@("datos")" Text="Exportar / Importar" />
+    <MudChip T="string" Value="@("registro")" Text="Registro" />
+</MudChipSet>
+<MudPaper Outlined="true" Class="pa-3">
+    @switch (_section)
+    {
+        case "modelos":
+            <UseCaseModelsPanel />
+            break;
+        case "avisos":
+            <JobPilot.Mobile.Core.Features.Pipeline.NotificationsPanel />
+            break;
+        case "google":
+            <JobPilot.Mobile.Core.Features.Google.GooglePanel />
+            break;
+        case "correo":
+            <JobPilot.Mobile.Core.Features.Mail.MailRulesPanel />
+            break;
+        case "datos":
+            <JobPilot.Mobile.Core.Features.Transfer.TransferPanel />
+            break;
+        case "registro":
+            <LlmCallLogPanel />
+            break;
+        default:
+            <GeminiConnectionPanel />
+            break;
+    }
+</MudPaper>
+
+@code {
+    private static readonly string[] Sections = ["gemini", "modelos", "avisos", "google", "correo", "datos", "registro"];
+
+    private string _section = "gemini";
+
+    /// <summary>Opens a section directly (links from other pages, e.g. <c>/configuracion?seccion=google</c>).</summary>
+    [SupplyParameterFromQuery(Name = "seccion")]
+    public string? Section { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Section is not null && Sections.Contains(Section, StringComparer.Ordinal))
+        {
+            _section = Section;
+        }
+    }
+}

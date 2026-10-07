@@ -1,0 +1,129 @@
+@using JobPilot.Mobile.Core.Infrastructure.Google
+@inject GoogleAuthService Auth
+@inject GmailClient Gmail
+@inject IDialogService Dialogs
+
+@* Phone version of the web panel: Android's authorization API instead of a web OAuth client (phase A8, agreed with the owner). *@
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.body2">
+        Opcional. Con Google conectado, JobPilot puede vincular hilos de Gmail a tus postulaciones, crear <strong>borradores</strong> (nunca envía nada)
+        y agregar entrevistas a un calendario propio "JobPilot". Cada acción la iniciás vos y antes se muestra qué se envía. El teléfono no guarda
+        tokens de Google: Android pide el permiso en cada sesión.
+    </MudText>
+
+    @if (_message is not null)
+    {
+        <MudAlert Severity="@_severity" ShowCloseIcon="true" CloseIconClicked="() => _message = null">@_message</MudAlert>
+    }
+
+    @if (!_status.Configured)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" data-testid="google-unavailable">
+            Este teléfono no tiene Google Play services, que Android necesita para conectar Google.
+        </MudAlert>
+    }
+    else if (!_status.Connected)
+    {
+        <MudExpansionPanels Outlined="true" Elevation="0">
+            <MudExpansionPanel Text="Configuración en Google Cloud (una sola vez)">
+                <ol>
+                    <li>En el mismo proyecto de Google Cloud que usás para la app de la PC (con Gmail API y Google Calendar API habilitadas y la misma
+                        pantalla de consentimiento), andá a <em>Google Auth Platform → Clients → Create client</em> y elegí <strong>Android</strong>.</li>
+                    <li>Nombre del paquete: <code>com.vidi.jobpilot</code>.</li>
+                    <li>Huella SHA-1 de tu keystore de firma: <code>keytool -list -v -keystore jobpilot.keystore -alias jobpilot</code>.</li>
+                </ol>
+                <MudText Typo="Typo.body2">No hay que copiar nada a la app: Google la reconoce por el paquete y la firma del APK.</MudText>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+        <MudText Typo="Typo.subtitle1"><strong>Qué querés conectar</strong></MudText>
+        <MudRadioGroup T="GoogleAccess" @bind-Value="_access" data-testid="google-access">
+            <MudRadio T="GoogleAccess" Value="GoogleAccess.Full" Color="Color.Primary">Gmail y Calendar</MudRadio>
+            <MudRadio T="GoogleAccess" Value="GoogleAccess.CalendarOnly" Color="Color.Primary">Solo Calendar</MudRadio>
+        </MudRadioGroup>
+        <MudText Typo="Typo.body2">
+            Si tu cuenta tiene la <strong>Protección avanzada</strong> de Google, Gmail queda bloqueado para apps no verificadas como esta: elegí
+            <strong>Solo Calendar</strong>. Para los correos seguís teniendo "Copiar", "Compartir" y el registro manual de respuestas.
+        </MudText>
+        <MudText Typo="Typo.subtitle1"><strong>Permisos que se piden</strong></MudText>
+        <ul>@foreach (var scope in GoogleScopes.For(_access)) { <li>@GoogleUi.ScopeLabel(scope)</li> }</ul>
+        <MudText Typo="Typo.body2">En la pantalla de Google podés destildar cualquiera: la función correspondiente queda desactivada.</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Link" OnClick="() => ConnectAsync(_access)" Disabled="_busy"
+                       data-testid="google-connect">Conectar con Google</MudButton>
+            @if (_busy) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+        </MudStack>
+    }
+    else
+    {
+        <MudPaper Outlined="true" Class="pa-3" data-testid="google-status">
+            <MudText><strong>Conectado</strong>@(_status.Email is null ? string.Empty : $" como {_status.Email}") · desde el @LlmFormat.LocalTime(_status.ConnectedAtUtc!.Value)</MudText>
+            <ul>
+                @foreach (var scope in GoogleScopes.All)
+                {
+                    <li>@(_status.GrantedScopes.Contains(scope) ? "✓" : "✗ (no concedido)") @GoogleUi.ScopeLabel(scope)</li>
+                }
+            </ul>
+            <MudStack Row="true" Wrap="Wrap.Wrap">
+                @if (_status.MissingScopes.Count > 0)
+                {
+                    <MudButton Variant="Variant.Outlined" OnClick="() => ConnectAsync(GoogleAccess.Full)" Disabled="_busy">@(_status.CanUseCalendar && !_status.CanReadMail && !_status.CanCreateDrafts ? "Agregar Gmail" : "Volver a conectar")</MudButton>
+                }
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="DisconnectAsync" Disabled="_busy">Desconectar y revocar</MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    private GoogleStatus _status = new(false, false, null, [], null);
+    private GoogleAccess _access = GoogleAccess.Full;
+    private string? _message;
+    private Severity _severity = Severity.Info;
+    private bool _busy;
+
+    protected override void OnInitialized() => _status = Auth.Status();
+
+    private async Task ConnectAsync(GoogleAccess access)
+    {
+        (_busy, _message) = (true, null);
+        try
+        {
+            var result = await Auth.ConnectAsync(access, CancellationToken.None);
+            if (result.Value is { } status)
+            {
+                if (status.CanReadMail && await Gmail.ProfileEmailAsync(CancellationToken.None) is { Value: { } email })
+                {
+                    Auth.SetEmail(email);
+                }
+
+                (_message, _severity) = ("Google quedó conectado.", Severity.Success);
+            }
+            else
+            {
+                (_message, _severity) = (result.Error, Severity.Warning);
+            }
+        }
+        finally
+        {
+            _busy = false;
+            _status = Auth.Status();
+        }
+    }
+
+    private async Task DisconnectAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync("Desconectar Google",
+            "Se revoca el permiso en Google. Los hilos vinculados quedan anotados, pero no se pueden leer hasta reconectar.",
+            yesText: "Desconectar", cancelText: "Cancelar");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        _busy = true;
+        var warning = await Auth.DisconnectAsync(CancellationToken.None);
+        (_message, _severity) = (warning ?? "Google quedó desconectado y el permiso fue revocado.", warning is null ? Severity.Success : Severity.Warning);
+        (_busy, _status) = (false, Auth.Status());
+    }
+}

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Only <cache>/sharing-root is reachable through MAUI's FileProvider (the default would expose the whole cache and app
+     data, database included). Exports are written there right before Android's share sheet opens. -->
+<paths>
+    <cache-path name="internal_cache" path="sharing-root" />
+</paths>

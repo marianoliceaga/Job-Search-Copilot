@@ -1,0 +1,51 @@
+@* What combining adds, updates, deletes or leaves out, one line per section (the web table has five columns, too wide for a phone). *@
+@if (Lines.Count > 0)
+{
+    <MudList T="string" Dense="true" Class="mt-2" data-testid="transfer-summary">
+        @foreach (var line in Lines)
+        {
+            <MudListItem T="string">
+                <MudText Typo="Typo.body2"><strong>@line.Label</strong></MudText>
+                <MudText Typo="Typo.caption" Class="jp-wrap">@Describe(line)</MudText>
+            </MudListItem>
+        }
+    </MudList>
+    @if (Lines.Any(l => l.Skipped > 0))
+    {
+        <MudText Typo="Typo.caption" Class="jp-wrap">
+            "Omite": filas que ya se borraron, que dependen de algo que no está (por ejemplo, la postulación de una oferta borrada) o
+            revisiones de correo más viejas que la última del teléfono.
+        </MudText>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TransferSummaryLine> Lines { get; set; } = [];
+
+    private static string Describe(TransferSummaryLine line)
+    {
+        var parts = new List<string>();
+        if (line.Added > 0)
+        {
+            parts.Add($"agrega {line.Added}");
+        }
+
+        if (line.Updated > 0)
+        {
+            parts.Add($"actualiza {line.Updated}");
+        }
+
+        if (line.Deleted > 0)
+        {
+            parts.Add($"borra {line.Deleted}");
+        }
+
+        if (line.Skipped > 0)
+        {
+            parts.Add($"omite {line.Skipped}");
+        }
+
+        return string.Join(" · ", parts);
+    }
+}

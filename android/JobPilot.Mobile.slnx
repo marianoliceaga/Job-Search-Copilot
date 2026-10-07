@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="../src/JobPilot.Domain/JobPilot.Domain.csproj" />
+    <Project Path="src/JobPilot.Mobile.Core/JobPilot.Mobile.Core.csproj" />
+    <Project Path="src/JobPilot.Mobile/JobPilot.Mobile.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/JobPilot.Mobile.Tests/JobPilot.Mobile.Tests.csproj" />
+  </Folder>
+</Solution>

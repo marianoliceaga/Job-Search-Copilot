@@ -1,0 +1,214 @@
+@implements IDisposable
+@inject FollowUpHandler Handler
+@inject ApplicationStore Store
+@inject LlmSettingsStore Settings
+@inject JobPilot.Mobile.Core.Infrastructure.Files.IShareService Share
+@inject JobPilot.Mobile.Core.Infrastructure.Google.GoogleAuthService GoogleAuth
+@inject JobPilot.Mobile.Core.Infrastructure.Google.GmailClient Gmail
+@inject ApplicationGoogleService Google
+@inject IDialogService Dialogs
+
+@* Port of the web panel: the owner copies, shares or saves the draft in Gmail, and sends it themselves. *@
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.body2">
+        Gemini redacta un borrador en inglés con los datos de esta postulación y tu CV maestro. <strong>JobPilot no envía mensajes:</strong>
+        revisalo, copialo o compartilo con tu app de correo y envialo vos; después marcalo como enviado para reiniciar el recordatorio.
+    </MudText>
+    <MudSelect T="long" @bind-Value="_contactId" Label="Destinatario">
+        <MudSelectItem T="long" Value="0L">Equipo de selección (sin nombre)</MudSelectItem>
+        @foreach (var contact in Detail.Application.Contacts)
+        {
+            <MudSelectItem T="long" Value="contact.Id">@contact.Name@(string.IsNullOrWhiteSpace(contact.Role) ? string.Empty : $" ({contact.Role})")</MudSelectItem>
+        }
+    </MudSelect>
+    <MudTextField @bind-Value="_instructions" Label="Qué querés decir (opcional)" Immediate="true" />
+    <div><MudButton Variant="Variant.Outlined" OnClick="PrepareAsync" Disabled="_running">Preparar borrador</MudButton></div>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+
+    @if (_prepared is not null)
+    {
+        <LlmPayloadPreview Prompt="_prepared.Prompt" Model="@_model" />
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GenerateAsync" Disabled="_running">Generar borrador con Gemini</MudButton>
+            @if (_running)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudText Typo="Typo.body2">Redactando y verificando…</MudText>
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+            }
+        </MudStack>
+    }
+
+    @if (_draft is not null)
+    {
+        <MudPaper Outlined="true" Class="pa-3" data-testid="follow-up-draft">
+            <MudStack Spacing="2">
+                @if (_draft.Notes is not null)
+                {
+                    <MudText Typo="Typo.body2"><em>@_draft.Notes</em></MudText>
+                }
+                @if (_draft.Warnings.Count > 0)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true">
+                        Revisá esto antes de enviarlo (no se pudo rastrear en tu CV ni en los datos de la postulación):
+                        <ul>@foreach (var warning in _draft.Warnings) { <li>@warning</li> }</ul>
+                    </MudAlert>
+                }
+                <MudTextField @bind-Value="_subject" Label="Asunto" Immediate="true" />
+                <MudTextField @bind-Value="_body" Label="Mensaje" Lines="12" Immediate="true" />
+                <MudStack Row="true" Wrap="Wrap.Wrap">
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="() => CopyAsync(_subject)">Copiar asunto</MudButton>
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="() => CopyAsync(_body)">Copiar mensaje</MudButton>
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Share" OnClick="ShareAsync" data-testid="share-follow-up">Compartir</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.MarkEmailRead" OnClick="MarkSentAsync">Ya lo envié</MudButton>
+                </MudStack>
+                @if (_copied is not null)
+                {
+                    <MudText Typo="Typo.caption">@_copied</MudText>
+                }
+                @if (_canDraft)
+                {
+                    <MudDivider />
+                    <MudTextField @bind-Value="_to" Label="Para (opcional)" Immediate="true" InputType="InputType.Email" />
+                    <MudSelect T="string" @bind-Value="_threadId" Label="Hilo">
+                        <MudSelectItem T="string" Value="@string.Empty">(correo nuevo)</MudSelectItem>
+                        @foreach (var thread in _threads)
+                        {
+                            <MudSelectItem T="string" Value="thread.ThreadId">Responder en: @thread.Subject</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <div><MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Drafts" OnClick="CreateGmailDraftAsync" data-testid="gmail-draft">Crear borrador en Gmail</MudButton></div>
+                }
+            </MudStack>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    private long _contactId;
+    private string? _instructions;
+    private PreparedFollowUp? _prepared;
+    private string _model = string.Empty;
+    private bool _running;
+    private string? _error;
+    private FollowUpDraft? _draft;
+    private string _subject = string.Empty;
+    private string _body = string.Empty;
+    private string? _copied;
+    private CancellationTokenSource? _cts;
+    private bool _canDraft;
+    private string? _to;
+    private string _threadId = string.Empty;
+    private IReadOnlyList<JobPilot.Mobile.Core.Infrastructure.Persistence.ApplicationMailThread> _threads = [];
+
+    [Parameter, EditorRequired]
+    public required ApplicationDetail Detail { get; set; }
+
+    /// <summary>Raised after the timeline changed (draft recorded, follow-up marked as sent).</summary>
+    [Parameter]
+    public EventCallback Changed { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var status = GoogleAuth.Status();
+        _canDraft = status.Connected && status.CanCreateDrafts;
+        _threads = _canDraft && status.CanReadMail ? await Google.LinkedThreadsAsync(Detail.Application.Id, CancellationToken.None) : [];
+    }
+
+    private async Task CreateGmailDraftAsync()
+    {
+        var to = string.IsNullOrWhiteSpace(_to) ? null : _to.Trim();
+        JobPilot.Mobile.Core.Infrastructure.Google.DraftRequest draft;
+        if (_threadId.Length > 0)
+        {
+            var reply = await Google.ReplyDraftAsync(_threadId, to, _body, GoogleAuth.Status().Email, CancellationToken.None);
+            if (reply.Value is null)
+            {
+                _copied = reply.Error;
+                return;
+            }
+
+            draft = reply.Value;
+        }
+        else
+        {
+            draft = new JobPilot.Mobile.Core.Infrastructure.Google.DraftRequest(to, _subject, _body, null, null);
+        }
+
+        if (await JobPilot.Mobile.Core.Features.Google.GoogleUi.ConfirmDraftAsync(Dialogs, draft) != true)
+        {
+            return;
+        }
+
+        var created = await Gmail.CreateDraftAsync(draft, CancellationToken.None);
+        _copied = created.IsSuccess
+            ? "Borrador creado en Gmail. Revisalo y envialo desde Gmail; después marcalo como enviado acá."
+            : created.Error;
+    }
+
+    private async Task PrepareAsync()
+    {
+        _error = null;
+        (_prepared, _error) = await Handler.PrepareAsync(Detail.Application.Id, _contactId == 0 ? null : _contactId, _instructions, CancellationToken.None);
+        _to = Detail.Application.Contacts.FirstOrDefault(c => c.Id == _contactId)?.Email;
+        if (_prepared is not null)
+        {
+            _model = (await Settings.ResolveAsync(LlmUseCases.FollowUpEmail, CancellationToken.None)).Model;
+        }
+    }
+
+    private async Task GenerateAsync()
+    {
+        _running = true;
+        _error = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            var result = await Handler.RunAsync(_prepared!, _cts.Token);
+            if (result.Draft is { } draft)
+            {
+                (_draft, _subject, _body, _copied) = (draft, draft.Subject, draft.Body, null);
+                await Changed.InvokeAsync();
+            }
+            else
+            {
+                _error = result.Error!.Message + (result.Error.Detail is null ? string.Empty : $" ({result.Error.Detail})");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _error = "Generación cancelada.";
+        }
+        finally
+        {
+            _running = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private async Task CopyAsync(string text)
+    {
+        await Share.CopyTextAsync(text);
+        _copied = "Copiado al portapapeles.";
+    }
+
+    /// <summary>Android's share sheet: the owner picks the mail app, reviews the message there and sends it.</summary>
+    private Task ShareAsync() => Share.ShareTextAsync("Follow-up", _subject, _body);
+
+    private async Task MarkSentAsync()
+    {
+        await Store.RecordFollowUpSentAsync(Detail.Application.Id, $"Subject: {_subject}\n\n{_body}", CancellationToken.None);
+        (_draft, _prepared, _copied) = (null, null, null);
+        await Changed.InvokeAsync();
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

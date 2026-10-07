@@ -1,0 +1,182 @@
+@using JobPilot.Domain.Cv
+@using JobPilot.Mobile.Core.Features.Profile.Import
+@using JobPilot.Mobile.Core.Infrastructure.Files
+@implements IDisposable
+@inject CvImportHandler Handler
+@inject IFilePickerService Picker
+@inject MasterCvStore Store
+@inject LlmSettingsStore Settings
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h6">Importar CV</MudText>
+    <MudText>
+        Elegí tu CV en PDF, DOCX o Markdown. El texto se extrae en el teléfono; recién cuando lo confirmes se envía a
+        Gemini para estructurarlo. El resultado es un borrador: lo revisás y lo guardás vos. El archivo no se copia a la app.
+    </MudText>
+
+    <div>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.UploadFile" OnClick="PickAsync" Disabled="_running" data-testid="pick-cv">
+            Elegir archivo
+        </MudButton>
+    </div>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" data-testid="import-error">@_error</MudAlert>
+    }
+
+    @if (_prepared is not null && _draft is null)
+    {
+        <MudText>
+            <strong>@_prepared.Document.FileName</strong> (@_prepared.Document.Format):
+            @_prepared.Document.Text.Length.ToString("N0") caracteres extraídos.
+        </MudText>
+        <LlmPayloadPreview Prompt="_prepared.Prompt" Model="@_model" />
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RunAsync" Disabled="_running" data-testid="run-import">Estructurar con Gemini</MudButton>
+            @if (_running)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudText Typo="Typo.body2">Gemini está estructurando tu CV; puede tardar hasta un minuto…</MudText>
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+            }
+        </MudStack>
+    }
+
+    @if (_draft is not null && _prepared is not null)
+    {
+        <MudAlert Severity="Severity.Info">
+            Borrador generado por @_llmSummary. Revisá cada dato contra tu documento antes de guardarlo.
+        </MudAlert>
+        <MudExpansionPanels Outlined="true" Elevation="0">
+            <MudExpansionPanel Text="Texto original extraído del documento">
+                <pre class="jp-payload">@_prepared.Document.Text</pre>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+
+        <MasterCvEditor Cv="_draft" Flags="_flags" />
+
+        @if (_saveProblems.Count > 0)
+        {
+            <MudAlert Severity="Severity.Error">
+                No se pudo guardar:
+                <ul>@foreach (var problem in _saveProblems) { <li>@problem</li> }</ul>
+            </MudAlert>
+        }
+
+        <MudStack Row="true" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" data-testid="save-import">Guardar como CV maestro</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="Reset">Descartar borrador</MudButton>
+        </MudStack>
+    }
+</MudStack>
+
+@code {
+    private PreparedCvImport? _prepared;
+    private string _model = string.Empty;
+    private string? _error;
+    private bool _running;
+    private CancellationTokenSource? _cts;
+    private MasterCv? _draft;
+    private IReadOnlyList<CvImportFlag> _flags = [];
+    private IReadOnlyList<string> _saveProblems = [];
+    private string _llmSummary = string.Empty;
+
+    /// <summary>True when a master CV already exists (saving replaces it as a new version).</summary>
+    [Parameter]
+    public bool ReplacesExisting { get; set; }
+
+    [Parameter]
+    public EventCallback OnSaved { get; set; }
+
+    private async Task PickAsync()
+    {
+        Reset();
+        var picked = await Picker.PickDocumentAsync("Elegí tu CV", CvTextExtractor.SupportedExtensions, CvTextExtractor.MaxFileBytes, CancellationToken.None);
+        if (picked.File is not { } file)
+        {
+            _error = picked.Error;
+            return;
+        }
+
+        var extraction = CvTextExtractor.Extract(file.FileName, file.Content);
+        if (extraction.Document is null)
+        {
+            _error = extraction.Error;
+            return;
+        }
+
+        _prepared = Handler.Prepare(extraction.Document);
+        _model = (await Settings.ResolveAsync(LlmUseCases.CvImport, CancellationToken.None)).Model;
+    }
+
+    private async Task RunAsync()
+    {
+        _running = true;
+        _error = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            var result = await Handler.RunAsync(_prepared!, _cts.Token);
+            if (result.Cv is null)
+            {
+                _error = result.Llm.Error!.Message + (result.Llm.Error.Detail is null ? string.Empty : $" ({result.Llm.Error.Detail})");
+            }
+            else
+            {
+                _draft = result.Cv;
+                _flags = result.Flags;
+                _llmSummary = $"{result.Llm.Model} · {LlmFormat.Usage(result.Llm.Usage)} · {LlmFormat.Cost(result.Llm.EstimatedCostUsd)}";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _error = "Importación cancelada.";
+        }
+        finally
+        {
+            _running = false;
+            _cts.Dispose();
+            _cts = null;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (ReplacesExisting)
+        {
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                "Reemplazar el CV maestro",
+                "El borrador reemplaza tu CV maestro actual. La versión anterior queda en el historial y podés restaurarla.",
+                yesText: "Reemplazar", cancelText: "Cancelar");
+            if (confirmed != true)
+            {
+                return;
+            }
+        }
+
+        var result = await Store.SaveAsync(_draft!, $"import: {_prepared!.Document.FileName}", CancellationToken.None);
+        _saveProblems = result.Problems;
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"CV maestro guardado (versión {result.Version}).", Severity.Success);
+            Reset();
+            await OnSaved.InvokeAsync();
+        }
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    private void Reset()
+    {
+        _prepared = null;
+        _draft = null;
+        _flags = [];
+        _saveProblems = [];
+        _error = null;
+    }
+
+    public void Dispose() => _cts?.Cancel();
+}

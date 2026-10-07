@@ -1,0 +1,279 @@
+@page "/practica/{Id:guid}"
+@using JobPilot.Domain.Practice
+@using JobPilot.Mobile.Core.Infrastructure.Llm
+@implements IDisposable
+@inject PracticeStore Store
+@inject PracticeHandler Handler
+@inject LlmSettingsStore Settings
+@inject IDialogService Dialogs
+@inject NavigationManager Navigation
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_session is null)
+{
+    <MudText Typo="Typo.h4" HtmlTag="h1">Simulacro no encontrado</MudText>
+    <MudLink Href="/entrevistas">Volver a Entrevistas</MudLink>
+}
+else
+{
+    <MudStack Spacing="3">
+        <MudLink Href="@BackHref" Typo="Typo.body2">← @(_session.Mode == PracticeMode.Interview ? "Entrevistas" : "Negociación")</MudLink>
+        <MudText Typo="Typo.h4" HtmlTag="h1">@Title</MudText>
+        <MudText Typo="Typo.body2">
+            @(_session.Mode == PracticeMode.Interview ? $"{_session.PlannedQuestions} preguntas" : $"Hasta {_session.PlannedQuestions} rondas") ·
+            hasta @_session.MaxFollowUps repregunta(s) por @(_session.Mode == PracticeMode.Interview ? "pregunta" : "ronda") ·
+            empezado el @LlmFormat.LocalTime(_session.StartedAtUtc) · @(_session.Model ?? "—")
+        </MudText>
+        <MudExpansionPanels Outlined="true" Elevation="0">
+            <MudExpansionPanel Text="Qué se envía a Gemini en cada turno">
+                <MudText Typo="Typo.body2">Prompt: <code>@_session.PromptId</code>. En cada turno se envía este contexto más toda la conversación de abajo.</MudText>
+                <MudText Typo="Typo.subtitle2" Class="mt-2">Instrucción de sistema</MudText>
+                <pre class="jp-payload">@_session.SystemInstruction</pre>
+                <MudText Typo="Typo.subtitle2">Primer mensaje</MudText>
+                <pre class="jp-payload">@_session.OpeningMessage</pre>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+
+        <MudStack Spacing="2" data-testid="transcript">
+            @foreach (var turn in _session.Turns)
+            {
+                @if (turn.Speaker == PracticeSpeaker.Coach)
+                {
+                    <div class="jp-chat-coach" data-testid="coach-turn">
+                        <MudText Typo="Typo.caption">@CoachLabel(turn)</MudText>
+                        <MudText>@turn.Text</MudText>
+                    </div>
+                }
+                else
+                {
+                    <div class="jp-chat-candidate" data-testid="candidate-turn">@turn.Text</div>
+                }
+            }
+        </MudStack>
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+
+        @if (_session.Status == PracticeStatus.InProgress)
+        {
+            @if (_session.AwaitingAnswer)
+            {
+                <MudTextField @bind-Value="_answer" Label="Tu respuesta (en inglés)" Lines="5" Immediate="true" Disabled="_running" />
+                <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AnswerAsync" Disabled="@(_running || string.IsNullOrWhiteSpace(_answer))">Responder</MudButton>
+                    <MudButton Variant="Variant.Text" OnClick="FinishAsync" Disabled="@(_running || !_session.HasAnswers)">Terminar y pedir feedback</MudButton>
+                    @if (_running)
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                        <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+                    }
+                </MudStack>
+            }
+            else
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                    <MudButton Variant="Variant.Outlined" OnClick="NextAsync" Disabled="_running">Pedir el siguiente mensaje a Gemini</MudButton>
+                    <MudButton Variant="Variant.Text" OnClick="FinishAsync" Disabled="@(_running || !_session.HasAnswers)">Terminar y pedir feedback</MudButton>
+                    @if (_running)
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                    }
+                </MudStack>
+            }
+        }
+
+        @if (_session.Status == PracticeStatus.AwaitingFeedback)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">La conversación terminó. Pedí el feedback: se puntúa con una rúbrica fija y las respuestas modelo salen de tu CV.</MudAlert>
+            @if (_feedbackPrepared is null)
+            {
+                <div><MudButton Variant="Variant.Outlined" OnClick="PrepareFeedbackAsync">Preparar feedback</MudButton></div>
+            }
+            else
+            {
+                <LlmPayloadPreview Prompt="_feedbackPrepared.Prompt" Model="@_model" />
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RunFeedbackAsync" Disabled="_running">Pedir feedback a Gemini</MudButton>
+                    @if (_running)
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                        <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+                    }
+                </MudStack>
+            }
+        }
+
+        @if (_session.Feedback is { } feedback)
+        {
+            <MudPaper Outlined="true" Class="pa-4" data-testid="feedback">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.h5">Puntaje: @feedback.Overall/100</MudText>
+                    <MudText Typo="Typo.caption">Calculado por la app: promedio de la rúbrica (1 → 0, 5 → 100).</MudText>
+                    <MudStack Spacing="1" data-testid="rubric">
+                        @foreach (var criterion in Rubrics.For(_session.Mode))
+                        {
+                            var score = feedback.Scores.FirstOrDefault(s => s.Criterion == criterion.Key);
+                            <div>
+                                <MudText Typo="Typo.body2"><strong>@criterion.Name: @(score?.Score.ToString() ?? "—")/5</strong></MudText>
+                                <MudText Typo="Typo.body2">@score?.Justification</MudText>
+                            </div>
+                        }
+                    </MudStack>
+                    <MudText Typo="Typo.subtitle1"><strong>Fortalezas</strong></MudText>
+                    <ul>@foreach (var item in feedback.Strengths) { <li>@item</li> }</ul>
+                    <MudText Typo="Typo.subtitle1"><strong>Para mejorar</strong></MudText>
+                    <ul>@foreach (var item in feedback.Improvements) { <li>@item</li> }</ul>
+                    <MudText Typo="Typo.subtitle1"><strong>Respuestas modelo</strong></MudText>
+                    @foreach (var answer in feedback.ModelAnswers)
+                    {
+                        var question = _session.Exchanges().FirstOrDefault(e => e.Number == answer.QuestionNumber).Question;
+                        <MudPaper Outlined="true" Class="pa-2">
+                            <MudText Typo="Typo.caption">@(_session.Mode == PracticeMode.Interview ? "Pregunta" : "Ronda") @answer.QuestionNumber: @question</MudText>
+                            <MudText>@answer.Answer.Text</MudText>
+                            @if (answer.Answer.Sources.Count > 0)
+                            {
+                                <MudText Typo="Typo.caption">Fuentes del CV: @answer.Answer.Sources.Count elemento(s)</MudText>
+                            }
+                            @foreach (var problem in answer.Problems)
+                            {
+                                <MudAlert Severity="Severity.Warning" Dense="true">@problem</MudAlert>
+                            }
+                        </MudPaper>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+
+        <div>
+            <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" OnClick="DeleteAsync">Borrar simulacro</MudButton>
+        </div>
+    </MudStack>
+}
+
+@code {
+    private PracticeSession? _session;
+    private bool _loading = true;
+    private bool _running;
+    private string? _answer;
+    private string? _error;
+    private PreparedFeedback? _feedbackPrepared;
+    private string _model = string.Empty;
+    private CancellationTokenSource? _cts;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private string Title => _session?.Mode == PracticeMode.Negotiation ? "Simulacro de negociación" : "Simulacro de entrevista";
+
+    private string BackHref => _session?.Mode == PracticeMode.Negotiation ? "/negociacion"
+        : _session?.JobPostingId is { } postingId ? $"/entrevistas?oferta={postingId}" : "/entrevistas";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _session = await Store.GetAsync(Id, CancellationToken.None);
+        _loading = false;
+    }
+
+    private string CoachLabel(PracticeTurn turn)
+    {
+        var who = _session!.Mode == PracticeMode.Interview ? "Entrevistador" : "Recruiter";
+        var unit = _session.Mode == PracticeMode.Interview ? "Pregunta" : "Ronda";
+        return turn.Kind switch
+        {
+            TurnKind.Question => $"{who} · {unit} {turn.QuestionNumber} de {_session.PlannedQuestions}",
+            TurnKind.FollowUp => $"{who} · repregunta",
+            _ => $"{who} · cierre",
+        };
+    }
+
+    private async Task RunAsync(Func<CancellationToken, Task<LlmError?>> action)
+    {
+        _running = true;
+        _error = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            if (await action(_cts.Token) is { } error)
+            {
+                _error = error.Message + (error.Detail is null ? string.Empty : $" ({error.Detail})");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _error = "Cancelado. Tu respuesta quedó guardada: podés pedir el siguiente mensaje otra vez.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _running = false;
+            _cts?.Dispose();
+            _cts = null;
+            _session = await Store.GetAsync(Id, CancellationToken.None);
+        }
+    }
+
+    private async Task AnswerAsync()
+    {
+        var answer = _answer!;
+        await RunAsync(ct => Handler.AnswerAsync(Id, answer, ct));
+        if (_session!.Turns.LastOrDefault(t => t.Speaker == PracticeSpeaker.Candidate)?.Text == answer.Trim())
+        {
+            _answer = null;
+        }
+    }
+
+    private Task NextAsync() => RunAsync(ct => Handler.NextAsync(Id, ct));
+
+    private async Task FinishAsync()
+    {
+        await Handler.FinishAsync(Id, CancellationToken.None);
+        _session = await Store.GetAsync(Id, CancellationToken.None);
+    }
+
+    private async Task PrepareFeedbackAsync()
+    {
+        string? error;
+        (_feedbackPrepared, error) = await Handler.PrepareFeedbackAsync(Id, CancellationToken.None);
+        _error = error;
+        if (_feedbackPrepared is not null)
+        {
+            _model = (await Settings.ResolveAsync(LlmUseCases.PracticeFeedback, CancellationToken.None)).Model;
+        }
+    }
+
+    private async Task RunFeedbackAsync()
+    {
+        await RunAsync(async ct =>
+        {
+            var (_, error) = await Handler.RunFeedbackAsync(_feedbackPrepared!, ct);
+            return error;
+        });
+        if (_session?.Status == PracticeStatus.Completed)
+        {
+            _feedbackPrepared = null;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync("Borrar simulacro", "Se borran la conversación y el feedback.", yesText: "Borrar", cancelText: "Cancelar");
+        if (confirmed == true)
+        {
+            await Store.DeleteAsync(Id, CancellationToken.None);
+            Navigation.NavigateTo(BackHref);
+        }
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

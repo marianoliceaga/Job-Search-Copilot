@@ -1,0 +1,298 @@
+@using JobPilot.Mobile.Core.Features.Companies
+@using JobPilot.Mobile.Core.Infrastructure.Llm
+@using JobPilot.Mobile.Core.Infrastructure.Persistence
+@using Microsoft.Extensions.Options
+@implements IDisposable
+@inject OutreachHandler Handler
+@inject OutreachStore Store
+@inject CompanyStore Companies
+@inject JobPilot.Mobile.Core.Features.Pipeline.ApplicationStore Applications
+@inject JobPilot.Mobile.Core.Features.Jobs.JobListService Jobs
+@inject LlmSettingsStore Settings
+@inject IOptions<OutreachOptions> Options
+@inject JobPilot.Mobile.Core.Infrastructure.Files.IShareService Share
+@inject JobPilot.Mobile.Core.Infrastructure.Google.GoogleAuthService GoogleAuth
+@inject JobPilot.Mobile.Core.Infrastructure.Google.GmailClient Gmail
+@inject IDialogService Dialogs
+
+@* Port of the web panel: drafts are copied, shared or saved in Gmail, and the owner sends them. *@
+
+<MudStack Spacing="3">
+    <MudSelect T="Guid" @bind-Value="_postingId" Label="Oferta">
+            <MudSelectItem T="Guid" Value="Guid.Empty">(sin oferta específica)</MudSelectItem>
+            @foreach (var offer in _offers)
+            {
+                <MudSelectItem T="Guid" Value="offer.Key">@offer.Value</MudSelectItem>
+            }
+    </MudSelect>
+    <MudSelect T="Guid" @bind-Value="_companyId" Label="Ficha de empresa">
+            <MudSelectItem T="Guid" Value="Guid.Empty">(la de la oferta, si existe)</MudSelectItem>
+            @foreach (var company in _companies)
+            {
+                <MudSelectItem T="Guid" Value="company.Id">@company.Name (@company.VerifiedFacts datos verificados)</MudSelectItem>
+            }
+    </MudSelect>
+    <MudSelect T="OutreachChannel" @bind-Value="_channel" Label="Canal">
+            @foreach (var channel in Enum.GetValues<OutreachChannel>())
+            {
+                <MudSelectItem T="OutreachChannel" Value="channel">@OutreachFormat.Channel(channel)</MudSelectItem>
+            }
+    </MudSelect>
+    <MudSelect T="OutreachLength" @bind-Value="_length" Label="Largo" Disabled="@(_channel == OutreachChannel.LinkedInConnection)">
+            @foreach (var length in Enum.GetValues<OutreachLength>())
+            {
+                <MudSelectItem T="OutreachLength" Value="length">@OutreachFormat.Length(length)</MudSelectItem>
+            }
+    </MudSelect>
+    <MudTextField @bind-Value="_recipientName" Label="Nombre del destinatario (opcional)" Immediate="true" />
+    <MudTextField @bind-Value="_recipientRole" Label="Rol (recruiter, hiring manager…)" Immediate="true" />
+    <MudTextField @bind-Value="_instructions" Label="Qué querés decir (opcional)" Immediate="true" />
+    @if (_channel == OutreachChannel.Email && _canDraft)
+    {
+        <MudTextField @bind-Value="_recipientEmail" Label="E-mail del destinatario (para el borrador en Gmail, opcional)" Immediate="true" InputType="InputType.Email" />
+    }
+    @if (_channel == OutreachChannel.LinkedInConnection)
+    {
+        <MudText Typo="Typo.caption">La nota de invitación tiene un máximo de @Options.Value.ConnectionNoteMaxLength caracteres (300 con Premium; el valor viene de la configuración de la app de la PC).</MudText>
+    }
+    <div>
+        <MudButton Variant="Variant.Outlined" OnClick="PrepareAsync" Disabled="@(_running || (_postingId == Guid.Empty && _companyId == Guid.Empty))">Preparar borradores</MudButton>
+    </div>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+
+    @if (_prepared is not null)
+    {
+        <MudText Typo="Typo.body2">
+            Datos de empresa usados: @(_prepared.Facts.Count == 0 ? "ninguno (no hay datos verificados)" : $"{_prepared.Facts.Count} verificados de {_prepared.Company!.Name}").
+        </MudText>
+        <LlmPayloadPreview Prompt="_prepared.Prompt" Model="@_model" />
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GenerateAsync" Disabled="_running">Generar con Gemini</MudButton>
+            @if (_running)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudText Typo="Typo.body2">Redactando tres versiones y verificándolas…</MudText>
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+            }
+        </MudStack>
+    }
+
+    @if (_recordId is { } recordId && _drafts is not null)
+    {
+        @if (_notes is not null)
+        {
+            <MudText Typo="Typo.body2"><em>@_notes</em></MudText>
+        }
+        <MudGrid Spacing="2">
+            @foreach (var draft in _drafts)
+            {
+                <MudItem xs="12">
+                    <MudPaper Outlined="true" Class="pa-3" data-testid="outreach-variant">
+                        <MudStack Spacing="2">
+                            <MudText Typo="Typo.subtitle1"><strong>@OutreachFormat.Tone(draft.Tone)</strong></MudText>
+                            @if (draft.Warnings.Count > 0)
+                            {
+                                <MudAlert Severity="Severity.Warning" Dense="true">
+                                    Revisá esto antes de enviarlo:
+                                    <ul>@foreach (var warning in draft.Warnings) { <li>@warning</li> }</ul>
+                                </MudAlert>
+                            }
+                            @if (draft.Subject is not null)
+                            {
+                                <MudTextField @bind-Value="draft.Subject" Label="Asunto" Immediate="true" />
+                            }
+                            <MudTextField @bind-Value="draft.Body" Label="Mensaje" Lines="10" Immediate="true" />
+                            <MudText Typo="Typo.caption" Color="@(OverLimit(draft) ? Color.Error : Color.Default)">
+                                @draft.Body.Length caracteres@(_channel == OutreachChannel.LinkedInConnection ? $" de {Options.Value.ConnectionNoteMaxLength}" : string.Empty)
+                            </MudText>
+                            <MudStack Row="true" Wrap="Wrap.Wrap">
+                                @if (draft.Subject is not null)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => CopyAsync(draft.Subject)">Copiar asunto</MudButton>
+                                }
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="() => CopyAsync(draft.Body)">Copiar</MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Share" OnClick="() => ShareAsync(draft)" data-testid="share-outreach">Compartir</MudButton>
+                                @if (draft.Subject is not null && _canDraft)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Drafts" OnClick="() => CreateGmailDraftAsync(draft)">Borrador en Gmail</MudButton>
+                                }
+                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" OnClick="() => MarkSentAsync(recordId, draft)">Ya lo envié</MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+        @if (_copied is not null)
+        {
+            <MudText Typo="Typo.caption">@_copied</MudText>
+        }
+    }
+
+    <MudText Typo="Typo.h6" Class="mt-2">Historial</MudText>
+    @if (_history.Count == 0)
+    {
+        <MudText Typo="Typo.body2">Todavía no generaste mensajes.</MudText>
+    }
+    @foreach (var item in _history)
+    {
+        <MudPaper Outlined="true" Class="pa-2" data-testid="outreach-history">
+            <MudText Typo="Typo.body2">
+                <strong>@OutreachFormat.Channel(item.Record.Channel)</strong> · @(item.Offer ?? item.Company ?? "—")
+                @(item.Record.RecipientName is null ? string.Empty : $" · para {item.Record.RecipientName}") · @LlmFormat.LocalTime(item.Record.CreatedAtUtc)
+                @if (item.Record.SentAtUtc is { } sent)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Enviado el @LlmFormat.LocalTime(sent)</MudChip>
+                }
+            </MudText>
+            @if (item.Record.SentText is not null)
+            {
+                <MudText Typo="Typo.body2" Class="jp-wrap">@item.Record.SentText</MudText>
+            }
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    private sealed class EditableDraft(OutreachVariant variant)
+    {
+        public OutreachTone Tone { get; } = variant.Tone;
+
+        public string? Subject { get; set; } = variant.Subject;
+
+        public string Body { get; set; } = variant.Body;
+
+        public IReadOnlyList<string> Warnings { get; } = variant.Warnings;
+    }
+
+    private Dictionary<Guid, string> _offers = [];
+    private IReadOnlyList<CompanySummary> _companies = [];
+    private IReadOnlyList<OutreachHistoryItem> _history = [];
+    private Guid _postingId;
+    private Guid _companyId;
+    private OutreachChannel _channel = OutreachChannel.LinkedInMessage;
+    private OutreachLength _length = OutreachLength.Short;
+    private string? _recipientName;
+    private string? _recipientRole;
+    private string? _instructions;
+    private PreparedOutreach? _prepared;
+    private string _model = string.Empty;
+    private bool _running;
+    private string? _error;
+    private long? _recordId;
+    private List<EditableDraft>? _drafts;
+    private string? _notes;
+    private string? _copied;
+    private CancellationTokenSource? _cts;
+    private bool _canDraft;
+    private string? _recipientEmail;
+
+    [Parameter]
+    public Guid? PostingId { get; set; }
+
+    [Parameter]
+    public Guid? CompanyId { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _offers = (await Applications.GetBoardAsync(CancellationToken.None))
+            .GroupBy(c => c.PostingId).ToDictionary(g => g.Key, g => $"{g.First().Title} — {g.First().Company}");
+        if (PostingId is { } postingId && !_offers.ContainsKey(postingId) && await Jobs.GetItemAsync(postingId, CancellationToken.None) is { } item)
+        {
+            _offers[postingId] = $"{item.Posting.Title} — {item.Posting.Company}";
+        }
+
+        _companies = await Companies.ListAsync(CancellationToken.None);
+        _postingId = PostingId is { } p && _offers.ContainsKey(p) ? p : Guid.Empty;
+        _companyId = CompanyId is { } c && _companies.Any(x => x.Id == c) ? c : Guid.Empty;
+        _history = await Store.RecentAsync(20, CancellationToken.None);
+        var google = GoogleAuth.Status();
+        _canDraft = google.Connected && google.CanCreateDrafts;
+    }
+
+    private async Task CreateGmailDraftAsync(EditableDraft draft)
+    {
+        var request = new JobPilot.Mobile.Core.Infrastructure.Google.DraftRequest(
+            string.IsNullOrWhiteSpace(_recipientEmail) ? null : _recipientEmail.Trim(), draft.Subject ?? string.Empty, draft.Body, null, null);
+        if (await JobPilot.Mobile.Core.Features.Google.GoogleUi.ConfirmDraftAsync(Dialogs, request) != true)
+        {
+            return;
+        }
+
+        var created = await Gmail.CreateDraftAsync(request, CancellationToken.None);
+        _copied = created.IsSuccess ? "Borrador creado en Gmail. Envialo desde Gmail y después marcalo como enviado acá." : created.Error;
+    }
+
+    private OutreachInput Input() => new(
+        _postingId == Guid.Empty ? null : _postingId,
+        _companyId == Guid.Empty ? null : _companyId,
+        _channel, _length, _recipientName, _recipientRole, _instructions);
+
+    private bool OverLimit(EditableDraft draft) =>
+        _channel == OutreachChannel.LinkedInConnection && draft.Body.Length > Options.Value.ConnectionNoteMaxLength;
+
+    private async Task PrepareAsync()
+    {
+        _error = null;
+        (_prepared, _error) = await Handler.PrepareAsync(Input(), CancellationToken.None);
+        if (_prepared is not null)
+        {
+            _model = (await Settings.ResolveAsync(LlmUseCases.OutreachMessage, CancellationToken.None)).Model;
+        }
+    }
+
+    private async Task GenerateAsync()
+    {
+        _running = true;
+        _error = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            var result = await Handler.RunAsync(_prepared!, _cts.Token);
+            if (result.Drafts is { } drafts)
+            {
+                (_recordId, _drafts, _notes, _copied) = (result.RecordId, drafts.Variants.Select(v => new EditableDraft(v)).ToList(), drafts.Notes, null);
+                _history = await Store.RecentAsync(20, CancellationToken.None);
+            }
+            else
+            {
+                _error = result.Error!.Message + (result.Error.Detail is null ? string.Empty : $" ({result.Error.Detail})");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _error = "Generación cancelada.";
+        }
+        finally
+        {
+            _running = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private async Task CopyAsync(string? text)
+    {
+        await Share.CopyTextAsync(text ?? string.Empty);
+        _copied = "Copiado al portapapeles.";
+    }
+
+    /// <summary>Android's share sheet: the owner picks LinkedIn or a mail app, reviews the message there and sends it.</summary>
+    private Task ShareAsync(EditableDraft draft) => Share.ShareTextAsync(OutreachFormat.Channel(_channel), draft.Subject, draft.Body);
+
+    private async Task MarkSentAsync(long recordId, EditableDraft draft)
+    {
+        var text = draft.Subject is null ? draft.Body : $"Subject: {draft.Subject}\n\n{draft.Body}";
+        await Store.MarkSentAsync(recordId, text, CancellationToken.None);
+        (_drafts, _prepared, _recordId, _copied) = (null, null, null, null);
+        _history = await Store.RecentAsync(20, CancellationToken.None);
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

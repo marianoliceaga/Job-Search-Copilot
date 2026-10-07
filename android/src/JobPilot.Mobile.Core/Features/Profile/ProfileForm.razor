@@ -1,0 +1,71 @@
+@inject ProfileStore Store
+@inject ISnackbar Snackbar
+
+@if (_profile is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudStack Spacing="3">
+        <MudText>
+            Tu perfil orienta el análisis de ofertas y la redacción de postulaciones. Los datos del CV viven en la
+            pestaña "CV maestro".
+        </MudText>
+        <MudGrid>
+            <MudItem xs="12" md="8">
+                <MudTextField @bind-Value="_profile.Headline" Label="Titular profesional" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudNumericField T="int?" @bind-Value="_profile.YearsOfExperience" Label="Años de experiencia" Variant="Variant.Outlined" Min="0" Max="60" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <StringListEditor Values="_profile.Roles" Label="Roles (ej.: Tech Lead)" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <StringListEditor Values="_profile.Stack" Label="Stack principal" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <StringListEditor Values="_profile.Domains" Label="Dominios de negocio" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <StringListEditor Values="_profile.ApplicationEmphases" Label="Énfasis en cada postulación"
+                                  HelperText="Se aplican cuando la oferta lo justifica." />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_profile.WorkFromCountry" Label="País desde el que trabajás" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_profile.WorkModality" Label="Modalidad buscada" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="string" @bind-Value="_profile.ApplicationLanguage" Label="Idioma de postulación" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@("en")">Inglés</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("es")">Español</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_profile.Priorities" Label="Prioridades" Variant="Variant.Outlined" Lines="2"
+                              HelperText="Ej.: compensación por sobre el rol." />
+            </MudItem>
+        </MudGrid>
+        <MudStack Row="true">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Guardar perfil</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="LoadAsync">Descartar cambios</MudButton>
+        </MudStack>
+    </MudStack>
+}
+
+@code {
+    private JobPilot.Domain.Profiles.Profile? _profile;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() => _profile = await Store.GetAsync(CancellationToken.None);
+
+    private async Task SaveAsync()
+    {
+        await Store.SaveAsync(_profile!, CancellationToken.None);
+        Snackbar.Add("Perfil guardado.", Severity.Success);
+    }
+}

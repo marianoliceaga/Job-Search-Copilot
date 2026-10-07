@@ -1,0 +1,59 @@
+@using JobPilot.Domain.Practice
+@using JobPilot.Mobile.Core.Features.Tailoring
+@inject InterviewPrepStore Store
+@* One STAR story: each part is edited with its CV sources and traceability flags. *@
+
+<MudPaper Outlined="true" Class="pa-3" data-testid="star-story">
+    <MudStack Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudText Typo="Typo.subtitle1"><strong>@Story.Story.Title</strong></MudText>
+            @foreach (var competency in Story.Story.Competencies)
+            {
+                <MudChip T="string" Size="Size.Small">@competency</MudChip>
+            }
+            <MudSpacer />
+            @if (Story.MasterCvVersion != Context.CvVersion)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Warning">Hecha con el CV maestro v@(Story.MasterCvVersion)</MudChip>
+            }
+        </MudStack>
+        @if (Story.Story.Questions.Count > 0)
+        {
+            <MudText Typo="Typo.caption">Responde: @string.Join(" · ", Story.Story.Questions)</MudText>
+        }
+        @foreach (var (part, text) in Story.Story.Parts())
+        {
+            <TracedTextEditor Text="text" Index="Context.Index" Label="@part" Lines="2" Problems="@Context.Validator.Check(text)" Changed="() => _dirty = true" />
+        }
+        <MudStack Row="true">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="SaveAsync" Disabled="!_dirty">Guardar cambios</MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="DeleteAsync">Borrar</MudButton>
+        </MudStack>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private bool _dirty;
+
+    [Parameter, EditorRequired]
+    public required StoredStory Story { get; set; }
+
+    [Parameter, EditorRequired]
+    public required CvContext Context { get; set; }
+
+    [Parameter]
+    public EventCallback Changed { get; set; }
+
+    private async Task SaveAsync()
+    {
+        await Store.SaveStoryAsync(Story.Id, Story.Story, CancellationToken.None);
+        _dirty = false;
+        await Changed.InvokeAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        await Store.DeleteStoryAsync(Story.Id, CancellationToken.None);
+        await Changed.InvokeAsync();
+    }
+}

@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!-- UI and services of the Android app on plain net10.0, so they are testable without the Android toolchain.
+       Must not reference MAUI: platform services (secure storage, file picker, sharing) go behind interfaces
+       implemented in JobPilot.Mobile (enforced by a test). -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MudBlazor" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="DocumentFormat.OpenXml" />
+    <PackageReference Include="PdfPig" />
+    <PackageReference Include="AngleSharp" />
+    <PackageReference Include="PDFsharp" />
+    <PackageReference Include="Ical.Net" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="JobPilot.Mobile.Tests" />
+  </ItemGroup>
+
+  <!-- Implicit usings of the web SDK that the ported web code relies on. -->
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\JobPilot.Domain\JobPilot.Domain.csproj" />
+  </ItemGroup>
+
+  <!-- Lato (SIL OFL 1.1, see Fonts/OFL.txt), the font of the web app's PDFs, embedded in the exported PDFs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\*.ttf" LogicalName="Fonts/%(Filename)%(Extension)" />
+    <None Include="Fonts\OFL.txt" />
+  </ItemGroup>
+
+  <!-- Shared with the web app, read-only: the same versioned prompts and the same model, parameter and price defaults. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Prompts\*.md" Link="Shared\Prompts\%(Filename)%(Extension)" LogicalName="Prompts/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\appsettings.json" Link="Shared\web-appsettings.json" LogicalName="web-appsettings.json" />
+    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Seed\profile.seed.json;..\..\..\src\JobPilot.Web\Seed\job-search.seed.json;..\..\..\src\JobPilot.Web\Seed\followed-companies.seed.json;..\..\..\src\JobPilot.Web\Seed\mail-rules.seed.json;..\..\..\src\JobPilot.Web\Seed\technology-terms.txt" Link="Shared\Seed\%(Filename)%(Extension)" LogicalName="Seed/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

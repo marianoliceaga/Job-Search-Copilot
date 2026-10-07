@@ -8,6 +8,7 @@ using JobPilot.Domain.Tailoring;
 using JobPilot.Web.Features.Jobs.Analysis;
 using JobPilot.Web.Features.Negotiation;
 using JobPilot.Web.Features.Tailoring;
+using JobPilot.Web.Features.Transfer;
 using JobPilot.Web.Infrastructure.Llm;
 using JobPilot.Web.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -62,7 +63,7 @@ public sealed record PreparedFeedback(PracticeSession Session, CvContext Context
 public sealed record PracticeHistoryItem(Guid Id, PracticeMode Mode, DateTime StartedAtUtc, PracticeStatus Status, int? OverallScore, string Title);
 
 /// <summary>Practice sessions (mock interviews and negotiation roleplays).</summary>
-public sealed class PracticeStore(IDbContextFactory<JobPilotDbContext> dbFactory)
+public sealed class PracticeStore(IDbContextFactory<JobPilotDbContext> dbFactory, TimeProvider time)
 {
     public async Task<PracticeSession?> GetAsync(Guid id, CancellationToken cancellationToken)
     {
@@ -89,7 +90,7 @@ public sealed class PracticeStore(IDbContextFactory<JobPilotDbContext> dbFactory
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-        await db.PracticeSessions.Where(s => s.Id == id).ExecuteDeleteAsync(cancellationToken);
+        await DeletionLog.DeleteAsync(db, TransferSchema.PracticeSessions, id, ct => db.PracticeSessions.Where(s => s.Id == id).ExecuteDeleteAsync(ct), time.GetUtcNow().UtcDateTime, cancellationToken);
     }
 
     /// <summary>Sessions of one mode, oldest first (the score chart reads them in order).</summary>

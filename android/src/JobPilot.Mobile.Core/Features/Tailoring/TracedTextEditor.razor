@@ -1,0 +1,100 @@
+@using JobPilot.Domain.Tailoring
+@* Edits one generated text, showing what it cites, how it differs from its source and why it is flagged. *@
+
+<div class="mb-3">
+    <MudStack Row="true" AlignItems="AlignItems.Start">
+        <MudTextField T="string" Value="Text.Text" ValueChanged="OnTextChangedAsync" Label="@Label" Variant="Variant.Outlined"
+                      Lines="@Lines" Sizing="InputSizing.Auto" Margin="Margin.Dense" Class="flex-grow-1" Disabled="ReadOnly" Immediate="true"
+                      DebounceInterval="400" Error="@(Problems.Count > 0 && !Text.OwnerConfirmed)" />
+        @Actions
+    </MudStack>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="1">
+        <MudText Typo="Typo.caption">Fuentes:</MudText>
+        @if (Text.Sources.Count == 0)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Error">ninguna</MudText>
+        }
+        @foreach (var source in Text.Sources)
+        {
+            <MudTooltip Text="@(Index.Contains(source) ? Index.TextOf(source) : "No existe en el CV maestro")">
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@(Index.Contains(source) ? Color.Default : Color.Error)">@Index.RefOf(source)</MudChip>
+            </MudTooltip>
+        }
+    </MudStack>
+    @if (DiffSource is { } original && WordDiff.Compute(original, Text.Text) is var diff && diff.All(d => d.Kind == DiffKind.Same))
+    {
+        <MudText Typo="Typo.caption" Class="mt-1" data-testid="diff">Igual al CV maestro.</MudText>
+    }
+    else if (DiffSource is { } source)
+    {
+        <MudText Typo="Typo.caption" Class="mt-1" data-testid="diff">
+            Cambios respecto del CV maestro:
+            @foreach (var segment in WordDiff.Compute(source, Text.Text))
+            {
+                <span class="@(segment.Kind switch { DiffKind.Added => "jp-diff-added", DiffKind.Removed => "jp-diff-removed", _ => string.Empty })">@segment.Text</span>
+                @(" ")
+            }
+        </MudText>
+    }
+    @if (Problems.Count > 0)
+    {
+        <MudAlert Severity="@(Text.OwnerConfirmed ? Severity.Info : Severity.Warning)" Dense="true" Class="mt-1" data-testid="trace-flag">
+            @foreach (var problem in Problems)
+            {
+                <div>@problem</div>
+            }
+            @if (!ReadOnly)
+            {
+                <MudCheckBox T="bool" Value="Text.OwnerConfirmed" ValueChanged="OnConfirmedChangedAsync" Dense="true" Size="Size.Small"
+                             Label="Lo revisé y es correcto (queda registrado que lo confirmaste vos)" />
+            }
+        </MudAlert>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required TraceableText Text { get; set; }
+
+    [Parameter, EditorRequired]
+    public required CvSourceIndex Index { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<string> Problems { get; set; } = [];
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    [Parameter]
+    public int Lines { get; set; } = 1;
+
+    [Parameter]
+    public bool ReadOnly { get; set; }
+
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
+
+    [Parameter]
+    public EventCallback Changed { get; set; }
+
+    /// <summary>When the text comes from exactly one achievement, its original wording (for the diff).</summary>
+    private string? DiffSource =>
+        Text.Sources.Count == 1 && Index.Contains(Text.Sources[0]) && Index.ExperienceOf(Text.Sources[0]) is { } experience
+            && experience.ToString() != Text.Sources[0]
+            ? Index.TextOf(Text.Sources[0])
+            : null;
+
+    private async Task OnTextChangedAsync(string? value)
+    {
+        Text.Text = value ?? string.Empty;
+        // Editing the text invalidates a previous confirmation: it must be reviewed again.
+        Text.OwnerConfirmed = false;
+        await Changed.InvokeAsync();
+    }
+
+    private async Task OnConfirmedChangedAsync(bool value)
+    {
+        Text.OwnerConfirmed = value;
+        await Changed.InvokeAsync();
+    }
+}

@@ -112,6 +112,10 @@ src/JobPilot.Web/
                              technology-terms.txt (technology names checked in generated texts)
   wwwroot/app.js             jobPilot.downloadFile (browser download of exported files), jobPilot.copyText (clipboard)
   Infrastructure/Text/       HtmlText: third-party HTML → plain text (source HTML is never rendered)
+  Features/Transfer/         Export / "Combinar" import shared with the Android app (Configuración → Exportar / Importar):
+                             TransferSchema (every table and column, identity, merge policy), TransferFile (JSON format),
+                             TransferMerger (pure merge plan), TransferDatabase (raw SQLite rows, VACUUM INTO backup),
+                             TransferService, DeletionLog (records owner deletions in DeletedRecords), TransferPanel
 tests/JobPilot.Domain.Tests/ xUnit v3
 tests/JobPilot.Web.Tests/    xUnit v3 + WebApplicationFactory smoke tests + bUnit; TestSupport/ (LlmTestHost with
                              FakeGeminiHandler, FakeLlmClient, TestDatabase, JobPilotWebFactory); Fixtures/ (fictional)
@@ -227,6 +231,11 @@ docs/PLAN.md                 approved plan
 - To exercise the Google flows without an account, point the `Google__*Endpoint` / `Google__*BaseUrl` settings to a local
   fake server whose authorization endpoint redirects straight to the callback.
 - Ical.Net 5: all-day events use `new CalDateTime(DateOnly)`; UTC times use `new CalDateTime(value, CalDateTime.UtcTzId, true)`.
+- Transfer: `TransferSchema` must list every table and column (a test compares it with the EF model); a schema change needs
+  the schema updated and `TransferSchema.Version` bumped, in both apps. Raw SQLite values travel unchanged, so dates compare
+  as EF Core's text (`yyyy-MM-dd HH:mm:ss.FFFFFFF`) and GUIDs as upper-case text.
+- Every owner delete goes through `DeletionLog` (identity read with SQLite `json_object`, so values keep their raw form); a new
+  delete path without it would let the row come back on the next import.
 - Do not hit the real job sources in tests or repeatedly while developing: their terms limit request rates
   (Remotive ≈ 4/day). Fixtures under `tests/**/Fixtures/Sources` are fictional and mirror the real shapes.
 
@@ -303,6 +312,9 @@ docs/PLAN.md                 approved plan
 | 2026-10-06 | Alert roles that pass the filters are ingested one by one as offers from `linkedin-alerts` without the keyword filters (the rules decide) and without description; the owner pastes the description on the offer page (stored as pasted) before analysis | No scraping of LinkedIn; analysis never runs on an empty posting. |
 | 2026-10-06 | Waiting cards suggest applications by contact address, company in the sender domain, then company in subject/name (`MailApplicationMatcher`); "Registrar en <empresa>" links the thread and records the response | One click from the brief to the pipeline timeline; the owner decides. |
 | 2026-10-06 | Personal data check rejects `GOCSPX-` client secrets and non-empty `ApiKey`/`ClientSecret`/`ClientId`/token values in JSON files | The owner's key and client secret were committed in `appsettings.json` (removed; rotation needed). |
+| 2026-10-07 | Phase A10, web side (scope confirmed by the owner): one JSON export with every table except secrets (not encrypted, by the owner's choice); import = "Combinar": rows matched by identity (URL for offers, posting for applications, dates for events…), keys and references translated, the later date wins, undated edits take the file's value, deletions recorded on either device travel and win over older rows; the plan is shown before applying and the database is copied (`VACUUM INTO`, last 5 kept) first | Owner's choices for the PC ↔ phone transfer; nothing leaves the PC except the file the owner moves. |
+| 2026-10-07 | Owner deletions (notes, interviews, contacts, applications, mail links, offers, followed companies, companies, STAR stories, tailored documents, practice sessions, model overrides) are recorded in `DeletedRecords` | Chosen by the owner so that combining also deletes; without it a deleted row would come back from the other device. |
+| 2026-10-07 | Mail checks are combined only when newer than the device's last one (the Panel picks the latest by id); master CV versions that collide are renumbered and the references follow | Keeps the "Hoy" brief and the CV history consistent after combining. |
 | 2026-10-02 | `.ics` via Ical.Net 5.2.3 (MIT): upcoming interviews (UTC) and the next reminder (all-day, owner's time zone), stable UIDs; generated on demand and downloaded | Import into any calendar without OAuth (phase 8 still pending). |
 
 ## Verified external facts (re-check when they matter)
@@ -377,3 +389,19 @@ Checked on 2026-10-06 (phase 9):
 - [x] Phase 8 — Google integration (pending: the owner's OAuth client and a real connection)
 - [x] Phase 9 — Mail inbox and daily brief (pending: a real check on the owner's Gmail after leaving Advanced Protection,
   and the owner's city, pay floor and rates in the rules)
+
+## Android app
+
+The Android port lives in `android/` (own solution `android/JobPilot.Mobile.slnx`, tests, workflow
+`.github/workflows/android.yml`). Its rules, commands, decisions and status are in [`android/CLAUDE.md`](android/CLAUDE.md)
+and its plan in [`android/docs/PLAN.md`](android/docs/PLAN.md). Agreed with the owner on 2026-10-06: the port does not
+modify existing files, except short Android sections in this file, `README.md` and `docs/PLAN.md`, and the web app's
+export/import feature (phase A10).
+
+- [x] Phases A0–A7 — Android skeleton; persistence, Gemini and settings; profile and master CV; offers; tailored CV and cover letter;
+  pipeline, reminders, notifications and dashboard; companies and outreach; interviews and negotiation (see `android/CLAUDE.md`
+  for the status of A0–A10)
+- [x] Phase A8 — Google on the phone through Android's authorization API (pending: the owner's Android OAuth client and a real
+  connection on the phone)
+- [x] Phase A9 — Mail brief ("Hoy") on the phone (pending: a real check on the owner's Gmail from the phone)
+- [x] Phase A10 — Export and "Combinar" import in both apps (pending: a real transfer between the owner's PC and phone)

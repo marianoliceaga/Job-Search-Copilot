@@ -1,0 +1,98 @@
+@using JobPilot.Domain.Jobs
+@inject JobPreferencesStore Store
+@inject ISnackbar Snackbar
+
+@if (_preferences is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudStack Spacing="4">
+        <div>
+            <MudText Typo="Typo.h6" GutterBottom="true">Qué ofertas se guardan</MudText>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="6">
+                    <StringListEditor Values="_preferences.Keywords" Label="Palabras clave (alcanza con una)"
+                                      HelperText="Se buscan en el título, los tags y la descripción." />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <StringListEditor Values="_preferences.ExcludedKeywords" Label="Palabras excluidas" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudNumericField T="int" @bind-Value="_preferences.MaxAgeDays" Label="Antigüedad máxima (días)" Min="1" Max="365" Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+        </div>
+
+        <div>
+            <MudText Typo="Typo.h6" GutterBottom="true">Ranking</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">Pesos relativos de cada componente del puntaje (0–100).</MudText>
+            <MudGrid Spacing="2">
+                <MudItem xs="6" md="3"><MudNumericField T="double" Value="_preferences.Weights.Compensation" ValueChanged="v => _preferences.Weights = _preferences.Weights with { Compensation = v }" Label="Compensación" Min="0" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="6" md="3"><MudNumericField T="double" Value="_preferences.Weights.Fit" ValueChanged="v => _preferences.Weights = _preferences.Weights with { Fit = v }" Label="Encaje" Min="0" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="6" md="3"><MudNumericField T="double" Value="_preferences.Weights.Eligibility" ValueChanged="v => _preferences.Weights = _preferences.Weights with { Eligibility = v }" Label="Elegibilidad" Min="0" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="6" md="3"><MudNumericField T="double" Value="_preferences.Weights.RedFlags" ValueChanged="v => _preferences.Weights = _preferences.Weights with { RedFlags = v }" Label="Señales de alerta" Min="0" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="6" md="4"><MudNumericField T="decimal" Value="_preferences.Compensation.FloorUsd" ValueChanged="v => _preferences.Compensation = _preferences.Compensation with { FloorUsd = v }" Label="Piso anual (USD): puntaje 0" Min="0" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="6" md="4"><MudNumericField T="decimal" Value="_preferences.Compensation.TargetUsd" ValueChanged="v => _preferences.Compensation = _preferences.Compensation with { TargetUsd = v }" Label="Objetivo anual (USD): puntaje 100" Min="0" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12" md="4"><MudNumericField T="double" Value="_preferences.Compensation.UnknownScore" ValueChanged="v => _preferences.Compensation = _preferences.Compensation with { UnknownScore = v }" Label="Valor si no está informada (0–1)" Min="0" Max="1" Step="0.1" Variant="Variant.Outlined" HelperText="Nunca se estima un sueldo: se usa este valor neutro." /></MudItem>
+            </MudGrid>
+        </div>
+
+        <div>
+            <MudText Typo="Typo.h6" GutterBottom="true">Tipos de cambio</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">
+                Cuántos USD vale una unidad de cada moneda. Los cargás vos: si falta una moneda, esa compensación no se normaliza.
+            </MudText>
+            @foreach (var rate in _rates)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" @key="rate">
+                    <MudTextField @bind-Value="rate.Currency" Label="Moneda (ISO)" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(rate.Currency == "USD")" />
+                    <MudNumericField T="decimal" @bind-Value="rate.UsdPerUnit" Label="USD por unidad" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Disabled="@(rate.Currency == "USD")" />
+                    @if (rate.Currency != "USD")
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" aria-label="Quitar" OnClick="() => _rates.Remove(rate)" />
+                    }
+                </MudStack>
+            }
+            <MudButton Size="Size.Small" StartIcon="@Icons.Material.Filled.Add" OnClick="() => _rates.Add(new Rate())">Agregar moneda</MudButton>
+        </div>
+
+        <MudStack Row="true">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Guardar preferencias</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="LoadAsync">Descartar cambios</MudButton>
+        </MudStack>
+    </MudStack>
+}
+
+@code {
+    private JobSearchPreferences? _preferences;
+    private List<Rate> _rates = [];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _preferences = await Store.GetAsync(CancellationToken.None);
+        _rates = _preferences.UsdPerUnit.OrderBy(r => r.Key == "USD" ? 0 : 1).ThenBy(r => r.Key)
+            .Select(r => new Rate { Currency = r.Key, UsdPerUnit = r.Value }).ToList();
+    }
+
+    private async Task SaveAsync()
+    {
+        _preferences!.UsdPerUnit = _rates
+            .Where(r => !string.IsNullOrWhiteSpace(r.Currency) && r.UsdPerUnit > 0)
+            .GroupBy(r => r.Currency!.Trim().ToUpperInvariant())
+            .ToDictionary(g => g.Key, g => g.Last().UsdPerUnit, StringComparer.OrdinalIgnoreCase);
+        await Store.SaveAsync(_preferences, CancellationToken.None);
+        Snackbar.Add("Preferencias guardadas. El ranking se recalcula al instante.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private sealed class Rate
+    {
+        public string? Currency { get; set; }
+
+        public decimal UsdPerUnit { get; set; }
+    }
+}

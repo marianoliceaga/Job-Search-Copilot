@@ -1,0 +1,313 @@
+@page "/entrevistas"
+@using JobPilot.Domain.Practice
+@using JobPilot.Mobile.Core.Features.Tailoring
+@using JobPilot.Mobile.Core.Infrastructure.Llm
+@using Microsoft.Extensions.Options
+@implements IDisposable
+@inject InterviewQuestionsHandler QuestionsHandler
+@inject StarStoriesHandler StoriesHandler
+@inject InterviewPrepStore Prep
+@inject PracticeHandler Practice
+@inject PracticeStore Sessions
+@inject TailoringContextFactory Contexts
+@inject JobPilot.Mobile.Core.Features.Pipeline.ApplicationStore Applications
+@inject JobPilot.Mobile.Core.Features.Jobs.JobListService Jobs
+@inject LlmSettingsStore Settings
+@inject IOptions<PracticeOptions> Options
+@inject NavigationManager Navigation
+
+<MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">@AppSections.Interviews.Title</MudText>
+
+<MudStack Class="mb-3">
+    <MudSelect T="Guid" Value="_postingId" ValueChanged="SelectPostingAsync" Label="Oferta">
+        <MudSelectItem T="Guid" Value="Guid.Empty">(elegí una oferta de tu pipeline)</MudSelectItem>
+        @foreach (var offer in _offers)
+        {
+            <MudSelectItem T="Guid" Value="offer.Key">@offer.Value</MudSelectItem>
+        }
+    </MudSelect>
+</MudStack>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-2" ShowCloseIcon="true" CloseIconClicked="() => _error = null">@_error</MudAlert>
+}
+
+@* Section chips wrap onto several lines (scrolling tab bars hide labels on a phone). *@
+<MudChipSet T="string" @bind-SelectedValue="_section" SelectionMode="SelectionMode.SingleSelection" CheckMark="false"
+            SelectedColor="Color.Primary" Variant="Variant.Outlined" Class="mb-2">
+    <MudChip T="string" Value="@("prep")" Text="Preparación" />
+    <MudChip T="string" Value="@("practice")" Text="Simulacros" />
+    <MudChip T="string" Value="@("stories")" Text="Todas las historias STAR" />
+</MudChipSet>
+<MudPaper Outlined="true" Class="pa-3">
+@if (_section == "prep")
+{
+        @if (_postingId == Guid.Empty)
+        {
+            <MudText>Elegí una oferta para armar el banco de preguntas y tus historias STAR.</MudText>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.h6">Banco de preguntas</MudText>
+                <MudText Typo="Typo.body2">Cada pregunta trae la frase de la oferta que la motiva; si esa frase no está en la oferta, se marca.</MudText>
+                <div><MudButton Variant="Variant.Outlined" OnClick="PrepareQuestionsAsync" Disabled="_running">@(_questions is null ? "Preparar banco de preguntas" : "Regenerar banco de preguntas")</MudButton></div>
+                @if (_questionsPrepared is not null)
+                {
+                    <LlmPayloadPreview Prompt="_questionsPrepared.Prompt" Model="@_model" />
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RunQuestionsAsync" Disabled="_running">Generar con Gemini</MudButton>
+                        @if (_running) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /><MudButton Variant="Variant.Text" OnClick="Cancel">Cancelar</MudButton> }
+                    </MudStack>
+                }
+                @if (_questions is { } stored)
+                {
+                    <MudText Typo="Typo.caption">Generado el @LlmFormat.LocalTime(stored.CreatedAtUtc) · @stored.Model</MudText>
+                    @foreach (var group in stored.Set.Questions.GroupBy(q => q.Category))
+                    {
+                        <MudText Typo="Typo.subtitle1"><strong>@InterviewFormat.Category(group.Key)</strong></MudText>
+                        @foreach (var question in group)
+                        {
+                            <MudPaper Outlined="true" Class="pa-2" data-testid="interview-question">
+                                <MudText><strong>@question.Question</strong></MudText>
+                                <MudText Typo="Typo.body2">@question.WhyLikely @question.Tips</MudText>
+                                @if (question.PostingQuote is not null)
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                                        <MudChip T="string" Size="Size.Small" Color="@(question.QuoteVerified ? Color.Success : Color.Warning)">
+                                            @(question.QuoteVerified ? "Cita de la oferta" : "Cita no encontrada en la oferta")
+                                        </MudChip>
+                                        <MudText Typo="Typo.caption"><em>"@question.PostingQuote"</em></MudText>
+                                    </MudStack>
+                                }
+                            </MudPaper>
+                        }
+                    }
+                    @if (stored.Set.QuestionsToAsk.Count > 0)
+                    {
+                        <MudText Typo="Typo.subtitle1"><strong>Preguntas para hacerles</strong></MudText>
+                        <ul>@foreach (var question in stored.Set.QuestionsToAsk) { <li>@question</li> }</ul>
+                    }
+                }
+
+                <MudDivider />
+                <MudText Typo="Typo.h6">Historias STAR para esta oferta</MudText>
+                <MudText Typo="Typo.body2">Se arman solo con tu CV maestro, para las preguntas de comportamiento del banco. Cada parte cita su fuente y lo que no se pueda rastrear queda marcado.</MudText>
+                <div><MudButton Variant="Variant.Outlined" OnClick="PrepareStoriesAsync" Disabled="_running">Preparar historias STAR</MudButton></div>
+                @if (_storiesPrepared is not null)
+                {
+                    <LlmPayloadPreview Prompt="_storiesPrepared.Prompt" Model="@_model" />
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RunStoriesAsync" Disabled="_running">Generar con Gemini</MudButton>
+                        @if (_running) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /><MudButton Variant="Variant.Text" OnClick="Cancel">Cancelar</MudButton> }
+                    </MudStack>
+                }
+                @if (_cv is not null)
+                {
+                    @foreach (var story in _stories)
+                    {
+                        <StarStoryCard @key="story.Id" Story="story" Context="_cv" Changed="LoadAsync" />
+                    }
+                }
+            </MudStack>
+        }
+}
+else if (_section == "practice")
+{
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body2">
+                Gemini hace de entrevistador: una pregunta por mensaje, hasta @Options.Value.MaxFollowUps repregunta(s) por pregunta. Respondés en inglés y al
+                final pedís el feedback con rúbrica. Las reglas las controla la app.
+            </MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.End">
+                <MudSelect T="InterviewFocus" @bind-Value="_focus" Label="Tipo">
+                    <MudSelectItem T="InterviewFocus" Value="InterviewFocus.Behavioral">Comportamiento</MudSelectItem>
+                    <MudSelectItem T="InterviewFocus" Value="InterviewFocus.Technical">Técnica</MudSelectItem>
+                    <MudSelectItem T="InterviewFocus" Value="InterviewFocus.Mixed">Mixta</MudSelectItem>
+                </MudSelect>
+                <MudNumericField T="int" @bind-Value="_questionCount" Label="Preguntas" Min="1" Max="15" Immediate="true" />
+                <MudButton Variant="Variant.Outlined" OnClick="PreparePracticeAsync" Disabled="@(_running || _postingId == Guid.Empty)">Preparar simulacro</MudButton>
+            </MudStack>
+            @if (_practicePrepared is not null)
+            {
+                <LlmPayloadPreview Prompt="_practicePrepared.Prompt" Model="@_model" />
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartPracticeAsync" Disabled="_running">Empezar simulacro</MudButton>
+                    @if (_running) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+                </MudStack>
+            }
+
+            <MudText Typo="Typo.h6">Historial</MudText>
+            <ScoreChart History="_history" Title="Evolución del puntaje en entrevistas" />
+            <MudStack Spacing="1" data-testid="practice-history">
+                @foreach (var item in _history.Reverse())
+                {
+                    <MudPaper Outlined="true" Class="pa-2">
+                        <MudLink Href="@($"/practica/{item.Id}")" Typo="Typo.body2">@LlmFormat.LocalTime(item.StartedAtUtc) · @item.Title</MudLink>
+                        <MudText Typo="Typo.caption">@InterviewFormat.Status(item.Status) · puntaje @(item.OverallScore?.ToString() ?? "—")</MudText>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudStack>
+}
+else
+{
+        <MudStack Spacing="2">
+            @if (_cv is null)
+            {
+                <MudText>Importá tu CV maestro para ver y editar historias.</MudText>
+            }
+            else if (_allStories.Count == 0)
+            {
+                <MudText>Todavía no hay historias. Generalas desde Preparación.</MudText>
+            }
+            else
+            {
+                @foreach (var story in _allStories)
+                {
+                    <StarStoryCard @key="story.Id" Story="story" Context="_cv" Changed="LoadAsync" />
+                }
+            }
+        </MudStack>
+}
+</MudPaper>
+
+@code {
+    private string _section = "prep";
+    private Dictionary<Guid, string> _offers = [];
+    private Guid _postingId;
+    private StoredQuestionSet? _questions;
+    private IReadOnlyList<StoredStory> _stories = [];
+    private IReadOnlyList<StoredStory> _allStories = [];
+    private IReadOnlyList<PracticeHistoryItem> _history = [];
+    private CvContext? _cv;
+    private PreparedInterviewQuestions? _questionsPrepared;
+    private PreparedStarStories? _storiesPrepared;
+    private PreparedPractice? _practicePrepared;
+    private InterviewFocus _focus = InterviewFocus.Behavioral;
+    private int _questionCount;
+    private string _model = string.Empty;
+    private bool _running;
+    private string? _error;
+    private CancellationTokenSource? _cts;
+
+    [SupplyParameterFromQuery(Name = "oferta")]
+    public Guid? PostingId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _questionCount = Options.Value.DefaultQuestions;
+        _offers = (await Applications.GetBoardAsync(CancellationToken.None))
+            .GroupBy(c => c.PostingId).ToDictionary(g => g.Key, g => $"{g.First().Title} — {g.First().Company}");
+        if (PostingId is { } requested && !_offers.ContainsKey(requested) && await Jobs.GetItemAsync(requested, CancellationToken.None) is { } item)
+        {
+            _offers[requested] = $"{item.Posting.Title} — {item.Posting.Company}";
+        }
+
+        _postingId = PostingId is { } p && _offers.ContainsKey(p) ? p : Guid.Empty;
+        await LoadAsync();
+    }
+
+    private async Task SelectPostingAsync(Guid postingId)
+    {
+        _postingId = postingId;
+        (_questionsPrepared, _storiesPrepared, _practicePrepared) = (null, null, null);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _cv = (await Contexts.CreateForCvAsync(CancellationToken.None)).Context;
+        _questions = _postingId == Guid.Empty ? null : await Prep.LatestQuestionsAsync(_postingId, CancellationToken.None);
+        _stories = _postingId == Guid.Empty ? [] : await Prep.StoriesAsync(_postingId, CancellationToken.None);
+        _allStories = await Prep.StoriesAsync(null, CancellationToken.None);
+        _history = await Sessions.HistoryAsync(PracticeMode.Interview, CancellationToken.None);
+    }
+
+    private async Task<string> ModelAsync(string useCase) => (await Settings.ResolveAsync(useCase, CancellationToken.None)).Model;
+
+    private async Task PrepareQuestionsAsync()
+    {
+        (_questionsPrepared, _error) = await QuestionsHandler.PrepareAsync(_postingId, CancellationToken.None);
+        _model = await ModelAsync(LlmUseCases.InterviewQuestions);
+    }
+
+    private async Task PrepareStoriesAsync()
+    {
+        (_storiesPrepared, _error) = await StoriesHandler.PrepareAsync(_postingId, CancellationToken.None);
+        _model = await ModelAsync(LlmUseCases.StarStories);
+    }
+
+    private async Task PreparePracticeAsync()
+    {
+        (_practicePrepared, _error) = await Practice.PrepareAsync(new PracticeSetup(PracticeMode.Interview, _postingId, null, _focus, _questionCount, 0), CancellationToken.None);
+        _model = await ModelAsync(LlmUseCases.MockInterview);
+    }
+
+    private async Task RunAsync(Func<CancellationToken, Task<LlmError?>> action)
+    {
+        _running = true;
+        _error = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            if (await action(_cts.Token) is { } error)
+            {
+                _error = error.Message + (error.Detail is null ? string.Empty : $" ({error.Detail})");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _error = "Cancelado.";
+        }
+        finally
+        {
+            _running = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private async Task RunQuestionsAsync()
+    {
+        await RunAsync(async ct => (await QuestionsHandler.RunAsync(_questionsPrepared!, ct)).Error);
+        if (_error is null)
+        {
+            _questionsPrepared = null;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task RunStoriesAsync()
+    {
+        await RunAsync(async ct => (await StoriesHandler.RunAsync(_storiesPrepared!, ct)).Error);
+        if (_error is null)
+        {
+            _storiesPrepared = null;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task StartPracticeAsync()
+    {
+        Guid? sessionId = null;
+        await RunAsync(async ct =>
+        {
+            var (id, error) = await Practice.StartAsync(_practicePrepared!, ct);
+            sessionId = id;
+            return error;
+        });
+        if (sessionId is { } id)
+        {
+            // Even if the first message failed, the session page lets the owner retry it.
+            Navigation.NavigateTo($"/practica/{id}");
+        }
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

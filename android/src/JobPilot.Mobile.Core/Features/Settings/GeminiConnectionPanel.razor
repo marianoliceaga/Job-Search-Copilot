@@ -1,0 +1,171 @@
+@using JobPilot.Mobile.Core.Infrastructure.Secrets
+@implements IDisposable
+@inject GeminiKeyStore Keys
+@inject ConnectionTestHandler Handler
+@inject LlmSettingsStore Settings
+@inject IDialogService Dialogs
+
+<MudStack Spacing="3">
+    @if (_hasKey)
+    {
+        <MudAlert Severity="Severity.Success" data-testid="api-key-status">
+            La API key de Gemini está guardada en el almacenamiento seguro del teléfono. Por seguridad no se muestra.
+        </MudAlert>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Warning" data-testid="api-key-status">
+            No hay API key de Gemini. Creala en Google AI Studio, copiala y pegala acá abajo.
+        </MudAlert>
+    }
+
+    <MudTextField T="string" @bind-Value="_newKey" Label="@(_hasKey ? "Reemplazar la API key" : "API key de Gemini")" Variant="Variant.Outlined"
+                  InputType="InputType.Password" Immediate="true" autocomplete="off" data-testid="api-key-input"
+                  HelperText="Se guarda cifrada con el almacenamiento seguro de Android, nunca en la base de datos ni en archivos." />
+    @if (_keyError is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true">@_keyError</MudAlert>
+    }
+    <MudStack Row="true" Wrap="Wrap.Wrap">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@string.IsNullOrWhiteSpace(_newKey)" OnClick="SaveKeyAsync" data-testid="save-key">
+            Guardar clave
+        </MudButton>
+        @if (_hasKey)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="RemoveKeyAsync" data-testid="remove-key">Borrar clave</MudButton>
+        }
+    </MudStack>
+
+    <MudDivider />
+
+    <MudText Typo="Typo.h6">Probar conexión</MudText>
+    <MudText>
+        Envía un pedido mínimo, sin datos personales, para verificar la API key, el modelo y la salida estructurada.
+        La llamada queda en el registro con su costo estimado.
+    </MudText>
+
+    @if (_test is not null && _model is not null)
+    {
+        <LlmPayloadPreview Prompt="_test.Prompt" Model="@_model" />
+    }
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_running || !_hasKey)" OnClick="RunAsync" data-testid="run-test">
+            Probar conexión
+        </MudButton>
+        @if (_running)
+        {
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+            <MudText Typo="Typo.body2">Esperando la respuesta de Gemini…</MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+        }
+    </MudStack>
+
+    @if (_cancelled)
+    {
+        <MudAlert Severity="Severity.Info">Prueba cancelada.</MudAlert>
+    }
+    else if (_result is { IsSuccess: true })
+    {
+        <MudAlert Severity="Severity.Success" data-testid="connection-result">
+            Conexión correcta con <strong>@_result.Model</strong>. Gemini devolvió el JSON esperado.
+            <br />@LlmFormat.Usage(_result.Usage) · @LlmFormat.Latency(_result.LatencyMs) · @LlmFormat.Cost(_result.EstimatedCostUsd)
+            @if (_result.Attempts > 1)
+            {
+                <br />@($"Hicieron falta {_result.Attempts} intentos.")
+            }
+        </MudAlert>
+    }
+    else if (_result?.Error is { } error)
+    {
+        <MudAlert Severity="Severity.Error" data-testid="connection-result">
+            @error.Message
+            @if (error.Detail is not null)
+            {
+                <br /><MudText Typo="Typo.caption">Detalle: @error.Detail</MudText>
+            }
+        </MudAlert>
+    }
+</MudStack>
+
+@code {
+    private bool _hasKey;
+    private string? _newKey;
+    private string? _keyError;
+    private PreparedConnectionTest? _test;
+    private string? _model;
+    private bool _running;
+    private bool _cancelled;
+    private LlmResult<ConnectionTestResponse>? _result;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _hasKey = await Keys.HasKeyAsync();
+        await PrepareAsync();
+    }
+
+    private async Task PrepareAsync()
+    {
+        _test = Handler.Prepare();
+        _model = (await Settings.ResolveAsync(LlmUseCases.ConnectionTest, CancellationToken.None)).Model;
+    }
+
+    private async Task SaveKeyAsync()
+    {
+        _keyError = await Keys.SaveAsync(_newKey);
+        if (_keyError is null)
+        {
+            _newKey = null;
+            _result = null;
+            _hasKey = true;
+        }
+    }
+
+    private async Task RemoveKeyAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Borrar la API key",
+            "Se borra la clave guardada en el teléfono. Las funciones con Gemini dejan de andar hasta que cargues otra.",
+            yesText: "Borrar", cancelText: "Cancelar");
+        if (confirmed == true)
+        {
+            Keys.Remove();
+            _hasKey = false;
+            _result = null;
+        }
+    }
+
+    private async Task RunAsync()
+    {
+        if (_test is null)
+        {
+            return;
+        }
+
+        _running = true;
+        _cancelled = false;
+        _result = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            _result = await Handler.RunAsync(_test, _cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _cancelled = true;
+        }
+        finally
+        {
+            _running = false;
+            _cts.Dispose();
+            _cts = null;
+        }
+
+        await PrepareAsync();
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

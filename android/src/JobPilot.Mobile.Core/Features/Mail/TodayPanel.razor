@@ -1,0 +1,258 @@
+@using JobPilot.Domain.Mail
+@using JobPilot.Mobile.Core.Features.Pipeline
+@using JobPilot.Mobile.Core.Infrastructure.Google
+@using JobPilot.Mobile.Core.Infrastructure.Persistence
+@inject MailCheckService Mail
+@inject GoogleAuthService Auth
+@inject ApplicationStore Applications
+@inject ApplicationGoogleService ApplicationMail
+@inject TimeProvider Time
+
+@* Port of the web "Hoy" brief. On the phone the header button takes its own line, long subjects wrap and the filter
+   examples open with a tap (there is no hover). *@
+<MudPaper Outlined="true" Class="pa-3" data-testid="today">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h5" HtmlTag="h2">Hoy</MudText>
+            <MudText Typo="Typo.body2" data-testid="mail-status">@StatusLine()</MudText>
+        </div>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" Disabled="@(_running || !_status.CanReadMail)" OnClick="RunAsync">
+                Actualizar correo
+            </MudButton>
+            @if (_running)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudText Typo="Typo.body2">Leyendo tu correo…</MudText>
+            }
+        </MudStack>
+
+        @if (!_status.CanReadMail)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                Para el resumen de correo conectá Google con "Gmail y Calendar" en <MudLink Href="/configuracion?seccion=google">Configuración → Google</MudLink>.
+                JobPilot solo lee: nunca envía, archiva ni marca como leído.
+            </MudAlert>
+        }
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Warning">@_error</MudAlert>
+        }
+        else if (_brief?.Check is { Succeeded: false } failed)
+        {
+            <MudAlert Severity="Severity.Warning">La última revisión falló: @failed.Error</MudAlert>
+        }
+
+        @foreach (var warning in _brief?.LastSuccessful?.Warnings ?? [])
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">@warning</MudAlert>
+        }
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="7">
+                <MudText Typo="Typo.h6">Te esperan (@(_brief?.Waiting.Count ?? 0))</MudText>
+                @if (_brief is null || _brief.Waiting.Count == 0)
+                {
+                    <MudText Typo="Typo.body2">@(_brief?.LastSuccessful is null ? "Todavía no revisaste el correo." : "Nada te espera.")</MudText>
+                }
+                @foreach (var card in _brief?.Waiting ?? [])
+                {
+                    var suggestions = _suggestions.GetValueOrDefault(card.Id) ?? [];
+                    <MudPaper Outlined="true" Class="pa-2 my-2" data-testid="waiting-card">
+                        <MudStack Spacing="1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                                <MudChip T="string" Size="Size.Small" Color="@ToneColor(card.Tone)">@card.Pill</MudChip>
+                                <MudText Typo="Typo.subtitle2" Class="jp-wrap">@card.Subject</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Class="jp-wrap"><strong>@card.NextAction</strong></MudText>
+                            <MudText Typo="Typo.caption" Class="jp-wrap">@card.SenderName · @card.SenderAddress · @card.RailNote @MailClassifier.Moment(new DateTimeOffset(card.RailUtc, TimeSpan.Zero), Time.LocalTimeZone)</MudText>
+                            <MudText Typo="Typo.caption" Class="jp-wrap">@card.Timeline</MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                                @if (_recorded.Contains(card.Id))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Success">Registrado en la postulación.</MudText>
+                                }
+                                else
+                                {
+                                    @foreach (var application in suggestions.Take(2))
+                                    {
+                                        <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="() => RecordAsync(card, application)">
+                                            Registrar en @application.Company
+                                        </MudButton>
+                                    }
+                                }
+                                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => DoneAsync(card)">Listo</MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudItem>
+            <MudItem xs="12" md="5">
+                <MudText Typo="Typo.h6">Puestos de las alertas</MudText>
+                @if ((_brief?.LastSuccessful?.Roles.Count ?? 0) == 0)
+                {
+                    <MudText Typo="Typo.body2">Sin puestos nuevos de las alertas de LinkedIn.</MudText>
+                }
+                @foreach (var role in _brief?.LastSuccessful?.Roles ?? [])
+                {
+                    <MudStack Spacing="0" Class="my-2" data-testid="alert-role">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                            <MudChip T="string" Size="Size.Small" Color="@FitColor(role.Fit)">@FitLabel(role.Fit)</MudChip>
+                            <MudLink Href="@($"/ofertas/{role.PostingId}")">@role.Title — @role.Company</MudLink>
+                            @if (role.IsNew)
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">nueva</MudChip>
+                            }
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Class="jp-wrap">@Location(role) · @string.Join(" · ", role.Why)</MudText>
+                    </MudStack>
+                }
+                @if ((_brief?.LastSuccessful?.RoleFilters.Count ?? 0) > 0)
+                {
+                    <MudText Typo="Typo.caption">No se muestran: @string.Join(" · ", _brief!.LastSuccessful!.RoleFilters.Select(c => $"{c.Label} ({c.Count})"))</MudText>
+                }
+
+                <MudText Typo="Typo.h6" Class="mt-3">Entrevistas en las próximas 48 h</MudText>
+                @if (_interviews.Count == 0)
+                {
+                    <MudText Typo="Typo.body2">No hay entrevistas agendadas en el pipeline.</MudText>
+                }
+                @foreach (var card in _interviews)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="my-1">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">@PipelineFormat.LocalDateTime(card.NextInterviewUtc)</MudChip>
+                        <MudLink Href="@($"/pipeline/{card.Id}")">@card.Title — @card.Company</MudLink>
+                    </MudStack>
+                }
+            </MudItem>
+        </MudGrid>
+
+        @if (_brief?.LastSuccessful is { } last && last.FilteredChips.Count > 0)
+        {
+            <div data-testid="filtered">
+                <MudText Typo="Typo.subtitle2">Filtrados (@last.Filtered)</MudText>
+                @foreach (var chip in last.FilteredChips)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="@(_openChip == chip.Id ? Variant.Filled : Variant.Outlined)"
+                             OnClick="() => ToggleChip(chip.Id)" data-testid="filtered-chip">@chip.Label: @chip.Count</MudChip>
+                }
+                @if (last.FilteredChips.FirstOrDefault(c => c.Id == _openChip) is { } open)
+                {
+                    <MudText Typo="Typo.caption" Class="jp-wrap d-block mt-1" data-testid="filtered-examples">
+                        @(open.Examples.Count == 0 ? "Sin ejemplos." : string.Join(" · ", open.Examples))
+                    </MudText>
+                }
+            </div>
+        }
+
+        <MudText Typo="Typo.caption">
+            Se leen los hilos desde la última revisión (la primera vez, el último día). De cada correo solo se guardan remitente, asunto y fechas:
+            los textos no se guardan ni se envían a Gemini. Las reglas se editan en <MudLink Href="/configuracion?seccion=correo" Typo="Typo.caption">Configuración → Reglas de correo</MudLink>.
+        </MudText>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private const int InterviewHours = 48;
+
+    private GoogleStatus _status = new(false, false, null, [], null);
+    private MailBrief? _brief;
+    private Dictionary<long, IReadOnlyList<MailApplicationCandidate>> _suggestions = [];
+    private List<PipelineCard> _interviews = [];
+    private readonly HashSet<long> _recorded = [];
+    private bool _running;
+    private string? _openChip;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _status = Auth.Status();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _brief = await Mail.GetBriefAsync(CancellationToken.None);
+        var board = await Applications.GetBoardAsync(CancellationToken.None);
+        var contacts = (await Applications.GetAllAsync(CancellationToken.None))
+            .ToDictionary(a => a.Id, a => (IReadOnlyList<string>)a.Contacts.Select(c => c.Email ?? string.Empty).Where(e => e.Length > 0).ToList());
+        var candidates = board.Select(c => new MailApplicationCandidate(c.Id, c.Title, c.Company, contacts.GetValueOrDefault(c.Id) ?? [])).ToList();
+        _suggestions = (_brief?.Waiting ?? []).ToDictionary(w => w.Id, w => MailCheckService.SuggestApplications(w, candidates));
+        var now = Time.GetUtcNow().UtcDateTime;
+        _interviews = board.Where(c => c.NextInterviewUtc is { } at && at >= now && at <= now.AddHours(InterviewHours)).OrderBy(c => c.NextInterviewUtc).ToList();
+    }
+
+    private async Task RunAsync()
+    {
+        _running = true;
+        _error = null;
+        try
+        {
+            var outcome = await Mail.RunAsync(CancellationToken.None);
+            _error = outcome.Succeeded ? null : outcome.Error;
+            await LoadAsync();
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private async Task DoneAsync(MailWaitingRecord card)
+    {
+        await Mail.MarkDoneAsync(card.Id, CancellationToken.None);
+        await LoadAsync();
+    }
+
+    /// <summary>Links the thread to the application and records the e-mail as a response (sender, subject and date only).</summary>
+    private async Task RecordAsync(MailWaitingRecord card, MailApplicationCandidate application)
+    {
+        var from = $"{card.SenderName} <{card.SenderAddress}>";
+        await ApplicationMail.LinkAsync(application.Id, new MailThreadSummary(card.ThreadId, card.Subject, from, card.LastReceivedUtc, string.Empty, 0), CancellationToken.None);
+        await ApplicationMail.RecordResponseAsync(application.Id, new MailMessage(card.LastMessageId, from, string.Empty, card.Subject, card.LastReceivedUtc, string.Empty, string.Empty), CancellationToken.None);
+        _recorded.Add(card.Id);
+    }
+
+    private void ToggleChip(string id) => _openChip = _openChip == id ? null : id;
+
+    private string StatusLine()
+    {
+        if (_brief?.LastSuccessful is not { } last)
+        {
+            return "Todavía no se revisó el correo.";
+        }
+
+        var at = MailClassifier.Moment(new DateTimeOffset(last.StartedAtUtc, TimeSpan.Zero), Time.LocalTimeZone);
+        return $"Última revisión: {at} · {last.ThreadsRead} hilo(s) leído(s) · {last.AlertThreads} alerta(s) de LinkedIn · {last.Filtered} filtrado(s)"
+            + (last.OffersAdded > 0 ? $" · {last.OffersAdded} oferta(s) nueva(s)" : string.Empty);
+    }
+
+    private static string Location(MailRoleSummary role)
+    {
+        var workplace = role.Workplace switch { "remote" => "remoto", "hybrid" => "híbrido", "onsite" => "presencial", _ => string.Empty };
+        var location = string.IsNullOrEmpty(role.Location) ? "ubicación no indicada" : role.Location;
+        return workplace.Length == 0 ? location : $"{location} ({workplace})";
+    }
+
+    private static Color ToneColor(MailTone tone) => tone switch
+    {
+        MailTone.Act => Color.Warning,
+        MailTone.Hold => Color.Info,
+        _ => Color.Default,
+    };
+
+    private static Color FitColor(RoleFit fit) => fit switch
+    {
+        RoleFit.Strong => Color.Success,
+        RoleFit.Maybe => Color.Info,
+        _ => Color.Default,
+    };
+
+    private static string FitLabel(RoleFit fit) => fit switch
+    {
+        RoleFit.Strong => "Muy buena",
+        RoleFit.Maybe => "Puede ser",
+        _ => "Floja",
+    };
+}

@@ -1,0 +1,125 @@
+@using JobPilot.Mobile.Core.Infrastructure.Notifications
+@inject ReminderNotificationSettingsStore SettingsStore
+@inject ReminderNotificationSync Sync
+@inject INotificationScheduler Scheduler
+
+@* Android notifications for follow-ups and interviews (phase A5, agreed with the owner). Local only: nothing is sent. *@
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.body2">
+        El teléfono te avisa cuando vence un follow-up o un recordatorio y antes de cada entrevista agendada. Los avisos son locales: no se
+        envía nada ni se usa internet. Con el teléfono bloqueado solo se ve "Tenés un recordatorio"; el puesto y la empresa aparecen al
+        desbloquearlo.
+    </MudText>
+
+    @if (_access is not null)
+    {
+        <MudSwitch T="bool" Value="_enabled" ValueChanged="ToggleAsync" Color="Color.Primary" Label="Avisos en el teléfono" data-testid="notifications-switch" />
+        @if (_enabled && !_access.CanNotify)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" data-testid="notifications-blocked">
+                Android tiene bloqueadas las notificaciones de JobPilot. Activalas en Ajustes → Apps → JobPilot → Notificaciones.
+            </MudAlert>
+        }
+        @if (_enabled && _access.ExactAlarmsNeedPermission && !_access.CanUseExactAlarms)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" data-testid="exact-alarms-off">
+                Sin "Alarmas y recordatorios" los avisos son aproximados: Android puede atrasarlos, más en ahorro de batería.
+            </MudAlert>
+            <MudStack Row="true" Wrap="Wrap.Wrap">
+                <MudButton Variant="Variant.Outlined" OnClick="OpenExactAlarmSettings" data-testid="exact-alarms-settings">Permitir avisos exactos</MudButton>
+                <MudButton Variant="Variant.Text" OnClick="RefreshAsync">Volver a revisar</MudButton>
+            </MudStack>
+        }
+        else if (_enabled && _access.CanUseExactAlarms)
+        {
+            <MudText Typo="Typo.caption">Avisos exactos: llegan a la hora indicada.</MudText>
+        }
+
+        <MudTimePicker @bind-Time="_reminderTime" Label="Hora de los recordatorios (el día que vencen)" Editable="true" />
+        <MudNumericField T="int" @bind-Value="_leadMinutes" Label="Aviso de entrevista: minutos antes" Min="5" Max="1440" Immediate="true" />
+        @foreach (var problem in _problems)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@problem</MudAlert>
+        }
+        <div><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_reminderTime is null">Guardar avisos</MudButton></div>
+        @if (_message is not null)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" ShowCloseIcon="true" CloseIconClicked="() => _message = null">@_message</MudAlert>
+        }
+
+        <MudText Typo="Typo.subtitle1"><strong>Próximos avisos</strong></MudText>
+        @if (_upcoming.Count == 0)
+        {
+            <MudText Typo="Typo.body2">No hay recordatorios ni entrevistas por delante.</MudText>
+        }
+        else
+        {
+            @if (!_enabled)
+            {
+                <MudText Typo="Typo.caption">Los avisos están apagados: esto es lo que se programaría al activarlos.</MudText>
+            }
+            <MudList T="string" Dense="true" data-testid="upcoming-notifications">
+                @foreach (var item in _upcoming.Take(10))
+                {
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.NotificationsActive">
+                        <MudText Typo="Typo.body2"><strong>@PipelineFormat.LocalDateTime(item.AtUtc)</strong> · @item.Title</MudText>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    }
+</MudStack>
+
+@code {
+    private NotificationAccess? _access;
+    private bool _enabled;
+    private TimeSpan? _reminderTime;
+    private int _leadMinutes;
+    private IReadOnlyList<string> _problems = [];
+    private IReadOnlyList<ScheduledNotification> _upcoming = [];
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var settings = await SettingsStore.GetAsync(CancellationToken.None);
+        (_enabled, _reminderTime, _leadMinutes) = (settings.Enabled, new TimeSpan(settings.ReminderHour, settings.ReminderMinute, 0), settings.InterviewLeadMinutes);
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _access = await Scheduler.GetAccessAsync();
+        _upcoming = await Sync.PlanAsync(CancellationToken.None);
+    }
+
+    private async Task ToggleAsync(bool enabled)
+    {
+        _message = null;
+        if (enabled && !await Scheduler.RequestNotificationPermissionAsync())
+        {
+            _enabled = false;
+            _message = "Android no permitió las notificaciones. Podés activarlas en Ajustes → Apps → JobPilot → Notificaciones y volver a intentar.";
+            await RefreshAsync();
+            return;
+        }
+
+        _enabled = enabled;
+        await SaveAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        var time = _reminderTime ?? new TimeSpan(9, 0, 0);
+        _problems = await SettingsStore.SaveAsync(new ReminderNotificationSettings(_enabled, time.Hours, time.Minutes, _leadMinutes), CancellationToken.None);
+        if (_problems.Count == 0)
+        {
+            await Sync.SyncAsync(CancellationToken.None);
+            _message = _enabled ? "Avisos guardados y programados." : "Avisos apagados: no queda ninguno programado.";
+        }
+
+        await RefreshAsync();
+    }
+
+    private void OpenExactAlarmSettings() => Scheduler.OpenExactAlarmSettings();
+}

@@ -1,0 +1,303 @@
+@page "/empresas/{Id:guid}"
+@using JobPilot.Domain.Companies
+@using JobPilot.Mobile.Core.Infrastructure.Llm
+@implements IDisposable
+@inject CompanyStore Store
+@inject CompanyResearchHandler Research
+@inject LlmSettingsStore Settings
+@inject IDialogService Dialogs
+@inject NavigationManager Navigation
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_profile is null)
+{
+    <MudText Typo="Typo.h4" HtmlTag="h1">Empresa no encontrada</MudText>
+    <MudLink Href="/empresas">Volver a Empresas</MudLink>
+}
+else
+{
+    <MudStack Spacing="3">
+        <MudLink Href="/empresas" Typo="Typo.body2">← Empresas</MudLink>
+        <MudText Typo="Typo.h4" HtmlTag="h1">@_profile.Name</MudText>
+        <div><MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Send" Href="@($"/outreach?empresa={_profile.Id}")">Preparar outreach</MudButton></div>
+
+        @if (_message is not null)
+        {
+            <MudAlert Severity="@_severity" ShowCloseIcon="true" CloseIconClicked="() => _message = null">@_message</MudAlert>
+        }
+
+        <MudPaper Outlined="true" Class="pa-3">
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.h6">Fuentes</MudText>
+                <MudLink Href="@CompanyFormat.GoogleSearch(_profile.Name)" Target="_blank" rel="noopener noreferrer" Typo="Typo.body2">
+                    Buscar páginas en Google (se abre en el navegador del teléfono)
+                </MudLink>
+                <MudText Typo="Typo.body2">
+                    Usá páginas públicas: sitio, careers, blog de ingeniería, notas de prensa. Gemini lee solo estas URLs; páginas con login o paywall no
+                    sirven. Si una página no se puede leer, copiá su texto y pegalo como fuente.
+                </MudText>
+                @foreach (var (reference, source) in CompanyFactVerifier.References(_profile.Sources))
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" data-testid="company-source">
+                        <MudChip T="string" Size="Size.Small">@reference</MudChip>
+                        @if (source.Kind == CompanySourceKind.Url)
+                        {
+                            <MudLink Href="@source.Url" Target="_blank" rel="noopener noreferrer" Typo="Typo.body2" Class="jp-wrap" Style="flex: 1; min-width: 0">@(source.Label ?? source.Url)</MudLink>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Style="flex: 1; min-width: 0" Class="jp-wrap">
+                                <strong>Texto pegado@(source.Label is null ? string.Empty : $" · {source.Label}")</strong>
+                                (@(source.Text?.Length ?? 0) caracteres@(source.Url is null ? string.Empty : $", de {source.Url}")): @JobPilot.Mobile.Core.Features.Jobs.JobFormat.Short(source.Text, 140)
+                            </MudText>
+                        }
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" aria-label="Quitar fuente" OnClick="() => RemoveSourceAsync(source)" />
+                    </MudStack>
+                }
+                <MudTextField @bind-Value="_url" Label="URL" Placeholder="https://" Immediate="true" InputType="InputType.Url" />
+                <MudTextField @bind-Value="_urlLabel" Label="Descripción (opcional)" Immediate="true" />
+                <div><MudButton Variant="Variant.Outlined" OnClick="AddUrlAsync" Disabled="@string.IsNullOrWhiteSpace(_url)">Agregar URL</MudButton></div>
+                <MudExpansionPanels Outlined="true" Elevation="0">
+                    <MudExpansionPanel Text="Pegar un texto">
+                        <MudStack Spacing="2">
+                            <MudTextField @bind-Value="_text" Label="Texto" Lines="6" Immediate="true" />
+                            <MudTextField @bind-Value="_textUrl" Label="De qué URL lo copiaste (opcional)" Placeholder="https://" Immediate="true" InputType="InputType.Url" />
+                            <MudTextField @bind-Value="_textLabel" Label="Descripción (opcional)" Immediate="true" />
+                            <div><MudButton Variant="Variant.Outlined" OnClick="AddTextAsync" Disabled="@string.IsNullOrWhiteSpace(_text)">Agregar texto</MudButton></div>
+                        </MudStack>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            </MudStack>
+        </MudPaper>
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Outlined" OnClick="PrepareAsync" Disabled="_running">Preparar investigación</MudButton>
+            @if (_profile.ResearchedAtUtc is { } researched)
+            {
+                <MudText Typo="Typo.caption">Última investigación: @LlmFormat.LocalTime(researched) · @_profile.Model · @_profile.PromptId</MudText>
+            }
+        </MudStack>
+        @if (_prepared is not null)
+        {
+            @if (_prepared.ReadsUrls)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    Gemini va a leer estas URLs desde los servidores de Google: @string.Join(", ", _prepared.References.Values.Where(s => s.Kind == CompanySourceKind.Url).Select(s => s.Url)).
+                </MudAlert>
+            }
+            <LlmPayloadPreview Prompt="_prepared.Prompt" Model="@_model" />
+            <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RunAsync" Disabled="_running">Investigar con Gemini</MudButton>
+                @if (_running)
+                {
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                    <MudText Typo="Typo.body2">Leyendo las fuentes y verificando cada dato…</MudText>
+                    <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+                }
+            </MudStack>
+        }
+        @if (_retrieved.Count > 0)
+        {
+            <MudText Typo="Typo.body2" Class="jp-wrap" data-testid="retrieved">
+                URLs informadas por Gemini: @string.Join(" · ", _retrieved.Select(r => $"{r.Url} ({CompanyFormat.RetrievalStatus(r.Status)})"))
+            </MudText>
+        }
+
+        <MudText Typo="Typo.h6">Datos</MudText>
+        @if (_profile.Facts.Count == 0)
+        {
+            <MudText Typo="Typo.body2">Todavía no hay datos. Agregá fuentes e investigá.</MudText>
+        }
+        @foreach (var group in _profile.Facts.GroupBy(f => f.Category).OrderBy(g => g.Key))
+        {
+            <MudText Typo="Typo.subtitle1"><strong>@CompanyFormat.Category(group.Key)</strong></MudText>
+            @foreach (var fact in group)
+            {
+                <MudPaper Outlined="true" Class="pa-2" data-testid="company-fact">
+                    <MudStack Row="true" AlignItems="AlignItems.Start">
+                        <MudStack Spacing="1" Style="flex: 1; min-width: 0">
+                            <MudText>@fact.Statement</MudText>
+                            @if (fact.Quote is not null)
+                            {
+                                <MudText Typo="Typo.body2"><em>"@fact.Quote"</em></MudText>
+                            }
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                                <MudChip T="string" Size="Size.Small" Color="@(fact.IsVerified ? Color.Success : Color.Warning)" data-testid="fact-status">
+                                    @(fact.IsVerified ? "Verificado" : "No verificado")
+                                </MudChip>
+                                <MudText Typo="Typo.caption">@CompanyFormat.Verification(fact)</MudText>
+                                @if (fact.SourceUrl is not null)
+                                {
+                                    <MudLink Href="@fact.SourceUrl" Target="_blank" rel="noopener noreferrer" Typo="Typo.caption" Class="jp-wrap">@fact.SourceUrl</MudLink>
+                                }
+                            </MudStack>
+                        </MudStack>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" aria-label="Borrar dato" OnClick="() => DeleteFactAsync(fact)" />
+                    </MudStack>
+                </MudPaper>
+            }
+        }
+        @if (_profile.Gaps.Count > 0)
+        {
+            <MudAlert Severity="Severity.Normal" Dense="true">No se encontró en las fuentes: @string.Join(", ", _profile.Gaps).</MudAlert>
+        }
+
+        <MudText Typo="Typo.h6">Tus notas</MudText>
+        <MudTextField @bind-Value="_notes" Lines="3" Immediate="true" Label="Notas (solo en el teléfono)" />
+        <div><MudButton Variant="Variant.Outlined" OnClick="SaveNotesAsync">Guardar notas</MudButton></div>
+
+        <MudText Typo="Typo.h6">Ofertas de @_profile.Name</MudText>
+        @if (_offers.Count == 0)
+        {
+            <MudText Typo="Typo.body2">No hay ofertas guardadas de esta empresa.</MudText>
+        }
+        @foreach (var offer in _offers)
+        {
+            <MudLink Href="@($"/ofertas/{offer.Id}")" Typo="Typo.body2">@offer.Title (@JobPilot.Mobile.Core.Features.Jobs.JobFormat.Date(offer.FirstSeenAtUtc))</MudLink>
+        }
+
+        <div>
+            <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" OnClick="DeleteAsync">Borrar ficha</MudButton>
+        </div>
+    </MudStack>
+}
+
+@code {
+    private CompanyProfile? _profile;
+    private IReadOnlyList<CompanyOffer> _offers = [];
+    private bool _loading = true;
+    private string? _message;
+    private Severity _severity = Severity.Info;
+    private string? _url;
+    private string? _urlLabel;
+    private string? _text;
+    private string? _textUrl;
+    private string? _textLabel;
+    private string? _notes;
+    private PreparedCompanyResearch? _prepared;
+    private string _model = string.Empty;
+    private bool _running;
+    private IReadOnlyList<LlmRetrievedUrl> _retrieved = [];
+    private CancellationTokenSource? _cts;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        await LoadAsync();
+        _notes = _profile?.Notes;
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        _profile = await Store.GetAsync(Id, CancellationToken.None);
+        _offers = _profile is null ? [] : await Store.OffersAsync(_profile, CancellationToken.None);
+    }
+
+    private void Show(string? message, Severity severity) => (_message, _severity) = (message, severity);
+
+    private async Task AddUrlAsync()
+    {
+        var error = await Store.AddUrlAsync(Id, _url!, _urlLabel, CancellationToken.None);
+        Show(error, Severity.Error);
+        if (error is null)
+        {
+            (_url, _urlLabel, _prepared) = (null, null, null);
+            await LoadAsync();
+        }
+    }
+
+    private async Task AddTextAsync()
+    {
+        var error = await Store.AddTextAsync(Id, _text!, _textUrl, _textLabel, CancellationToken.None);
+        Show(error, Severity.Error);
+        if (error is null)
+        {
+            (_text, _textUrl, _textLabel, _prepared) = (null, null, null, null);
+            await LoadAsync();
+        }
+    }
+
+    private async Task RemoveSourceAsync(CompanySource source)
+    {
+        await Store.RemoveSourceAsync(Id, source.Id, CancellationToken.None);
+        _prepared = null;
+        await LoadAsync();
+    }
+
+    private async Task PrepareAsync()
+    {
+        string? error;
+        (_prepared, error) = await Research.PrepareAsync(Id, CancellationToken.None);
+        Show(error, Severity.Info);
+        if (_prepared is not null)
+        {
+            _model = (await Settings.ResolveAsync(LlmUseCases.CompanyResearch, CancellationToken.None)).Model;
+        }
+    }
+
+    private async Task RunAsync()
+    {
+        _running = true;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            var result = await Research.RunAsync(_prepared!, _cts.Token);
+            _retrieved = result.RetrievedUrls;
+            if (result.Error is { } error)
+            {
+                Show(error.Message + (error.Detail is null ? string.Empty : $" ({error.Detail})"), Severity.Error);
+            }
+            else
+            {
+                Show($"{result.Facts} datos encontrados, {result.Verified} verificados. Los no verificados quedan marcados con el motivo.", Severity.Success);
+                _prepared = null;
+            }
+
+            await LoadAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            Show("Investigación cancelada.", Severity.Info);
+        }
+        finally
+        {
+            _running = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private async Task DeleteFactAsync(CompanyFact fact)
+    {
+        await Store.DeleteFactAsync(Id, fact.Id, CancellationToken.None);
+        await LoadAsync();
+    }
+
+    private async Task SaveNotesAsync()
+    {
+        await Store.SaveNotesAsync(Id, _notes, CancellationToken.None);
+        Show("Notas guardadas.", Severity.Success);
+    }
+
+    private async Task DeleteAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync("Borrar ficha", $"Se borran las fuentes, los datos y las notas de {_profile!.Name}. Las ofertas se mantienen.",
+            yesText: "Borrar", cancelText: "Cancelar");
+        if (confirmed == true)
+        {
+            await Store.DeleteAsync(Id, CancellationToken.None);
+            Navigation.NavigateTo("/empresas");
+        }
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

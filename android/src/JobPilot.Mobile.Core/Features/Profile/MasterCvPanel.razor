@@ -1,0 +1,134 @@
+@using JobPilot.Domain.Cv
+@inject MasterCvStore Store
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+@if (!_loaded)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_stored is null)
+{
+    <MudStack Spacing="3">
+        <MudAlert Severity="Severity.Info">Todavía no tenés un CV maestro. Importalo desde tu CV actual para empezar.</MudAlert>
+        <CvImportPanel OnSaved="LoadAsync" />
+    </MudStack>
+}
+else
+{
+    <MudStack Spacing="3">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudText>
+                Versión <strong>@_stored.Version</strong> · actualizado el @LlmFormat.LocalTime(_stored.UpdatedAtUtc).
+                Es la única fuente de verdad para todo lo que se genere.
+            </MudText>
+            <MudSpacer />
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.UploadFile" OnClick="() => _showImport = !_showImport">
+                @(_showImport ? "Cerrar importación" : "Importar otro CV")
+            </MudButton>
+        </MudStack>
+
+        @if (_showImport)
+        {
+            <MudPaper Outlined="true" Class="pa-4">
+                <CvImportPanel ReplacesExisting="true" OnSaved="OnImportedAsync" />
+            </MudPaper>
+        }
+        else
+        {
+            <MasterCvEditor Cv="_stored.Cv" />
+
+            @if (_saveProblems.Count > 0)
+            {
+                <MudAlert Severity="Severity.Error">
+                    No se pudo guardar:
+                    <ul>@foreach (var problem in _saveProblems) { <li>@problem</li> }</ul>
+                </MudAlert>
+            }
+
+            <MudStack Row="true">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Guardar cambios</MudButton>
+                <MudButton Variant="Variant.Text" OnClick="LoadAsync">Descartar cambios</MudButton>
+            </MudStack>
+
+            <MudExpansionPanels Outlined="true" Elevation="0">
+                <MudExpansionPanel Text="@($"Historial de versiones ({_versions.Count})")">
+                    <MudSimpleTable Dense="true" Elevation="0">
+                        <thead><tr><th>Versión</th><th>Fecha</th><th>Origen</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var version in _versions)
+                            {
+                                <tr>
+                                    <td>@version.Version</td>
+                                    <td>@LlmFormat.LocalTime(version.CreatedAtUtc)</td>
+                                    <td>@version.Source</td>
+                                    <td>
+                                        @if (version.Version != _stored.Version)
+                                        {
+                                            <MudButton Size="Size.Small" OnClick="() => RestoreAsync(version.Version)">Restaurar</MudButton>
+                                        }
+                                        else
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Primary">Actual</MudChip>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        }
+    </MudStack>
+}
+
+@code {
+    private bool _loaded;
+    private bool _showImport;
+    private StoredMasterCv? _stored;
+    private IReadOnlyList<MasterCvVersionInfo> _versions = [];
+    private IReadOnlyList<string> _saveProblems = [];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _stored = await Store.GetAsync(CancellationToken.None);
+        _versions = await Store.GetVersionsAsync(CancellationToken.None);
+        _saveProblems = [];
+        _loaded = true;
+    }
+
+    private async Task OnImportedAsync()
+    {
+        _showImport = false;
+        await LoadAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        var result = await Store.SaveAsync(_stored!.Cv, "edit", CancellationToken.None);
+        _saveProblems = result.Problems;
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"CV maestro guardado (versión {result.Version}).", Severity.Success);
+            await LoadAsync();
+        }
+    }
+
+    private async Task RestoreAsync(int version)
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Restaurar versión",
+            $"Se guarda la versión {version} como una versión nueva. Los cambios sin guardar se pierden.",
+            yesText: "Restaurar", cancelText: "Cancelar");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var result = await Store.RestoreAsync(version, CancellationToken.None);
+        Snackbar.Add($"Versión {version} restaurada como versión {result.Version}.", Severity.Success);
+        await LoadAsync();
+    }
+}

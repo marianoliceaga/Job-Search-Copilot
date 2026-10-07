@@ -1,0 +1,77 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject JobPilot.Mobile.Core.Infrastructure.Notifications.AppNavigationRequests NavigationRequests
+@inject JobPilot.Mobile.Core.Features.Pipeline.ReminderNotificationSync Notifications
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="ToggleDrawer" aria-label="Mostrar u ocultar el menú" />
+        <MudText Typo="Typo.h6" Class="ml-2">JobPilot</MudText>
+    </MudAppBar>
+    @* Temporary drawer: an overlay on the phone screen, closed after choosing a section. *@
+    <MudDrawer @bind-Open="_drawerOpen" Variant="DrawerVariant.Temporary" Elevation="1" data-testid="drawer">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6">JobPilot</MudText>
+        </MudDrawerHeader>
+        <NavMenu />
+        <MudText Typo="Typo.caption" Class="pa-4">Tus datos quedan en el teléfono y no salen sin tu aprobación.</MudText>
+    </MudDrawer>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="py-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += CloseDrawer;
+        NavigationRequests.Requested += OpenRequestedPage;
+        OpenRequestedPage();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Reminders depend on the date: the alarms are scheduled again on every start (failures are only logged).
+            await Notifications.SyncAsync(CancellationToken.None);
+        }
+    }
+
+    /// <summary>Opens the page of a tapped notification (only application routes are accepted).</summary>
+    private void OpenRequestedPage() => _ = InvokeAsync(() =>
+    {
+        if (NavigationRequests.Take() is { } route)
+        {
+            Navigation.NavigateTo(route);
+        }
+    });
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private void CloseDrawer(object? sender, LocationChangedEventArgs e)
+    {
+        if (_drawerOpen)
+        {
+            _drawerOpen = false;
+            _ = InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= CloseDrawer;
+        NavigationRequests.Requested -= OpenRequestedPage;
+    }
+}

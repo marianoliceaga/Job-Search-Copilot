@@ -1,4 +1,5 @@
 using JobPilot.Domain.Jobs;
+using JobPilot.Web.Features.Transfer;
 using JobPilot.Web.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,7 +51,7 @@ public sealed class FollowedCompanyStore(
     public async Task RemoveAsync(int id, CancellationToken cancellationToken)
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-        await db.FollowedCompanies.Where(c => c.Id == id).ExecuteDeleteAsync(cancellationToken);
+        await DeletionLog.DeleteAsync(db, TransferSchema.FollowedCompanies, id, ct => db.FollowedCompanies.Where(c => c.Id == id).ExecuteDeleteAsync(ct), time.GetUtcNow().UtcDateTime, cancellationToken);
     }
 
     /// <summary>

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="bunit" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\JobPilot.Mobile.Core\JobPilot.Mobile.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The web app's fictional CV fixtures, linked read-only. -->
+  <ItemGroup>
+    <None Include="..\..\..\tests\JobPilot.Web.Tests\Fixtures\Cv\*" Link="Fixtures\Cv\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\tests\JobPilot.Web.Tests\Fixtures\Sources\*" Link="Fixtures\Sources\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\tests\JobPilot.Web.Tests\Fixtures\Transfer\*" Link="Fixtures\Transfer\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>
