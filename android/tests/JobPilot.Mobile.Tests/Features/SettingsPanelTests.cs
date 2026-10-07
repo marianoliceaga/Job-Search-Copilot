@@ -92,8 +92,8 @@ public sealed partial class SettingsPanelTests : BunitContext, IAsyncLifetime
     {
         var cut = Render<SettingsPage>();
 
-        // Six sections do not fit a phone's tab bar: chips wrap and keep every section visible.
-        Assert.Equal(["Gemini", "Modelos", "Avisos", "Google", "Reglas de correo", "Registro"], cut.FindAll(".mud-chipset .mud-chip").Select(t => t.TextContent.Trim()));
+        // Seven sections do not fit a phone's tab bar: chips wrap and keep every section visible.
+        Assert.Equal(["Gemini", "Modelos", "Avisos", "Google", "Reglas de correo", "Exportar / Importar", "Registro"], cut.FindAll(".mud-chipset .mud-chip").Select(t => t.TextContent.Trim()));
         Assert.Empty(cut.FindAll(".mud-tab"));
     }
 

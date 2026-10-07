@@ -1,0 +1,166 @@
+@inject TransferService Transfer
+@inject IJSRuntime JS
+@inject TimeProvider Time
+
+<MudStack Spacing="4">
+    <MudStack Spacing="2">
+        <MudText Typo="Typo.h6" HtmlTag="h2">Exportar</MudText>
+        <MudText Typo="Typo.body2">
+            Genera un archivo con todos tus datos de JobPilot para combinarlo en el celular: perfil, CV maestro y sus versiones, ofertas y
+            análisis, documentos a medida, pipeline, empresas, outreach, entrevistas, negociación, preferencias, reglas de correo, modelos
+            elegidos, historiales y lo que borraste. No incluye la clave de Gemini ni la conexión con Google.
+        </MudText>
+        <MudAlert Severity="Severity.Warning" Dense="true">
+            El archivo no está cifrado y tiene tu CV y tu búsqueda: guardalo en un lugar seguro y borralo cuando ya lo hayas importado.
+        </MudAlert>
+        <div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download" OnClick="ExportAsync" Disabled="_busy">
+                Exportar
+            </MudButton>
+        </div>
+        @if (_exported is not null)
+        {
+            <MudAlert Severity="Severity.Success" Dense="true" data-testid="export-done">Se descargó @_exported.</MudAlert>
+        }
+    </MudStack>
+
+    <MudDivider />
+
+    <MudStack Spacing="2">
+        <MudText Typo="Typo.h6" HtmlTag="h2">Importar y combinar</MudText>
+        <MudText Typo="Typo.body2">
+            Elegí un archivo exportado desde el celular (o desde otra PC). Primero ves qué cambiaría; nada se modifica hasta que tocás
+            "Combinar". Se agrega lo que falta; si algo cambió en los dos equipos gana el cambio más reciente (lo que no guarda fecha toma
+            el valor del archivo) y lo que borraste en un equipo también se borra en el otro. Antes de combinar se guarda una copia de tus
+            datos.
+        </MudText>
+        <MudFileUpload T="IBrowserFile" FilesChanged="OnFileSelectedAsync" Accept=".json" MaxFileSize="TransferService.MaxFileBytes" Disabled="_busy">
+            <CustomContent Context="upload">
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.UploadFile" OnClick="upload.OpenFilePickerAsync" Disabled="_busy">
+                    Elegir archivo
+                </MudButton>
+            </CustomContent>
+        </MudFileUpload>
+
+        @if (_busy)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" data-testid="transfer-error">@_error</MudAlert>
+        }
+
+        @if (_preview is not null)
+        {
+            <MudPaper Outlined="true" Class="pa-3" data-testid="transfer-preview">
+                <MudText Typo="Typo.subtitle1">
+                    Archivo de @Origin(_preview.File.App), exportado el @LocalTime(_preview.File.ExportedAtUtc).
+                </MudText>
+                @if (!_preview.HasChanges)
+                {
+                    <MudText Typo="Typo.body2" Class="mt-2">No hay nada nuevo para combinar: este equipo ya tiene todo lo del archivo.</MudText>
+                }
+                <SummaryTable Lines="_preview.Lines" />
+                <MudStack Row="true" Class="mt-3">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ImportAsync" Disabled="@(_busy || !_preview.HasChanges)">Combinar</MudButton>
+                    <MudButton Variant="Variant.Text" OnClick="Cancel" Disabled="_busy">Cancelar</MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @if (_result is not null)
+        {
+            <MudAlert Severity="Severity.Success" data-testid="transfer-done">
+                Datos combinados. Antes de combinar se guardó una copia en <code>@_result.BackupPath</code>.
+            </MudAlert>
+            <SummaryTable Lines="_result.Lines" />
+        }
+    </MudStack>
+</MudStack>
+
+@code {
+    private bool _busy;
+    private string? _exported;
+    private string? _error;
+    private TransferPreview? _preview;
+    private TransferImportResult? _result;
+
+    private async Task ExportAsync()
+    {
+        _busy = true;
+        try
+        {
+            var (fileName, content) = await Transfer.ExportAsync(CancellationToken.None);
+            using var stream = new MemoryStream(content);
+            using var reference = new DotNetStreamReference(stream);
+            await JS.InvokeVoidAsync("jobPilot.downloadFile", fileName, TransferService.ContentType, reference);
+            _exported = fileName;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task OnFileSelectedAsync(IBrowserFile? file)
+    {
+        if (file is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        _preview = null;
+        _result = null;
+        try
+        {
+            if (file.Size > TransferService.MaxFileBytes)
+            {
+                _error = "El archivo es demasiado grande.";
+                return;
+            }
+
+            using var buffer = new MemoryStream();
+            await using (var stream = file.OpenReadStream(TransferService.MaxFileBytes))
+            {
+                await stream.CopyToAsync(buffer);
+            }
+
+            buffer.Position = 0;
+            (_preview, _error) = await Transfer.PreviewAsync(buffer, CancellationToken.None);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ImportAsync()
+    {
+        if (_preview is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            _result = await Transfer.ImportAsync(_preview.File, CancellationToken.None);
+            _preview = null;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void Cancel() => _preview = null;
+
+    private static string Origin(string app) => app == "android" ? "Android" : "la PC";
+
+    private string LocalTime(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(utc, Time.LocalTimeZone).ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+}

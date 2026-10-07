@@ -140,3 +140,18 @@ The phase 9 brief on the phone, with the same rules and read-only Gmail access.
 ### Phase A10 — Export and import between PC and phone
 One JSON file format exported and imported by both apps (the web app gets this feature too, confirmed again with the
 owner when the phase starts). Not encrypted, by the owner's choice.
+- Owner's choices (2026-10-07): import **combines** (no replace); everything except secrets, histories included; deletions
+  are recorded and travel; edits without a date take the file's value; on the phone the file leaves through the share
+  sheet and comes back through the file picker. Web scope: a new Configuración tab and `Features/Transfer/`, its
+  registration, tests, docs, plus the deletion record in the existing delete actions and a `DeletedRecords` table.
+- Delivered on 2026-10-07 in both apps (web code in `src/JobPilot.Web/Features/Transfer/`, ported to the phone):
+  `TransferSchema` (all 24 tables), `TransferFile` (JSON, format version 1), `TransferMerger` (pure plan shown before
+  applying), raw SQLite read/write, a database copy before combining, `DeletionLog` in the 11 delete actions of each app.
+- Combining rules: rows matched by identity, not local ids (offer URL, posting of an application, company name, dates of
+  events and records); keys and references translated; dated rows keep the latest change; undated edits take the file's
+  value ("sent" outreach stays sent); a pasted offer description is never lost; application stage and reminder follow
+  the combined timeline; colliding master CV versions are renumbered; mail checks only when newer than the device's last;
+  a deletion removes rows not changed after it, and a row added again later is kept. Importing the same file twice
+  changes nothing.
+- Acceptance (owner): export on the PC, import on the phone; change and delete something on the phone, export, combine
+  on the PC; check the summary, the pipeline, the deleted items and the backup.

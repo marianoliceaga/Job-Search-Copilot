@@ -1,0 +1,33 @@
+@* What combining adds, updates, deletes or leaves out, per section. *@
+@if (Lines.Count > 0)
+{
+    <MudSimpleTable Dense="true" Class="mt-2" data-testid="transfer-summary">
+        <thead>
+            <tr><th>Sección</th><th>Agrega</th><th>Actualiza</th><th>Borra</th><th>Omite</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var line in Lines)
+            {
+                <tr>
+                    <td>@line.Label</td>
+                    <td>@line.Added</td>
+                    <td>@line.Updated</td>
+                    <td>@line.Deleted</td>
+                    <td>@line.Skipped</td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+    @if (Lines.Any(l => l.Skipped > 0))
+    {
+        <MudText Typo="Typo.caption">
+            "Omite": filas que ya se borraron, que dependen de algo que no está (por ejemplo, la postulación de una oferta borrada) o
+            revisiones de correo más viejas que la última de este equipo.
+        </MudText>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TransferSummaryLine> Lines { get; set; } = [];
+}

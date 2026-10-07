@@ -4,13 +4,13 @@ The Android version of [JobPilot](../README.md): the same remote job search assi
 **.NET 10 MAUI Blazor Hybrid and MudBlazor** (the web app's UI library), using the **Gemini API** as its only LLM.
 
 The app is independent of the PC app: it has its own database on the phone. Data moves between both apps only when
-you export a file in one and import it in the other (phase A10). Like the web app, it prepares, analyses and drafts;
+you export a file in one and import it in the other. Like the web app, it prepares, analyses and drafts;
 you approve. It never sends an application, e-mail or message on your behalf.
 
-> **Status:** phases A0–A9 delivered: every section works — Configuración (Gemini key, connection test, models,
-> notifications, Google, mail rules, call log), Perfil y CV maestro, Ofertas (sources, manual entry, analysis, ranking,
-> tailored CV and cover letter), Pipeline, the Panel with the "Hoy" mail brief, Empresas, Outreach, Entrevistas and
-> Negociación, plus the optional Google connection. Still to come: moving data between the PC and the phone (A10). See
+> **Status:** all phases (A0–A10) delivered: every section works — Configuración (Gemini key, connection test, models,
+> notifications, Google, mail rules, export/import, call log), Perfil y CV maestro, Ofertas (sources, manual entry,
+> analysis, ranking, tailored CV and cover letter), Pipeline, the Panel with the "Hoy" mail brief, Empresas, Outreach,
+> Entrevistas and Negociación, plus the optional Google connection and moving data between the PC and the phone. See
 > [`docs/PLAN.md`](docs/PLAN.md). The UI is in Spanish.
 
 ## Install on your phone
@@ -127,6 +127,21 @@ marked as read. Only sender, subject and dates are kept; message texts are never
 edited as JSON in **Configuración → Reglas de correo** (city, companies, pay floor and exchange rates are yours to fill
 in; pay is never estimated). The phone keeps its own rules: changes on the PC do not reach it.
 
+## Moving data between the PC and the phone
+
+**Configuración → Exportar / Importar** in both apps:
+
+1. On the device with the data, **Exportar** (on the phone, "Exportar y compartir" opens Android's share sheet: Drive,
+   your own mail, a USB cable…). The file has all your JobPilot data, never the Gemini key or the Google connection.
+2. On the other device, **Importar y combinar** → choose the file. You see what would be added, updated, deleted or left
+   out, per section; nothing changes until you tap **Combinar**.
+3. Combining adds what is missing, keeps the most recent change when something changed on both devices, takes the file's
+   value for edits without a date (contacts, comparator offers, followed companies), and deletes what you deleted on the
+   other device. Your data is copied first (on the phone, inside the app's private folder; the last five copies are kept).
+
+Importing the same file twice changes nothing, so you can go back and forth. The file is **not encrypted**: send it only
+to yourself and delete it after importing.
+
 ## Signing key (once)
 
 CI signs the APK with your key, read from GitHub secrets. The key never goes into the repository
@@ -193,8 +208,8 @@ The signed file is `com.vidi.jobpilot-Signed.apk` in the publish folder.
 
 ## Privacy
 
-The same rules as the web app: data stays on the phone, secrets (Gemini key, Google token) will live in Android's
-secure storage, the UI shows what is sent to Gemini before each action, and the export file used to move data between
+The same rules as the web app: data stays on the phone, the Gemini key lives in Android's secure storage (no Google
+token is kept), the UI shows what is sent to Gemini before each action, and the export file used to move data between
 the PC and the phone is not encrypted (keep it private and delete it after importing).
 
 ## License

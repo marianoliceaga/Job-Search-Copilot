@@ -1,6 +1,7 @@
 using System.Net;
 using JobPilot.Domain.Companies;
 using JobPilot.Domain.Jobs;
+using JobPilot.Mobile.Core.Features.Transfer;
 using JobPilot.Mobile.Core.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -182,7 +183,7 @@ public sealed class CompanyStore(IDbContextFactory<MobileDbContext> dbFactory, I
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-        await db.Companies.Where(c => c.Id == id).ExecuteDeleteAsync(cancellationToken);
+        await DeletionLog.DeleteAsync(db, TransferSchema.Companies, id, ct => db.Companies.Where(c => c.Id == id).ExecuteDeleteAsync(ct), time.GetUtcNow().UtcDateTime, cancellationToken);
     }
 
     /// <summary>Only public http(s) pages: Gemini's URL context tool cannot read local or private addresses.</summary>

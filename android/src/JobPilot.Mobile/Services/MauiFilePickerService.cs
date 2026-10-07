@@ -16,6 +16,9 @@ public sealed class MauiFilePickerService : IFilePickerService
         [".md"] = ["text/markdown", "text/x-markdown", "application/octet-stream"],
         [".markdown"] = ["text/markdown", "text/x-markdown", "application/octet-stream"],
         [".txt"] = ["text/plain"],
+        // Export files arrive through Drive, mail or messaging apps, which may label JSON as text or a generic binary; the file is
+        // validated when read (TransferFile.Read).
+        [".json"] = ["application/json", "text/plain", "application/octet-stream"],
     };
 
     public async Task<PickResult> PickDocumentAsync(string title, IReadOnlyList<string> extensions, long maxBytes, CancellationToken cancellationToken)

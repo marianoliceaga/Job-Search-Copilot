@@ -1,6 +1,7 @@
 using System.Globalization;
 using JobPilot.Domain.Jobs;
 using JobPilot.Domain.Pipeline;
+using JobPilot.Mobile.Core.Features.Transfer;
 using JobPilot.Mobile.Core.Infrastructure.Google;
 using JobPilot.Mobile.Core.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -60,7 +61,8 @@ public sealed class ApplicationGoogleService(
     public async Task UnlinkAsync(Guid applicationId, long linkId, CancellationToken cancellationToken)
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-        await db.ApplicationMailThreads.Where(t => t.Id == linkId && t.ApplicationId == applicationId).ExecuteDeleteAsync(cancellationToken);
+        await DeletionLog.DeleteAsync(db, TransferSchema.ApplicationMailThreads, linkId,
+            ct => db.ApplicationMailThreads.Where(t => t.Id == linkId && t.ApplicationId == applicationId).ExecuteDeleteAsync(ct), time.GetUtcNow().UtcDateTime, cancellationToken);
     }
 
     /// <summary>Records an e-mail from the company as a response in the timeline (sender, subject and date only).</summary>

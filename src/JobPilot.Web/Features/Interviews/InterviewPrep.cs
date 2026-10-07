@@ -7,6 +7,7 @@ using JobPilot.Domain.Prompts;
 using JobPilot.Domain.Tailoring;
 using JobPilot.Web.Features.Jobs.Analysis;
 using JobPilot.Web.Features.Tailoring;
+using JobPilot.Web.Features.Transfer;
 using JobPilot.Web.Infrastructure.Llm;
 using JobPilot.Web.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -114,7 +115,7 @@ public sealed class InterviewPrepStore(IDbContextFactory<JobPilotDbContext> dbFa
     public async Task DeleteStoryAsync(long id, CancellationToken cancellationToken)
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-        await db.StarStories.Where(s => s.Id == id).ExecuteDeleteAsync(cancellationToken);
+        await DeletionLog.DeleteAsync(db, TransferSchema.StarStories, id, ct => db.StarStories.Where(s => s.Id == id).ExecuteDeleteAsync(ct), time.GetUtcNow().UtcDateTime, cancellationToken);
     }
 
     private static StoredStory ToStored(StarStoryRecord record) =>

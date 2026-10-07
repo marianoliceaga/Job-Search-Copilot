@@ -672,6 +672,32 @@ namespace JobPilot.Web.Infrastructure.Persistence.Migrations
                     b.ToTable("ApplicationMailThreads", (string)null);
                 });
 
+            modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.DeletedRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("DeletedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Identity")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TableName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TableName");
+
+                    b.ToTable("DeletedRecords", (string)null);
+                });
+
             modelBuilder.Entity("JobPilot.Web.Infrastructure.Persistence.InterviewQuestionSetRecord", b =>
                 {
                     b.Property<long>("Id")

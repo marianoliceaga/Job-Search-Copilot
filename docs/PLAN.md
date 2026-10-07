@@ -181,3 +181,7 @@ Approved on 2026-10-06: an Android version in `android/` (.NET MAUI Blazor Hybri
 all features, delivered in phases A0–A10 with the owner's approval between them. It references `JobPilot.Domain`
 unchanged and keeps its own data; phase A10 adds an export/import file to both apps. Plan and acceptance criteria:
 [`android/docs/PLAN.md`](../android/docs/PLAN.md).
+
+Phase A10 in the web app (confirmed by the owner on 2026-10-07): Configuración → Exportar / Importar in
+`src/JobPilot.Web/Features/Transfer/`, a `DeletedRecords` table written by every delete action, and "Combinar" imports
+(details in `android/docs/PLAN.md`).

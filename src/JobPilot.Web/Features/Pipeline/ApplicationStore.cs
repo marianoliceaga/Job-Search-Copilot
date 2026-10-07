@@ -1,6 +1,7 @@
 using System.Text.Json;
 using JobPilot.Domain.Jobs;
 using JobPilot.Domain.Pipeline;
+using JobPilot.Web.Features.Transfer;
 using JobPilot.Web.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -171,6 +172,7 @@ public sealed class ApplicationStore(IDbContextFactory<JobPilotDbContext> dbFact
             throw new InvalidOperationException("Solo se pueden borrar notas y entrevistas agendadas.");
         }
 
+        await DeletionLog.RecordAsync(db, TransferSchema.ApplicationEvents, eventId, time.GetUtcNow().UtcDateTime, cancellationToken);
         db.ApplicationEvents.Remove(item);
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -196,14 +198,15 @@ public sealed class ApplicationStore(IDbContextFactory<JobPilotDbContext> dbFact
     public async Task DeleteContactAsync(Guid id, long contactId, CancellationToken cancellationToken)
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-        await db.ApplicationContacts.Where(c => c.Id == contactId && c.ApplicationId == id).ExecuteDeleteAsync(cancellationToken);
+        await DeletionLog.DeleteAsync(db, TransferSchema.ApplicationContacts, contactId,
+            ct => db.ApplicationContacts.Where(c => c.Id == contactId && c.ApplicationId == id).ExecuteDeleteAsync(ct), time.GetUtcNow().UtcDateTime, cancellationToken);
     }
 
     /// <summary>Removes the application and its timeline from the pipeline (the offer is kept).</summary>
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-        await db.Applications.Where(a => a.Id == id).ExecuteDeleteAsync(cancellationToken);
+        await DeletionLog.DeleteAsync(db, TransferSchema.Applications, id, ct => db.Applications.Where(a => a.Id == id).ExecuteDeleteAsync(ct), time.GetUtcNow().UtcDateTime, cancellationToken);
     }
 
     private async Task UpdateAsync(Guid id, Action<JobApplication, DateTime> change, CancellationToken cancellationToken)

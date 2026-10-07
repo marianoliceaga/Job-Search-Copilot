@@ -10,6 +10,7 @@
     <MudChip T="string" Value="@("avisos")" Text="Avisos" />
     <MudChip T="string" Value="@("google")" Text="Google" />
     <MudChip T="string" Value="@("correo")" Text="Reglas de correo" />
+    <MudChip T="string" Value="@("datos")" Text="Exportar / Importar" />
     <MudChip T="string" Value="@("registro")" Text="Registro" />
 </MudChipSet>
 <MudPaper Outlined="true" Class="pa-3">
@@ -27,6 +28,9 @@
         case "correo":
             <JobPilot.Mobile.Core.Features.Mail.MailRulesPanel />
             break;
+        case "datos":
+            <JobPilot.Mobile.Core.Features.Transfer.TransferPanel />
+            break;
         case "registro":
             <LlmCallLogPanel />
             break;
@@ -37,7 +41,7 @@
 </MudPaper>
 
 @code {
-    private static readonly string[] Sections = ["gemini", "modelos", "avisos", "google", "correo", "registro"];
+    private static readonly string[] Sections = ["gemini", "modelos", "avisos", "google", "correo", "datos", "registro"];
 
     private string _section = "gemini";
 

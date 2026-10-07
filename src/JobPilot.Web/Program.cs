@@ -1,6 +1,7 @@
 using JobPilot.Web.Components;
 using JobPilot.Web.Features.Jobs;
 using JobPilot.Web.Features.Mail;
+using JobPilot.Web.Features.Transfer;
 using JobPilot.Web.Features.Interviews;
 using JobPilot.Web.Features.Outreach;
 using JobPilot.Web.Features.Pipeline;
@@ -55,6 +56,7 @@ builder.Services.AddCompaniesAndOutreach(builder.Configuration);
 builder.Services.AddInterviewsAndNegotiation(builder.Configuration);
 builder.Services.AddGoogle(builder.Configuration);
 builder.Services.AddMail(Path.Combine(AppContext.BaseDirectory, "Seed"));
+builder.Services.AddTransfer();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

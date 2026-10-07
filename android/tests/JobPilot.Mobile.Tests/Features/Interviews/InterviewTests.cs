@@ -28,7 +28,7 @@ public sealed class InterviewTestContext : IAsyncDisposable
         Contexts = new TailoringContextFactory(pipeline.Jobs.Db, pipeline.Jobs.Cvs, pipeline.Jobs.Profiles, Catalog);
         Prep = new InterviewPrepStore(pipeline.Jobs.Db, pipeline.Jobs.Time);
         Offers = new OfferStore(pipeline.Jobs.Db, pipeline.Jobs.Documents, pipeline.Jobs.Preferences, pipeline.Jobs.Time);
-        Sessions = new PracticeStore(pipeline.Jobs.Db);
+        Sessions = new PracticeStore(pipeline.Jobs.Db, pipeline.Jobs.Time);
         Questions = new InterviewQuestionsHandler(Contexts, new JobAnalysisReader(pipeline.Jobs.Db), Prep, Prompts, llm);
         Stories = new StarStoriesHandler(Contexts, Prep, Prompts, llm);
         Practice = new PracticeHandler(Sessions, Prep, Offers, Contexts, pipeline.Jobs.Db, Prompts, llm,

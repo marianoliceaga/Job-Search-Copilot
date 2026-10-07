@@ -7,6 +7,7 @@ using JobPilot.Mobile.Core.Features.Profile;
 using JobPilot.Mobile.Core.Features.Profile.Import;
 using JobPilot.Mobile.Core.Features.Settings;
 using JobPilot.Mobile.Core.Features.Tailoring;
+using JobPilot.Mobile.Core.Features.Transfer;
 using JobPilot.Mobile.Core.Infrastructure;
 using JobPilot.Mobile.Core.Infrastructure.Google;
 using JobPilot.Mobile.Core.Infrastructure.Llm;
@@ -44,6 +45,7 @@ public static class MobileServiceCollectionExtensions
         services.AddInterviewsAndNegotiation(configuration);
         services.AddGoogle(configuration);
         services.AddMail();
+        services.AddTransfer();
         return services;
     }
 }

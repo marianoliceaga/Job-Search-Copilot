@@ -8,7 +8,9 @@ acceptance criteria per phase: [`docs/PLAN.md`](docs/PLAN.md).
 
 - **Do not modify existing files outside `android/`**, except the ones the owner allowed: short Android sections in
   `CLAUDE.md`, `README.md`, `docs/PLAN.md`, the new `.github/workflows/android.yml`, and the web app's export/import
-  feature in phase A10 (confirm again when it starts). `src/JobPilot.Domain` is referenced, never changed.
+  feature in phase A10 (scope confirmed by the owner on 2026-10-07: `Features/Transfer/`, its registration and tab, tests,
+  and the deletion record in the web delete actions with its `DeletedRecords` table). `src/JobPilot.Domain` is referenced,
+  never changed.
 - **Ask, don't assume.** The owner asked explicitly: any doubt (behaviour, platform API, library support) goes to the
   owner before it becomes code.
 - One phase at a time with the owner's approval in between (`docs/PLAN.md`).
@@ -108,6 +110,9 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
   Features/Mail/             port of the web slice: TodayPanel ("Hoy" on the Panel; filter examples on tap), MailCheckService,
                              LinkedInAlertParser, MailRulesStore + MailRulesSeed (embedded web seed), MailRulesPanel
                              (Configuración → Reglas de correo); MailCheckRecord/MailWaitingRecord in Persistence/SupportRecords.cs
+  Features/Transfer/         port of the web slice: TransferSchema, TransferFile, TransferMerger, TransferDatabase, DeletionLog
+                             (used by the 11 delete actions), TransferService (backup in the app folder, reminders rescheduled
+                             after combining), TransferPanel (share sheet / picker), SummaryList (lines instead of the web table)
   Infrastructure/Notifications/ INotificationScheduler (host implements it), ScheduledNotification, AppNavigationRequests
                              (routes from tapped notifications, only /pipeline/{guid})
 tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTests, manifest, Gemini client and profile/CV
@@ -154,6 +159,7 @@ docs/PLAN.md                 Android plan
   trimmable) are trimmed without warnings. On 2026-10-07 (A8) the new ones were only IL2026 in the untrimmed Core Google code
   (JSON helpers, options binding); none from the Play services bindings or the host authorizer.
   A9 added only IL2026 in the untrimmed Core mail rules JSON (`MailRulesStore`, `MailRulesSeed`).
+  A10 added none (the transfer code uses `JsonDocument`/`Utf8JsonWriter` and raw ADO.NET, no reflection-based serialization).
 - The Core library adds the web SDK's implicit usings it needs (`Microsoft.Extensions.Configuration`, `DependencyInjection`,
   `Logging`) so ported web files compile unchanged.
 - External links (`target="_blank"` or another host) open in the phone's browser: that is BlazorWebView's default
@@ -186,8 +192,14 @@ docs/PLAN.md                 Android plan
 - Binding names: Java static `builder()` becomes `InvokeBuilder()` (`AuthorizationRequest`, `ClearTokenRequest`); Play
   services tasks are awaited with `AsAsync<T>()` (`Android.Gms.Extensions`). The package's XML docs are empty: list the API
   from the DLL metadata.
-- Configuración has six sections: chips, like every page with more sections than fit a phone's tab bar. Links open a section
-  with `/configuracion?seccion=gemini|modelos|avisos|google|correo|registro`.
+- Configuración has seven sections: chips, like every page with more sections than fit a phone's tab bar. Links open a
+  section with `/configuracion?seccion=gemini|modelos|avisos|google|correo|datos|registro`.
+- Transfer files arrive from Drive, mail or messaging apps with any MIME type: the picker accepts `application/json`,
+  `text/plain` and `application/octet-stream` for `.json`, and `TransferFile.Read` validates the content.
+- Transfer code is the web's (`src/JobPilot.Web/Features/Transfer/`) copied with the usual sed; `TransferSchema` must stay
+  identical in both apps (each app's test compares it with its EF model, and `WebSchemaTests` compares the two models). The
+  cross-app fixtures (`tests/JobPilot.Web.Tests/Fixtures/Transfer/pc-export.json`, `phone-export.json`, fictional) are
+  imported by the other app's tests.
 - Tooltips need hover: on the phone, extra details (e.g. the examples of a mail filter) open with a tap.
 - bUnit: a `data-testid` on a `MudTextField` lands on the `textarea`/`input` itself (`textarea[data-testid=...]`).
 - Android's picker filters by MIME type; many file managers report `.md` as `application/octet-stream`, so the picker also
@@ -223,6 +235,7 @@ docs/PLAN.md                 Android plan
 | 2026-10-07 | `.ics`, sent documents and follow-up drafts leave through the share sheet; follow-ups can also be copied (MAUI `Clipboard`); no Gmail/Calendar until A8 | No downloads on Android; the owner sends from their own mail app. |
 | 2026-10-07 | Google through Android's authorization API (Play services `AuthorizationClient`, play-services-auth 22.0.0) with an "Android" OAuth client (package + SHA-1); no client id/secret in the app, no refresh token, a one-hour access token per session in memory; only granted scopes, e-mail and date in `google-connection.json`; revocation through Google's revoke endpoint | Verified procedure approved by the owner: custom URI schemes are no longer supported for Android and loopback redirects are deprecated for mobile; Google discourages refresh tokens on devices. |
 | 2026-10-07 | Same Google scope as the web app (Gmail threads, responses, drafts; JobPilot calendar; "Solo Calendar") with the web confirmation dialogs; the Gmail client, calendar client and application service are ports | Chosen by the owner; one behaviour in both apps; `NoSendingTests` keep "never sends". |
+| 2026-10-07 | Export / "Combinar" import (A10) as in the web app: same file, schema and merge rules (ported code); the file leaves through the share sheet and comes back through the picker (max 100 MB); the database is copied to `backups/` in the app's private folder before combining; reminders are rescheduled afterwards | Owner's choices (combine, everything but secrets, deletions travel, undated edits take the file's value, share and pick); the backup protects the only copy of the phone's data. |
 | 2026-10-07 | Mail brief ported unchanged (rules, classifier, alert roles → offers, waiting cards, stored facts only); read only on "Actualizar correo", no WorkManager job; the phone has its own rules document seeded from the web seed | Same behaviour as the web app; "nothing runs unattended"; each app keeps its own data until the A10 export/import. |
 | 2026-10-07 | Interviews and negotiation ported unchanged (practice rules, rubrics, comparator, script checks); sections as chips, comparison and history as cards, the score chart's SVG text doubled (its 640-wide viewBox is drawn at about half size on a phone) | Same rules as the web app; readable on a 360-400 px screen. |
 | 2026-10-07 | Companies and outreach ported unchanged (URL context research, fact verifier, three tones, only verified facts, LinkedIn review on pasted text); outreach drafts are copied or shared through the share sheet, LinkedIn proposals copied | Same "never invent" and "never send" rules as the web app; the share sheet hands the text to LinkedIn or a mail app where the owner sends it. |
@@ -304,4 +317,5 @@ Checked on 2026-10-07 (phase A5):
   link, Gmail draft and calendar event on the phone)
 - [x] Phase A9 — Mail brief (pending: a real check on the owner's Gmail from the phone, after the Android OAuth client and
   leaving Advanced Protection, and the owner's city, pay floor and rates in the phone's rules)
-- [ ] Phase A10 — Export and import between PC and phone
+- [x] Phase A10 — Export and import between PC and phone (pending: a real transfer PC → phone → PC with the owner's data,
+  through the share sheet and the picker)

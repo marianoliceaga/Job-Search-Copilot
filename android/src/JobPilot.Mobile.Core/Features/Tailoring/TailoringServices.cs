@@ -2,6 +2,7 @@ using System.Text.Json;
 using JobPilot.Domain.Cv;
 using JobPilot.Domain.Tailoring;
 using JobPilot.Mobile.Core.Features.Profile;
+using JobPilot.Mobile.Core.Features.Transfer;
 using JobPilot.Mobile.Core.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -179,7 +180,7 @@ public sealed class TailoredDocumentStore(IDbContextFactory<MobileDbContext> dbF
     public async Task DeleteAsync(long id, CancellationToken cancellationToken)
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-        await db.TailoredDocuments.Where(d => d.Id == id).ExecuteDeleteAsync(cancellationToken);
+        await DeletionLog.DeleteAsync(db, TransferSchema.TailoredDocuments, id, ct => db.TailoredDocuments.Where(d => d.Id == id).ExecuteDeleteAsync(ct), time.GetUtcNow().UtcDateTime, cancellationToken);
     }
 
     public static ApprovalCheck Check(TailoringContext context, TailoredCv cv)

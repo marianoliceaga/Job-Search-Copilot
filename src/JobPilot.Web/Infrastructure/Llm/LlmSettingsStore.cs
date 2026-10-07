@@ -1,4 +1,5 @@
 using JobPilot.Domain.Llm;
+using JobPilot.Web.Features.Transfer;
 using JobPilot.Web.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -55,6 +56,7 @@ public sealed class LlmSettingsStore(
         {
             if (setting is not null)
             {
+                await DeletionLog.RecordAsync(db, TransferSchema.LlmUseCaseSettings, useCase, time.GetUtcNow().UtcDateTime, cancellationToken);
                 db.LlmUseCaseSettings.Remove(setting);
             }
         }

@@ -65,6 +65,8 @@ public sealed class MobileDbContext(DbContextOptions<MobileDbContext> options) :
 
     public DbSet<MailWaitingRecord> MailWaiting => Set<MailWaitingRecord>();
 
+    public DbSet<DeletedRecord> DeletedRecords => Set<DeletedRecord>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         ArgumentNullException.ThrowIfNull(configurationBuilder);
@@ -323,6 +325,14 @@ public sealed class MobileDbContext(DbContextOptions<MobileDbContext> options) :
             waiting.Property(w => w.Timeline).HasMaxLength(2000);
             waiting.Property(w => w.NextAction).HasMaxLength(1000);
             waiting.Property(w => w.RailNote).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<DeletedRecord>(record =>
+        {
+            record.ToTable("DeletedRecords");
+            record.HasIndex(r => r.TableName);
+            record.Property(r => r.TableName).HasMaxLength(100);
+            record.Property(r => r.Identity).HasMaxLength(4000);
         });
 
         modelBuilder.Entity<SettingsDocument>(document =>

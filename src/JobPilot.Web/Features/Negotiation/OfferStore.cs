@@ -3,6 +3,7 @@ using System.Text;
 using JobPilot.Domain.Jobs;
 using JobPilot.Domain.Negotiation;
 using JobPilot.Web.Features.Jobs;
+using JobPilot.Web.Features.Transfer;
 using JobPilot.Web.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -55,7 +56,7 @@ public sealed class OfferStore(IDbContextFactory<JobPilotDbContext> dbFactory, S
     public async Task DeleteAsync(long id, CancellationToken cancellationToken)
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-        await db.CompensationOffers.Where(o => o.Id == id).ExecuteDeleteAsync(cancellationToken);
+        await DeletionLog.DeleteAsync(db, TransferSchema.CompensationOffers, id, ct => db.CompensationOffers.Where(o => o.Id == id).ExecuteDeleteAsync(ct), time.GetUtcNow().UtcDateTime, cancellationToken);
     }
 
     public async Task<ContractorCosts> GetCostsAsync(CancellationToken cancellationToken) =>
