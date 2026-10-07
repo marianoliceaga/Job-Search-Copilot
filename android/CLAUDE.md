@@ -71,7 +71,7 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
                              CvImportPanel (Android picker), Import/ (CvTextExtractor with PdfPig/Open XML, ImportedCv,
                              CvImportHandler); Shared/ PartialDateField, StringListEditor
   Features/Jobs/             port of the web slice: JobsPage (/ofertas: Ofertas / Fuentes y empresas / Preferencias), JobDetailPage
-                             (/ofertas/{id}; the Empresa and Outreach buttons arrive in A6), SourcesPanel
+                             (/ofertas/{id}: Empresa, Outreach and Pipeline buttons, tailoring), SourcesPanel
                              (cards instead of tables), Sources/ (8 IJobSource providers, web settings and intervals),
                              JobIngestion, JobSearchService, FollowedCompanyStore, JobPreferencesStore + JobSeedFiles (embedded
                              web seeds), ManualJobImport, JobListService, Analysis/ (job-analysis, AnalysisVerifier)
@@ -87,6 +87,12 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
                              FollowUpHandler + FollowUpPanel (copy or share the draft), PipelineFormat; ReminderNotifications
                              (settings, planner, sync after every change), NotificationsPanel (Configuración → Avisos)
   Features/Dashboard/        DashboardPage (/, lists instead of tables), DashboardService (port)
+  Features/Companies/        port of the web slice: CompaniesPage (/empresas, cards instead of a table), CompanyPage
+                             (/empresas/{id}), CompanyButton (offer page), CompanyStore, CompanyResearchHandler (URL context +
+                             CompanyFactVerifier), CompanyFormat
+  Features/Outreach/         port of the web slice: OutreachPage (/outreach?oferta=|empresa=), OutreachMessagesPanel (copy or
+                             share, no Gmail drafts), LinkedInReviewPanel (copy), OutreachHandler, OutreachStore,
+                             LinkedInReviewHandler; OutreachRecord in Persistence/SupportRecords.cs
   Infrastructure/Notifications/ INotificationScheduler (host implements it), ScheduledNotification, AppNavigationRequests
                              (routes from tapped notifications, only /pipeline/{guid})
 tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTests, manifest, Gemini client and profile/CV
@@ -188,6 +194,7 @@ docs/PLAN.md                 Android plan
 | 2026-10-07 | Notifications are private: the lock screen shows a generic public version ("Tenés un recordatorio"); tapping opens the application's page; only `/pipeline/{guid}` routes are accepted from intents | Chosen by the owner; the launcher activity is exported, so intent extras are untrusted. |
 | 2026-10-07 | Pipeline as stage chips + one list with a "Mover a…" menu instead of the drag-and-drop Kanban | Chosen by the owner: dragging with a finger is unreliable in a WebView. |
 | 2026-10-07 | `.ics`, sent documents and follow-up drafts leave through the share sheet; follow-ups can also be copied (MAUI `Clipboard`); no Gmail/Calendar until A8 | No downloads on Android; the owner sends from their own mail app. |
+| 2026-10-07 | Companies and outreach ported unchanged (URL context research, fact verifier, three tones, only verified facts, LinkedIn review on pasted text); outreach drafts are copied or shared through the share sheet, LinkedIn proposals copied | Same "never invent" and "never send" rules as the web app; the share sheet hands the text to LinkedIn or a mail app where the owner sends it. |
 
 ## Verified external facts
 
@@ -249,7 +256,8 @@ Checked on 2026-10-07 (phase A5):
 - [x] Phase A5 — Pipeline, reminders and dashboard (pending: on the phone, turning notifications on, receiving a follow-up
   and an interview notification, again after a reboot, allowing exact alarms, sharing the `.ics` to a calendar app and a
   real follow-up draft with the owner's key)
-- [ ] Phase A6 — Companies and outreach
+- [x] Phase A6 — Companies and outreach (pending: a real company research, an outreach draft shared to LinkedIn or the mail app
+  and a LinkedIn review with the owner's key)
 - [ ] Phase A7 — Interviews and negotiation
 - [ ] Phase A8 — Google
 - [ ] Phase A9 — Mail brief

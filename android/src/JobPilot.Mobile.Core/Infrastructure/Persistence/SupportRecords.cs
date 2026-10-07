@@ -104,3 +104,46 @@ public sealed class TailoredDocumentRecord
     public required string Json { get; set; }
 }
 
+public enum OutreachChannel
+{
+    LinkedInConnection,
+    LinkedInMessage,
+    Email,
+}
+
+public enum OutreachLength
+{
+    Short,
+    Medium,
+}
+
+/// <summary>Outreach drafts generated for a recruiter or hiring manager (JSON of the variants). The owner sends them.</summary>
+public sealed class OutreachRecord
+{
+    public long Id { get; set; }
+
+    public Guid? CompanyId { get; set; }
+
+    public Guid? JobPostingId { get; set; }
+
+    public OutreachChannel Channel { get; set; }
+
+    public OutreachLength Length { get; set; }
+
+    public string? RecipientName { get; set; }
+
+    public string? RecipientRole { get; set; }
+
+    public DateTime CreatedAtUtc { get; set; }
+
+    public required string PromptId { get; set; }
+
+    public required string Model { get; set; }
+
+    public required string Json { get; set; }
+
+    /// <summary>The text the owner says they sent (after editing), recorded when they mark it as sent.</summary>
+    public string? SentText { get; set; }
+
+    public DateTime? SentAtUtc { get; set; }
+}

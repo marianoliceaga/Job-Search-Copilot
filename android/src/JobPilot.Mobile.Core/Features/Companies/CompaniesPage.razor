@@ -1,0 +1,88 @@
+@page "/empresas"
+@inject CompanyStore Store
+@inject JobPilot.Mobile.Core.Features.Pipeline.ApplicationStore Applications
+@inject NavigationManager Navigation
+
+@* Port of the web page; the companies table becomes cards to fit the phone. *@
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4" HtmlTag="h1">@AppSections.Companies.Title</MudText>
+    <MudText Typo="Typo.body2">
+        Cada ficha se arma solo con las fuentes que elegís: URLs públicas de la empresa (Gemini las lee con su herramienta URL context)
+        o textos que pegás. Cada dato guarda su URL y su cita; los que no se pueden verificar quedan marcados como <strong>no verificados</strong>.
+    </MudText>
+
+    <MudPaper Outlined="true" Class="pa-3">
+        <MudStack Spacing="2">
+            <MudTextField @bind-Value="_name" Label="Empresa" Immediate="true" />
+            <MudTextField @bind-Value="_website" Label="Sitio web (opcional)" Placeholder="https://" Immediate="true" InputType="InputType.Url" />
+            <div><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => CreateAsync(_name, _website)" Disabled="@string.IsNullOrWhiteSpace(_name)">Crear ficha</MudButton></div>
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+            }
+        </MudStack>
+    </MudPaper>
+
+    @if (_suggestions.Count > 0)
+    {
+        <MudText Typo="Typo.body2">Empresas de tu pipeline sin ficha:</MudText>
+        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
+            @foreach (var company in _suggestions)
+            {
+                <MudChip T="string" Icon="@Icons.Material.Filled.Add" OnClick="() => CreateAsync(company, null)">@company</MudChip>
+            }
+        </MudStack>
+    }
+
+    <MudStack Spacing="2" data-testid="companies">
+        @if (_companies.Count == 0)
+        {
+            <MudText>Todavía no hay fichas.</MudText>
+        }
+        @foreach (var company in _companies)
+        {
+            <MudCard Outlined="true" Class="pa-2" data-testid="company-card">
+                <MudStack Spacing="0">
+                    <MudLink Href="@($"/empresas/{company.Id}")" Typo="Typo.body1"><strong>@company.Name</strong></MudLink>
+                    <MudText Typo="Typo.body2">@company.VerifiedFacts de @company.Facts datos verificados · @company.Offers oferta(s)</MudText>
+                    <MudText Typo="Typo.caption">Última investigación: @(company.ResearchedAtUtc is { } at ? LlmFormat.LocalTime(at) : "—")</MudText>
+                </MudStack>
+            </MudCard>
+        }
+    </MudStack>
+</MudStack>
+
+@code {
+    private IReadOnlyList<CompanySummary> _companies = [];
+    private List<string> _suggestions = [];
+    private string? _name;
+    private string? _website;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _companies = await Store.ListAsync(CancellationToken.None);
+        var keys = _companies.Select(c => JobPilot.Domain.Jobs.JobFingerprint.CompanyKey(c.Name)).ToHashSet();
+        _suggestions = (await Applications.GetBoardAsync(CancellationToken.None))
+            .Select(c => c.Company)
+            .Where(c => !keys.Contains(JobPilot.Domain.Jobs.JobFingerprint.CompanyKey(c)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    private async Task CreateAsync(string? name, string? website)
+    {
+        _error = null;
+        try
+        {
+            var id = await Store.CreateAsync(name!, website, CancellationToken.None);
+            Navigation.NavigateTo($"/empresas/{id}");
+        }
+        catch (ArgumentException ex)
+        {
+            _error = ex.Message.Split(" (Parameter", StringSplitOptions.None)[0];
+        }
+    }
+}

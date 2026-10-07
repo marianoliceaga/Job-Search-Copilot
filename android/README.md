@@ -7,10 +7,11 @@ The app is independent of the PC app: it has its own database on the phone. Data
 you export a file in one and import it in the other (phase A10). Like the web app, it prepares, analyses and drafts;
 you approve. It never sends an application, e-mail or message on your behalf.
 
-> **Status:** phases A0–A5 delivered: Configuración (Gemini key, connection test, models, notifications, call log),
+> **Status:** phases A0–A6 delivered: Configuración (Gemini key, connection test, models, notifications, call log),
 > Perfil y CV maestro (profile, CV import from a file on the phone, editor, versions), Ofertas (the web app's sources,
 > manual entry, filters, analysis, ranking, and tailored CV and cover letter), Pipeline (stages, timeline, reminders,
-> follow-up drafts, interviews, `.ics`) and the Panel work; the other sections show the phase that implements them. See
+> follow-up drafts, interviews, `.ics`), the Panel, Empresas and Outreach work; the other sections show the phase that
+> implements them. See
 > [`docs/PLAN.md`](docs/PLAN.md). The UI is in Spanish.
 
 ## Install on your phone
@@ -71,6 +72,17 @@ Android 12 and later, **Permitir avisos exactos** opens the system setting "Alar
 may deliver notifications late, more so in battery saver. With the phone locked a notification only says "Tenés un
 recordatorio"; the offer appears once unlocked. Notifications are local: nothing is sent and no network is used. They are
 restored after a reboot.
+
+## Companies and outreach
+
+**Empresas** (or **Crear ficha de la empresa** on an offer) builds a company profile only from the sources you choose:
+public URLs, which Gemini reads from Google's servers, and texts you paste. Every fact keeps its source and quote; facts
+that cannot be verified are marked **No verificado** and are never used in messages. **Outreach** (also from an offer or a
+company) drafts a LinkedIn invitation note, LinkedIn message or e-mail in three tones; **Copiar** puts it on the
+clipboard and **Compartir** opens Android's share sheet (LinkedIn, your mail app...), where you review and send it
+yourself. **Ya lo envié** records it, and in the offer's timeline when it is in the pipeline. **Perfil de LinkedIn**
+reviews the headline and About you paste (the app never opens LinkedIn) and proposes texts that cite your CV. Gmail
+drafts arrive with phase A8.
 
 ## Signing key (once)
 

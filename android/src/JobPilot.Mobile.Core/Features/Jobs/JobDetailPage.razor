@@ -34,7 +34,8 @@ else
                 <MudChip T="string">@posting.EmploymentType</MudChip>
             }
             <MudSpacer />
-            @* Empresa and Outreach buttons arrive with phase A6. *@
+            <JobPilot.Mobile.Core.Features.Companies.CompanyButton Company="@posting.Company" />
+            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Send" Href="@($"/outreach?oferta={posting.Id}")">Outreach</MudButton>
             <JobPilot.Mobile.Core.Features.Pipeline.PipelineButton PostingId="posting.Id" />
             <MudButton Variant="Variant.Text" OnClick="ToggleDiscardAsync">@(posting.IsDiscarded ? "Restaurar" : "Descartar")</MudButton>
         </MudStack>

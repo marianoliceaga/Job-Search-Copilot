@@ -57,7 +57,7 @@ public sealed class JobsPageTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
-    public async Task The_offer_page_links_to_the_source_outside_the_app_and_offers_the_pipeline_but_no_later_phase_buttons()
+    public async Task The_offer_page_links_to_the_source_outside_the_app_and_offers_company_outreach_and_pipeline()
     {
         var ingestion = Services.GetRequiredService<JobIngestion>();
         await ingestion.IngestAsync([new SourcedJob
@@ -74,6 +74,7 @@ public sealed class JobsPageTests : BunitContext, IAsyncLifetime
         // target=_blank makes BlazorWebView open it in the phone's browser (external link), never inside the app.
         Assert.Equal("_blank", link.GetAttribute("target"));
         Assert.Contains("Agregar al pipeline", cut.Markup, StringComparison.Ordinal);
-        Assert.DoesNotContain("/outreach", cut.Markup, StringComparison.Ordinal);
+        Assert.NotNull(cut.Find($"a[href='/outreach?oferta={id}']"));
+        Assert.Contains("Crear ficha de la empresa", cut.Markup, StringComparison.Ordinal);
     }
 }

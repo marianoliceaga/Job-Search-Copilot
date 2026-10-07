@@ -99,6 +99,12 @@ nothing unattended).
 
 ### Phase A6 — Companies and outreach
 Company research with cited sources; outreach drafts copied or shared, never sent.
+- Same company profiles (owner-chosen URLs read with Gemini's URL context, pasted texts), fact verifier, outreach in three
+  tones with only verified facts, history, "Ya lo envié" into the timeline, and LinkedIn review on pasted texts, as the web
+  app; tables identical to the web ones.
+- Drafts and proposals are copied (Android clipboard) or shared (share sheet); Gmail drafts stay for phase A8.
+- Acceptance on the phone (owner): create a profile from an offer, add URLs and a pasted text, research it, share an
+  outreach draft to LinkedIn or the mail app, mark it as sent, and copy a LinkedIn proposal.
 
 ### Phase A7 — Interviews and negotiation
 Question bank, STAR stories, practice sessions with rubric feedback, offer comparator, negotiation script and roleplay.

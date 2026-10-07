@@ -1,4 +1,5 @@
 using JobPilot.Mobile.Core.Features.Jobs;
+using JobPilot.Mobile.Core.Features.Outreach;
 using JobPilot.Mobile.Core.Features.Pipeline;
 using JobPilot.Mobile.Core.Features.Profile;
 using JobPilot.Mobile.Core.Features.Profile.Import;
@@ -35,6 +36,7 @@ public static class MobileServiceCollectionExtensions
         services.AddJobs(configuration);
         services.AddTailoring();
         services.AddPipeline();
+        services.AddCompaniesAndOutreach(configuration);
         return services;
     }
 }

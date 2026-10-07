@@ -34,6 +34,8 @@ public class PromptLibraryTests
         // The web catalog is the reference: same name and label, so call logs and settings mean the same in both apps.
         var web = File.ReadAllText(Path.Combine(AndroidFolder.RepositoryRoot, "src", "JobPilot.Web", "Infrastructure", "Llm", "LlmUseCases.cs"));
 
-        Assert.All(LlmUseCases.All, useCase => Assert.Contains($"\"{useCase.Label}\", \"{useCase.Description}\"", web, StringComparison.Ordinal));
+        // Quotes inside the description appear escaped in the web source ("Acerca de").
+        Assert.All(LlmUseCases.All, useCase => Assert.Contains(
+            $"\"{useCase.Label}\", \"{useCase.Description.Replace("\"", "\\\"", StringComparison.Ordinal)}\"", web, StringComparison.Ordinal));
     }
 }
