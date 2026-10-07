@@ -24,6 +24,7 @@ public sealed class JobsPageTests : BunitContext, IAsyncLifetime
         Services.AddMudServices();
         Services.AddJobPilotMobile(MobileConfiguration.Load(), new MobilePaths(_directory.Path));
         Services.AddSingleton<ISecretStore>(new InMemorySecretStore());
+        Services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Notifications.INotificationScheduler>(new FakeNotificationScheduler());
         Services.AddSingleton<IFilePickerService>(new FakeFilePicker());
     }
 
@@ -56,7 +57,7 @@ public sealed class JobsPageTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
-    public async Task The_offer_page_links_to_the_source_outside_the_app_and_has_no_later_phase_buttons()
+    public async Task The_offer_page_links_to_the_source_outside_the_app_and_offers_the_pipeline_but_no_later_phase_buttons()
     {
         var ingestion = Services.GetRequiredService<JobIngestion>();
         await ingestion.IngestAsync([new SourcedJob
@@ -72,7 +73,7 @@ public sealed class JobsPageTests : BunitContext, IAsyncLifetime
         var link = cut.WaitForElement("a[href='https://remotive.com/remote-jobs/software-dev/senior-net-1']");
         // target=_blank makes BlazorWebView open it in the phone's browser (external link), never inside the app.
         Assert.Equal("_blank", link.GetAttribute("target"));
-        Assert.DoesNotContain("Pipeline", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Agregar al pipeline", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("/outreach", cut.Markup, StringComparison.Ordinal);
     }
 }

@@ -29,6 +29,7 @@ public sealed class ProfilePageTests : BunitContext, IAsyncLifetime
             MobileConfiguration.Load(new Dictionary<string, string?> { ["Gemini:BaseUrl"] = "https://gemini.test/v1beta/", ["Gemini:MaxRetryAttempts"] = "1" }),
             new MobilePaths(_directory.Path));
         Services.AddSingleton<ISecretStore>(_secrets);
+        Services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Notifications.INotificationScheduler>(new FakeNotificationScheduler());
         Services.AddSingleton<IFilePickerService>(_picker);
         Services.AddHttpClient<GeminiLlmClient>().ConfigurePrimaryHttpMessageHandler(() => _gemini);
     }

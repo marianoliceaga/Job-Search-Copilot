@@ -7,10 +7,10 @@ The app is independent of the PC app: it has its own database on the phone. Data
 you export a file in one and import it in the other (phase A10). Like the web app, it prepares, analyses and drafts;
 you approve. It never sends an application, e-mail or message on your behalf.
 
-> **Status:** phases A0–A4 delivered: Configuración (Gemini key, connection test, models, call log), Perfil y CV maestro
-> (profile, CV import from a file on the phone, editor, versions) and Ofertas (the web app's sources, manual entry,
-> filters, analysis, ranking, and tailored CV and cover letter) work; the other sections show the phase that implements
-> them. See
+> **Status:** phases A0–A5 delivered: Configuración (Gemini key, connection test, models, notifications, call log),
+> Perfil y CV maestro (profile, CV import from a file on the phone, editor, versions), Ofertas (the web app's sources,
+> manual entry, filters, analysis, ranking, and tailored CV and cover letter), Pipeline (stages, timeline, reminders,
+> follow-up drafts, interviews, `.ics`) and the Panel work; the other sections show the phase that implements them. See
 > [`docs/PLAN.md`](docs/PLAN.md). The UI is in Spanish.
 
 ## Install on your phone
@@ -56,6 +56,21 @@ On an offer, **CV a medida** and **Carta** work as in the PC app (every text cit
 document is approved, **Compartir PDF** and **Compartir DOCX** open Android's share sheet: you choose where it goes (Files,
 Drive, an e-mail you write yourself...). The app keeps no copy of the file. The PDF is made with PDFsharp (the PC app uses
 QuestPDF, which does not run on Android); it follows the same rules: one column, real text, Lato font embedded.
+
+## Pipeline, reminders and notifications
+
+**Agregar al pipeline** on an offer starts its application. **Pipeline** shows one stage at a time (tap a stage chip);
+the card menu moves an application to another stage, and every change is recorded in its timeline. An application's page
+has its stage, reminder, notes, contacts, the approved documents you sent, interviews and **Follow-up** (a Gemini draft
+you copy or share to your mail app and send yourself; **Ya lo envié** restarts the reminder). **Compartir calendario
+(.ics)** hands interviews and reminders to a calendar app through the share sheet.
+
+Notifications are off until you turn them on in **Configuración → Avisos** (Android asks for permission). The phone then
+notifies you at 9:00 on the day a follow-up or reminder is due and one hour before each interview (both editable). On
+Android 12 and later, **Permitir avisos exactos** opens the system setting "Alarmas y recordatorios"; without it Android
+may deliver notifications late, more so in battery saver. With the phone locked a notification only says "Tenés un
+recordatorio"; the offer appears once unlocked. Notifications are local: nothing is sent and no network is used. They are
+restored after a reboot.
 
 ## Signing key (once)
 

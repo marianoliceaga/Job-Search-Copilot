@@ -1,6 +1,7 @@
 using System.Text.Json;
 using JobPilot.Domain.Jobs;
 using JobPilot.Domain.Llm;
+using JobPilot.Domain.Pipeline;
 using JobPilot.Domain.Profiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -35,6 +36,12 @@ public sealed class MobileDbContext(DbContextOptions<MobileDbContext> options) :
     public DbSet<JobAnalysisRecord> JobAnalyses => Set<JobAnalysisRecord>();
 
     public DbSet<TailoredDocumentRecord> TailoredDocuments => Set<TailoredDocumentRecord>();
+
+    public DbSet<JobApplication> Applications => Set<JobApplication>();
+
+    public DbSet<ApplicationEvent> ApplicationEvents => Set<ApplicationEvent>();
+
+    public DbSet<ApplicationContact> ApplicationContacts => Set<ApplicationContact>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -142,6 +149,36 @@ public sealed class MobileDbContext(DbContextOptions<MobileDbContext> options) :
             document.Property(d => d.PromptId).HasMaxLength(150);
             document.Property(d => d.Model).HasMaxLength(100);
             document.Property(d => d.Notes).HasMaxLength(4000);
+        });
+
+        modelBuilder.Entity<JobApplication>(application =>
+        {
+            application.ToTable("Applications");
+            application.HasIndex(a => a.JobPostingId).IsUnique();
+            application.HasOne<JobPosting>().WithMany().HasForeignKey(a => a.JobPostingId).OnDelete(DeleteBehavior.Cascade);
+            application.Property(a => a.Stage).HasConversion<string>().HasMaxLength(20);
+            application.HasMany(a => a.Events).WithOne().HasForeignKey(e => e.ApplicationId).OnDelete(DeleteBehavior.Cascade);
+            application.HasMany(a => a.Contacts).WithOne().HasForeignKey(c => c.ApplicationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ApplicationEvent>(applicationEvent =>
+        {
+            applicationEvent.HasIndex(e => new { e.ApplicationId, e.OccurredAtUtc });
+            applicationEvent.Property(e => e.Kind).HasConversion<string>().HasMaxLength(30);
+            applicationEvent.Property(e => e.FromStage).HasConversion<string>().HasMaxLength(20);
+            applicationEvent.Property(e => e.ToStage).HasConversion<string>().HasMaxLength(20);
+            applicationEvent.Property(e => e.Text).HasMaxLength(20000);
+            applicationEvent.Property(e => e.ExternalId).HasMaxLength(300);
+            applicationEvent.Ignore(e => e.IsDeletable);
+        });
+
+        modelBuilder.Entity<ApplicationContact>(contact =>
+        {
+            contact.Property(c => c.Name).HasMaxLength(200);
+            contact.Property(c => c.Role).HasMaxLength(200);
+            contact.Property(c => c.Email).HasMaxLength(320);
+            contact.Property(c => c.ProfileUrl).HasMaxLength(2000);
+            contact.Property(c => c.Notes).HasMaxLength(4000);
         });
 
         modelBuilder.Entity<SettingsDocument>(document =>

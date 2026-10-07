@@ -1,0 +1,172 @@
+@page "/pipeline"
+@using JobPilot.Domain.Pipeline
+@inject ApplicationStore Store
+@inject PipelineSettingsStore Settings
+@inject ReminderNotificationSettingsStore NotificationSettings
+@inject CalendarExport Calendar
+@inject JobPilot.Mobile.Core.Infrastructure.Files.IShareService Share
+@inject TimeProvider Time
+
+@* The web Kanban as one list per stage: dragging is not reliable with a finger in a WebView (agreed with the owner). *@
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4" HtmlTag="h1">@AppSections.Pipeline.Title</MudText>
+    <MudText Typo="Typo.body2">
+        Elegí una etapa para ver sus postulaciones; cambiá la etapa con el menú de la tarjeta. Cada cambio queda en su línea de tiempo. Los
+        recordatorios de follow-up se calculan al abrir esta página.
+    </MudText>
+    @if (!_notificationsOn && !_loading)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" data-testid="notifications-off">
+            Los avisos en el teléfono están apagados. Activalos en <MudLink Href="/configuracion">Configuración → Avisos</MudLink>.
+        </MudAlert>
+    }
+    <div>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Event" OnClick="ShareCalendarAsync" Disabled="_cards.Count == 0" data-testid="share-ics">
+            Compartir calendario (.ics)
+        </MudButton>
+    </div>
+
+    @if (_message is not null)
+    {
+        <MudAlert Severity="Severity.Info" ShowCloseIcon="true" CloseIconClicked="() => _message = null">@_message</MudAlert>
+    }
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_cards.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+            Todavía no hay postulaciones. Abrí una oferta en <MudLink Href="/ofertas">Ofertas</MudLink> y usá <strong>Agregar al pipeline</strong>.
+        </MudAlert>
+    }
+    else
+    {
+        @* Stage chips wrap onto several lines, so every stage stays visible (scrolling tab bars hide most of them on a phone). *@
+        <MudChipSet T="ApplicationStage" @bind-SelectedValue="_stage" SelectionMode="SelectionMode.SingleSelection" CheckMark="false"
+                    SelectedColor="Color.Primary" Variant="Variant.Outlined">
+            @foreach (var stage in Enum.GetValues<ApplicationStage>())
+            {
+                <MudChip T="ApplicationStage" Value="stage" Text="@($"{PipelineFormat.Label(stage)} ({_cards.Count(c => c.Stage == stage)})")" />
+            }
+        </MudChipSet>
+        <MudStack Spacing="2" data-testid="@($"stage-{_stage}")">
+            @{
+                var cards = _cards.Where(c => c.Stage == _stage).ToList();
+            }
+            @if (cards.Count == 0)
+            {
+                <MudText Typo="Typo.body2">No hay postulaciones en «@PipelineFormat.Label(_stage)».</MudText>
+            }
+            @foreach (var card in cards)
+            {
+                <MudCard Outlined="true" Class="pa-2" data-testid="pipeline-card">
+                    <MudStack Spacing="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="0">
+                            <MudLink Href="@($"/pipeline/{card.Id}")" Typo="Typo.body1"><strong>@card.Title</strong></MudLink>
+                            <MudSpacer />
+                            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true" AriaLabel="Mover a otra etapa">
+                                @foreach (var target in Enum.GetValues<ApplicationStage>().Where(s => s != card.Stage))
+                                {
+                                    <MudMenuItem OnClick="() => MoveAsync(card, target)">Mover a @PipelineFormat.Label(target)</MudMenuItem>
+                                }
+                            </MudMenu>
+                        </MudStack>
+                        <MudText Typo="Typo.body2">@card.Company</MudText>
+                        <MudText Typo="Typo.caption">En esta etapa desde el @PipelineFormat.Date(card.StageChangedAtUtc)</MudText>
+                        @if (card.NextInterviewUtc is { } interview)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Icon="@Icons.Material.Filled.Event">@PipelineFormat.LocalDateTime(interview)</MudChip>
+                        }
+                        @if (card.Reminder is { } reminder)
+                        {
+                            <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.Alarm"
+                                     Color="@(reminder.IsDue(_now) ? Color.Warning : Color.Default)">@PipelineFormat.ReminderText(reminder, _now)</MudChip>
+                        }
+                    </MudStack>
+                </MudCard>
+            }
+        </MudStack>
+    }
+
+    <MudExpansionPanels Outlined="true" Elevation="0">
+        <MudExpansionPanel Text="Reglas de seguimiento">
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.body2">
+                    Cuándo recordarte un follow-up. Enviar un follow-up o registrar una respuesta reinicia la cuenta; si elegís una fecha
+                    en una postulación, esa fecha reemplaza la regla.
+                </MudText>
+                <MudNumericField T="int" @bind-Value="_afterApplied" Label="Días sin novedades después de postularte" Min="1" Max="365" Immediate="true" />
+                <MudNumericField T="int" @bind-Value="_afterInterview" Label="Días sin novedades después de una entrevista" Min="1" Max="365" Immediate="true" />
+                <MudNumericField T="int" @bind-Value="_maxFollowUps" Label="Follow-ups por etapa antes de sugerir cerrarla" Min="0" Max="10" Immediate="true" />
+                @foreach (var problem in _policyProblems)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true">@problem</MudAlert>
+                }
+                <div><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePolicyAsync">Guardar reglas</MudButton></div>
+            </MudStack>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+</MudStack>
+
+@code {
+    private List<PipelineCard> _cards = [];
+    private bool _loading = true;
+    private bool _notificationsOn = true;
+    private DateTime _now;
+    private string? _message;
+    private ApplicationStage _stage;
+    private int _afterApplied;
+    private int _afterInterview;
+    private int _maxFollowUps;
+    private IReadOnlyList<string> _policyProblems = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var policy = await Settings.GetAsync(CancellationToken.None);
+        (_afterApplied, _afterInterview, _maxFollowUps) = (policy.AfterAppliedDays, policy.AfterInterviewDays, policy.MaxFollowUps);
+        _notificationsOn = (await NotificationSettings.GetAsync(CancellationToken.None)).Enabled;
+        await LoadAsync();
+        // Start on the first stage with applications (board order).
+        _stage = Enum.GetValues<ApplicationStage>().FirstOrDefault(s => _cards.Any(c => c.Stage == s));
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        _now = Time.GetUtcNow().UtcDateTime;
+        _cards = (await Store.GetBoardAsync(CancellationToken.None)).ToList();
+    }
+
+    private async Task MoveAsync(PipelineCard card, ApplicationStage stage)
+    {
+        await Store.MoveAsync(card.Id, stage, null, CancellationToken.None);
+        _message = $"«{card.Title}» pasó a {PipelineFormat.Label(stage)}.";
+        await LoadAsync();
+    }
+
+    private async Task SavePolicyAsync()
+    {
+        _policyProblems = await Settings.SaveAsync(new FollowUpPolicy(_afterApplied, _afterInterview, _maxFollowUps), CancellationToken.None);
+        if (_policyProblems.Count == 0)
+        {
+            _message = "Reglas guardadas.";
+            await LoadAsync();
+        }
+    }
+
+    private async Task ShareCalendarAsync()
+    {
+        var (fileName, content, count) = await Calendar.ExportAsync(null, CancellationToken.None);
+        if (count == 0)
+        {
+            _message = "No hay entrevistas próximas ni recordatorios: el calendario estaría vacío.";
+            return;
+        }
+
+        // Android's share sheet: a calendar app can import the file.
+        await Share.ShareFileAsync("Calendario de JobPilot", fileName, CalendarExport.ContentType, content);
+    }
+}

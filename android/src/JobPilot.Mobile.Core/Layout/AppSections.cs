@@ -23,7 +23,7 @@ public static class AppSections
 
     public static readonly AppSection Pipeline = new(
         "Pipeline", "/pipeline", Icons.Material.Filled.ViewKanban, "A5",
-        "Tablero de etapas, línea de tiempo, notas, contactos, recordatorios de follow-up y exportación .ics.");
+        "Postulaciones por etapa, línea de tiempo, notas, contactos, recordatorios de follow-up, avisos en el teléfono y calendario .ics.");
 
     public static readonly AppSection Companies = new(
         "Empresas", "/empresas", Icons.Material.Filled.Business, "A6",
@@ -43,7 +43,7 @@ public static class AppSections
 
     public static readonly AppSection Settings = new(
         "Configuración", "/configuracion", Icons.Material.Filled.Settings, "A1",
-        "Modelos de Gemini por caso de uso, estado de la API key y registro de llamadas al LLM.");
+        "API key de Gemini, modelos por caso de uso, avisos del teléfono y registro de llamadas al LLM.");
 
     public static IReadOnlyList<AppSection> All { get; } =
     [

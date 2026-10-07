@@ -26,6 +26,7 @@ public sealed partial class SettingsPanelTests : BunitContext, IAsyncLifetime
             MobileConfiguration.Load(new Dictionary<string, string?> { ["Gemini:BaseUrl"] = "https://gemini.test/v1beta/", ["Gemini:MaxRetryAttempts"] = "1" }),
             new MobilePaths(_directory.Path));
         Services.AddSingleton<ISecretStore>(_secrets);
+        Services.AddSingleton<JobPilot.Mobile.Core.Infrastructure.Notifications.INotificationScheduler>(new FakeNotificationScheduler());
         Services.AddHttpClient<GeminiLlmClient>().ConfigurePrimaryHttpMessageHandler(() => _gemini);
     }
 
@@ -86,11 +87,11 @@ public sealed partial class SettingsPanelTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
-    public void The_settings_page_has_the_gemini_models_and_log_tabs()
+    public void The_settings_page_has_the_gemini_models_notifications_and_log_tabs()
     {
         var cut = Render<SettingsPage>();
 
-        Assert.Equal(["Gemini", "Modelos", "Registro"], cut.FindAll(".mud-tab").Select(t => t.TextContent.Trim()));
+        Assert.Equal(["Gemini", "Modelos", "Avisos", "Registro"], cut.FindAll(".mud-tab").Select(t => t.TextContent.Trim()));
     }
 
     [GeneratedRegex("jp[0-9a-f]{8}")]

@@ -20,6 +20,8 @@ public static class LlmUseCases
 
     public const string CoverLetter = "cover-letter";
 
+    public const string FollowUpEmail = "follow-up-email";
+
     public static IReadOnlyList<LlmUseCaseInfo> All { get; } =
     [
         new(ConnectionTest, "Prueba de conexión", "Verifica la API key, el modelo y la salida estructurada con un pedido mínimo."),
@@ -27,6 +29,7 @@ public static class LlmUseCases
         new(JobExtraction, "Alta manual de ofertas", "Extrae los campos de una oferta pegada a mano; el salario solo se toma si está citado textualmente."),
         new(CvTailoring, "CV a medida", "Reordena y reformula tu CV maestro para una oferta; cada viñeta cita sus fuentes y se verifica."),
         new(CoverLetter, "Carta de presentación", "Redacta la carta para una oferta a partir de tu CV maestro; cada párrafo cita sus fuentes."),
+        new(FollowUpEmail, "Follow-up de postulaciones", "Redacta un e-mail breve de seguimiento para que lo revises, copies y envíes vos; no inventa fechas ni datos."),
         new(JobAnalysis, "Análisis de ofertas", "Compara la oferta con tu perfil y CV maestro: encaje, requisitos, compensación publicada, modalidad, elegibilidad y alertas."),
     ];
 }

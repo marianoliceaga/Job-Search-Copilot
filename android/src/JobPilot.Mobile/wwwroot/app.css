@@ -80,3 +80,9 @@ h1:focus {
     overflow: auto;
     margin: 0.25rem 0 0.75rem;
 }
+
+/* Owner text (notes, contacts, interview details): keep line breaks and break long addresses or links. */
+.jp-wrap {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

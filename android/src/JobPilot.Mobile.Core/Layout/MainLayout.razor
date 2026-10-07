@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject NavigationManager Navigation
+@inject JobPilot.Mobile.Core.Infrastructure.Notifications.AppNavigationRequests NavigationRequests
+@inject JobPilot.Mobile.Core.Features.Pipeline.ReminderNotificationSync Notifications
 
 <MudThemeProvider />
 <MudPopoverProvider />
@@ -31,7 +33,30 @@
 @code {
     private bool _drawerOpen;
 
-    protected override void OnInitialized() => Navigation.LocationChanged += CloseDrawer;
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += CloseDrawer;
+        NavigationRequests.Requested += OpenRequestedPage;
+        OpenRequestedPage();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Reminders depend on the date: the alarms are scheduled again on every start (failures are only logged).
+            await Notifications.SyncAsync(CancellationToken.None);
+        }
+    }
+
+    /// <summary>Opens the page of a tapped notification (only application routes are accepted).</summary>
+    private void OpenRequestedPage() => _ = InvokeAsync(() =>
+    {
+        if (NavigationRequests.Take() is { } route)
+        {
+            Navigation.NavigateTo(route);
+        }
+    });
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
 
@@ -44,5 +69,9 @@
         }
     }
 
-    public void Dispose() => Navigation.LocationChanged -= CloseDrawer;
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= CloseDrawer;
+        NavigationRequests.Requested -= OpenRequestedPage;
+    }
 }

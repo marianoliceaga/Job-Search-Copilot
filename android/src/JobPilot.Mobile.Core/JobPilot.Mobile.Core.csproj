@@ -18,6 +18,7 @@
     <PackageReference Include="PdfPig" />
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="PDFsharp" />
+    <PackageReference Include="Ical.Net" />
   </ItemGroup>
 
   <ItemGroup>

@@ -3,7 +3,7 @@ using JobPilot.Mobile.Core.Infrastructure.Files;
 namespace JobPilot.Mobile.Services;
 
 /// <summary>
-/// <see cref="IShareService"/> over MAUI's <see cref="Share"/>: the file is written to <c>cache/sharing-root</c> (the only
+/// <see cref="IShareService"/> over MAUI's <see cref="Share"/> and <see cref="Clipboard"/>: the file is written to <c>cache/sharing-root</c> (the only
 /// folder the FileProvider exposes) and handed to Android's share sheet. Earlier exports are deleted first and on every
 /// app start: exported files are not kept.
 /// </summary>
@@ -24,6 +24,16 @@ public sealed class MauiShareService : IShareService
             File = new ShareFile(path, contentType),
         }));
     }
+
+    public Task ShareTextAsync(string title, string? subject, string text) =>
+        MainThread.InvokeOnMainThreadAsync(() => Share.Default.RequestAsync(new ShareTextRequest
+        {
+            Title = title,
+            Subject = subject,
+            Text = text,
+        }));
+
+    public Task CopyTextAsync(string text) => MainThread.InvokeOnMainThreadAsync(() => Clipboard.Default.SetTextAsync(text));
 
     /// <summary>Deletes files left from earlier shares (the receiving app has already copied them).</summary>
     public static void ClearSharedFiles()

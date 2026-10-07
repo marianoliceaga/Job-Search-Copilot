@@ -18,6 +18,8 @@
     <PackageVersion Include="AngleSharp" Version="1.8.3" />
     <!-- PDF on Android (QuestPDF has no Android binaries): pure .NET, MIT -->
     <PackageVersion Include="PDFsharp" Version="6.2.4" />
+    <!-- Calendar files (.ics), same version as the web app -->
+    <PackageVersion Include="Ical.Net" Version="5.2.3" />
     <!-- HTTP and configuration -->
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.12" />

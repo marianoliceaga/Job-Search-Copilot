@@ -16,6 +16,8 @@ acceptance criteria per phase: [`docs/PLAN.md`](docs/PLAN.md).
   only scans the repo's `src/`). Sharing goes through Android's share sheet, where the owner sends it themselves.
 - Secrets (Gemini key, Google token) go to Android's secure storage, never to files, preferences or the repo. The signing
   keystore never enters the repo (`scripts/check-no-signing-keys.sh`, `.gitignore`).
+- The only thing that runs without the owner opening the app is local notifications (agreed for A5): alarms scheduled
+  from the pipeline, restored after a reboot. They never use the network, Gemini or any account.
 
 ## Commands
 
@@ -42,8 +44,11 @@ Directory.Build.props        own copy of the repo settings without TargetFramewo
 Directory.Packages.props     central package versions for android/ (the root file is not inherited either)
 src/JobPilot.Mobile/         MAUI host, net10.0-android: MauiProgram (DI: Core services, MudBlazor, BlazorWebView, data folder
                              = FileSystem.AppDataDirectory), Services/ (MauiSecretStore over SecureStorage,
-                             MauiFilePickerService over FilePicker with Android MIME types, MauiShareService over Share with
-                             files in cache/sharing-root), App, MainPage
+                             MauiFilePickerService over FilePicker with Android MIME types, MauiShareService over Share and
+                             Clipboard with files in cache/sharing-root), Platforms/Android/Notifications
+                             (AndroidNotificationScheduler over AlarmManager, ReminderReceiver shows a notification,
+                             RescheduleReceiver restores alarms after boot/update), MainActivity (single top, opens the page
+                             of a tapped notification), App, MainPage
                              (BlazorWebView → Core Routes), Platforms/Android (MainActivity, MainApplication, AndroidManifest),
                              Platforms/Android/Resources/xml (FileProvider limited to cache/sharing-root), Resources (icon,
                              splash), wwwroot/index.html + app.css (safe areas, error UI, payload preview)
@@ -66,7 +71,7 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
                              CvImportPanel (Android picker), Import/ (CvTextExtractor with PdfPig/Open XML, ImportedCv,
                              CvImportHandler); Shared/ PartialDateField, StringListEditor
   Features/Jobs/             port of the web slice: JobsPage (/ofertas: Ofertas / Fuentes y empresas / Preferencias), JobDetailPage
-                             (/ofertas/{id}; the Empresa, Outreach, Pipeline and tailoring parts arrive in A4–A6), SourcesPanel
+                             (/ofertas/{id}; the Empresa and Outreach buttons arrive in A6), SourcesPanel
                              (cards instead of tables), Sources/ (8 IJobSource providers, web settings and intervals),
                              JobIngestion, JobSearchService, FollowedCompanyStore, JobPreferencesStore + JobSeedFiles (embedded
                              web seeds), ManualJobImport, JobListService, Analysis/ (job-analysis, AnalysisVerifier)
@@ -76,10 +81,19 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
                              (embedded web seed), Export/ (DocumentContent, DocxWriter as in the web app, PdfWriter on PDFsharp
                              with its own line layout, DocumentExporter)
   Fonts/                     Lato Regular/Bold (OFL.txt), embedded in exported PDFs
+  Features/Pipeline/         port of the web slice: PipelinePage (/pipeline: stage chips + one list, "Mover a" menu),
+                             ApplicationPage (/pipeline/{id}: section chips; share instead of download, no Google parts),
+                             PipelineButton (offer page), ApplicationStore, PipelineSettingsStore, CalendarExport (Ical.Net),
+                             FollowUpHandler + FollowUpPanel (copy or share the draft), PipelineFormat; ReminderNotifications
+                             (settings, planner, sync after every change), NotificationsPanel (Configuración → Avisos)
+  Features/Dashboard/        DashboardPage (/, lists instead of tables), DashboardService (port)
+  Infrastructure/Notifications/ INotificationScheduler (host implements it), ScheduledNotification, AppNavigationRequests
+                             (routes from tapped notifications, only /pipeline/{guid})
 tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTests, manifest, Gemini client and profile/CV
                              (ports of the web tests), prompts, configuration, migrations, settings and profile UI;
                              TestSupport/ (LlmTestHost with the app's real registrations, TestDatabase, JobsTestContext,
-                             FakeGeminiHandler, FakeLlmClient, InMemorySecretStore, FakeFilePicker); the web's fictional
+                             FakeGeminiHandler, FakeLlmClient, InMemorySecretStore, FakeFilePicker, FakeShareService,
+                             FakeNotificationScheduler); the web's fictional
                              fixtures are linked into Fixtures/Cv and Fixtures/Sources; WebSchemaTests compares both EF
                              model snapshots; AndroidFolder helper
 scripts/                     check-no-signing-keys.sh
@@ -135,6 +149,14 @@ docs/PLAN.md                 Android plan
 - `bin/Release/net10.0-android/*.apk` can be stale when a Release build used `-p:RuntimeIdentifier=...`: that build writes to
   `bin/Release/net10.0-android/<rid>/`.
 - `PickResult` cannot be created with `new(null)` inside the record: it binds to the copy constructor. Use `new(File: null)`.
+- MudTabs with more tabs than fit the phone scroll the tab bar too far after a tap (every label ends up off screen):
+  pages with many sections (pipeline stages, an application's sections) use a wrapping `MudChipSet` instead.
+- Android's `CA1416` analyzer does not understand `Build.VERSION.SdkInt` checks: guard newer APIs with
+  `OperatingSystem.IsAndroidVersionAtLeast(n)`, and use string constants for newer broadcast actions in attributes.
+- Alarms are matched by request code and intent action (not extras): `AndroidNotificationScheduler` cancels the previous
+  ids from its stored schedule (`files/scheduled-notifications.json`, source-generated JSON) before scheduling new ones.
+- Ical.Net is not trimmed (not marked trimmable; it reports IL2104 in the trim analysis but its linked size equals the
+  package's).
 - Android's picker filters by MIME type; many file managers report `.md` as `application/octet-stream`, so the picker also
   accepts it for Markdown and `CvTextExtractor` checks the extension afterwards.
 
@@ -160,6 +182,12 @@ docs/PLAN.md                 Android plan
 | 2026-10-06 | PDF export with PDFsharp 6 (MIT) and its own line layout, Lato embedded (same look as the web PDF); DOCX with Open XML as in the web app | QuestPDF has no Android binaries; chosen by the owner among PDFsharp/MigraDoc, Android's PdfDocument, DOCX only and print-to-PDF; MigraDoc dropped because its PDFs had no real spaces. |
 | 2026-10-06 | Approved documents leave the phone through Android's share sheet: written to `cache/sharing-root` right before sharing, deleted at the next share and at every app start; the FileProvider only exposes that folder | The plan's "Compartir de Android"; nothing is kept and no other app file can be reached through the provider. |
 | 2026-10-06 | Own `NoSendingTests` with the web list plus Android/MAUI composers (`smsto:`, `SmsManager`, `Email.Default`, `ACTION_SENDTO`…) | The web test only scans `src/`; the same guarantee for `android/src`. |
+| 2026-10-07 | Local notifications for due follow-ups/reminders (09:00 local on the due day) and interviews (60 min before), both editable; off until the owner turns them on (asks `POST_NOTIFICATIONS`) | Chosen by the owner for A5; the web app has nothing equivalent because it runs nothing unattended. |
+| 2026-10-07 | `AlarmManager.SetExactAndAllowWhileIdle` when exact alarms are allowed (the owner enables "Alarmas y recordatorios" from Configuración on Android 12+), `SetAndAllowWhileIdle` otherwise; no `USE_EXACT_ALARM` | Chosen by the owner ("exactos si lo habilitás"); `SCHEDULE_EXACT_ALARM` is the user-granted permission Android documents for this. |
+| 2026-10-07 | Alarms computed by a pure planner from the timeline (future times only, nearest 50) and replaced after every pipeline change, policy or settings change and on every app start; the schedule is stored in the app's private files and restored by a non-exported boot/update receiver | Same rules as the reminders; overdue items are on the Panel instead of ringing on every sync; Android cancels alarms on shutdown. |
+| 2026-10-07 | Notifications are private: the lock screen shows a generic public version ("Tenés un recordatorio"); tapping opens the application's page; only `/pipeline/{guid}` routes are accepted from intents | Chosen by the owner; the launcher activity is exported, so intent extras are untrusted. |
+| 2026-10-07 | Pipeline as stage chips + one list with a "Mover a…" menu instead of the drag-and-drop Kanban | Chosen by the owner: dragging with a finger is unreliable in a WebView. |
+| 2026-10-07 | `.ics`, sent documents and follow-up drafts leave through the share sheet; follow-ups can also be copied (MAUI `Clipboard`); no Gmail/Calendar until A8 | No downloads on Android; the owner sends from their own mail app. |
 
 ## Verified external facts
 
@@ -192,6 +220,23 @@ Checked on 2026-10-06:
 - GitHub docs use `actions/upload-artifact@v4` with `retention-days`. Source:
   `https://docs.github.com/en/actions/tutorials/store-and-share-data`.
 
+Checked on 2026-10-07 (phase A5):
+
+- Alarms: on Android 12+ `set()` fires within an hour of the trigger time unless battery restrictions apply;
+  `setExactAndAllowWhileIdle()` fires at a nearly precise time even in battery saving; exact alarms need
+  `SCHEDULE_EXACT_ALARM` (user-granted, not pre-granted to fresh installs targeting API 33+ on Android 14; check
+  `canScheduleExactAlarms()`, broadcast `ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED`) or `USE_EXACT_ALARM`
+  (limited use cases); all alarms are cancelled on shutdown, restore them with `RECEIVE_BOOT_COMPLETED`. Source:
+  `https://developer.android.com/develop/background-work/services/alarms/schedule`.
+- `POST_NOTIFICATIONS` is a runtime permission from Android 13 (API 33); notifications of newly installed apps are off
+  until granted. Source: `https://developer.android.com/develop/ui/views/notifications/notification-permission`.
+- MAUI `Permissions.PostNotifications` is supported on Android. Source:
+  `https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/appmodel/permissions?view=net-maui-10.0`.
+- A receiver with `android:exported="false"` still receives broadcasts sent by the system. Source:
+  `https://developer.android.com/guide/topics/manifest/receiver-element`.
+- WorkManager does not guarantee the execution time (system optimizations), so it was not used for timed notifications.
+  Source: `https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work`.
+
 ## Status
 
 - [x] Phase A0 — Skeleton (pending: the owner's signing secrets and a first install on the phone)
@@ -201,7 +246,9 @@ Checked on 2026-10-06:
 - [x] Phase A3 — Offers (pending: a real "Buscar", a manual entry and an analysis with the owner's key on the phone)
 - [x] Phase A4 — Tailored CV and cover letter (pending: a real generation with the owner's key and opening the shared PDF and
   DOCX on the phone)
-- [ ] Phase A5 — Pipeline, reminders and dashboard
+- [x] Phase A5 — Pipeline, reminders and dashboard (pending: on the phone, turning notifications on, receiving a follow-up
+  and an interview notification, again after a reboot, allowing exact alarms, sharing the `.ics` to a calendar app and a
+  real follow-up draft with the owner's key)
 - [ ] Phase A6 — Companies and outreach
 - [ ] Phase A7 — Interviews and negotiation
 - [ ] Phase A8 — Google

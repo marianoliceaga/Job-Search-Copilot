@@ -2,7 +2,10 @@ using System.Xml.Linq;
 
 namespace JobPilot.Mobile.Tests;
 
-/// <summary>What the APK asks Android for: internet, file reading on old Android versions only, no cloud backup.</summary>
+/// <summary>
+/// What the APK asks Android for: internet, file reading on old Android versions only, local notifications (phase A5), no
+/// cloud backup.
+/// </summary>
 public class ManifestTests
 {
     private static readonly XNamespace Android = "http://schemas.android.com/apk/res/android";
@@ -11,12 +14,17 @@ public class ManifestTests
         XDocument.Load(Path.Combine(AndroidFolder.Root, "src", "JobPilot.Mobile", "Platforms", "Android", "AndroidManifest.xml"));
 
     [Fact]
-    public void Only_network_permissions_and_legacy_file_reading_are_requested()
+    public void Only_network_legacy_file_reading_and_notification_permissions_are_requested()
     {
         var permissions = Manifest().Root!.Elements("uses-permission")
             .ToDictionary(e => (string)e.Attribute(Android + "name")!, e => (string?)e.Attribute(Android + "maxSdkVersion"));
 
-        Assert.Equal(["android.permission.ACCESS_NETWORK_STATE", "android.permission.INTERNET", "android.permission.READ_EXTERNAL_STORAGE"], permissions.Keys.Order());
+        Assert.Equal(
+            [
+                "android.permission.ACCESS_NETWORK_STATE", "android.permission.INTERNET", "android.permission.POST_NOTIFICATIONS",
+                "android.permission.READ_EXTERNAL_STORAGE", "android.permission.RECEIVE_BOOT_COMPLETED", "android.permission.SCHEDULE_EXACT_ALARM",
+            ],
+            permissions.Keys.Order(StringComparer.Ordinal));
         // The file picker needs it only up to Android 12 (API 32); newer versions use the document picker without it.
         Assert.Equal("32", permissions["android.permission.READ_EXTERNAL_STORAGE"]);
     }
@@ -46,5 +54,15 @@ public class ManifestTests
 
         var path = Assert.Single(paths);
         Assert.Equal(("cache-path", "sharing-root"), (path.Name.LocalName, (string?)path.Attribute("path")));
+    }
+
+    [Fact]
+    public void The_alarm_receivers_only_accept_broadcasts_from_the_system_and_the_app()
+    {
+        // Exported = false: other apps cannot fire reminders or reschedule alarms (the system's boot broadcast still arrives).
+        var source = File.ReadAllText(Path.Combine(AndroidFolder.Root, "src", "JobPilot.Mobile", "Platforms", "Android", "Notifications", "ReminderReceiver.cs"));
+
+        Assert.Equal(2, source.Split("[BroadcastReceiver(").Length - 1);
+        Assert.Equal(2, source.Split("[BroadcastReceiver(Enabled = true, Exported = false)]").Length - 1);
     }
 }

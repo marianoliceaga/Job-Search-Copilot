@@ -87,6 +87,15 @@ verified before relying on it; if it does not work, the owner is asked.
 ### Phase A5 — Pipeline, reminders and dashboard
 Stages, timeline, follow-up rules, `.ics`, Panel. Whether to use Android notifications is asked first (the web app runs
 nothing unattended).
+- Owner's choices (2026-10-07): local notifications; exact alarms when the owner allows them, inexact otherwise; generic
+  text on the lock screen; follow-ups at 09:00 on the due day and interviews 1 hour before (editable, with an on/off
+  switch in Configuración); stages as one list per stage with a "Mover a…" menu instead of the drag-and-drop Kanban.
+- Same stages, timeline, follow-up rule, metrics, sent-document snapshots and `follow-up-email` drafts as the web app;
+  tables identical to the web ones. Gmail drafts and Google Calendar stay for phase A8.
+- `.ics`, sent documents and follow-up drafts leave the phone through the share sheet (or the clipboard); nothing is sent
+  by the app.
+- Acceptance on the phone (owner): add an offer to the pipeline, move it, schedule an interview, turn notifications on and
+  receive one (and again after restarting the phone), share the `.ics` to a calendar app, and a real follow-up draft.
 
 ### Phase A6 — Companies and outreach
 Company research with cited sources; outreach drafts copied or shared, never sent.

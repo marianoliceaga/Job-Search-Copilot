@@ -18,6 +18,7 @@ public class MigrationTests
         var paths = new MobilePaths(Path.Combine(directory.Path, "files"));
         await using var services = new ServiceCollection().AddLogging()
             .AddJobPilotMobile(MobileConfiguration.Load(), paths)
+            .AddSingleton<JobPilot.Mobile.Core.Infrastructure.Notifications.INotificationScheduler>(new FakeNotificationScheduler())
             .BuildServiceProvider();
         var ct = TestContext.Current.CancellationToken;
 

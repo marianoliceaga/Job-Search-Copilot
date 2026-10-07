@@ -1,18 +1,37 @@
 using Bunit;
+using JobPilot.Mobile.Core;
+using JobPilot.Mobile.Core.Infrastructure;
+using JobPilot.Mobile.Core.Infrastructure.Notifications;
 using JobPilot.Mobile.Core.Layout;
 using JobPilot.Mobile.Core.Shared;
+using JobPilot.Mobile.Tests.TestSupport;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor.Services;
 
 namespace JobPilot.Mobile.Tests;
 
-public class LayoutComponentTests : BunitContext
+public class LayoutComponentTests : BunitContext, IAsyncLifetime
 {
+    private readonly TempDirectory _directory = new();
+    private readonly FakeNotificationScheduler _notifications = new();
+
     public LayoutComponentTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
+        Services.AddLogging();
         Services.AddMudServices();
+        Services.AddJobPilotMobile(MobileConfiguration.Load(), new MobilePaths(_directory.Path));
+        Services.AddSingleton<INotificationScheduler>(_notifications);
+    }
+
+    public async ValueTask InitializeAsync() => await Services.GetRequiredService<AppInitializer>().EnsureInitializedAsync();
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        await base.DisposeAsync();
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        _directory.Dispose();
     }
 
     [Fact]
@@ -67,5 +86,47 @@ public class LayoutComponentTests : BunitContext
         navigation.NavigateTo("/perfil");
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("mud-drawer--open", cut.Find("[data-testid=drawer]").ClassName, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_layout_schedules_the_notifications_when_the_app_starts()
+    {
+        Render<MainLayout>(p => p.Add(c => c.Body, (RenderFragment)(b => b.AddContent(0, "contenido"))));
+
+        // Off by default: the sync cancels whatever an earlier install or session left scheduled.
+        Assert.Equal(1, _notifications.Replacements);
+        Assert.Empty(_notifications.Scheduled!);
+    }
+
+    [Fact]
+    public void A_tapped_notification_opens_its_application_page()
+    {
+        var navigation = Services.GetRequiredService<NavigationManager>();
+        var requests = Services.GetRequiredService<AppNavigationRequests>();
+        Render<MainLayout>(p => p.Add(c => c.Body, (RenderFragment)(b => b.AddContent(0, "contenido"))));
+        var id = Guid.NewGuid();
+
+        requests.Request($"/pipeline/{id}");
+
+        Assert.Equal($"http://localhost/pipeline/{id}", navigation.Uri);
+    }
+
+    [Theory]
+    [InlineData("/configuracion")]
+    [InlineData("https://example.com/pipeline/00000000-0000-0000-0000-000000000000")]
+    [InlineData("//example.com/pipeline/00000000-0000-0000-0000-000000000000")]
+    [InlineData("/pipeline/not-a-guid")]
+    [InlineData(null)]
+    public void Only_application_pages_can_be_requested_from_outside_the_ui(string? route)
+    {
+        var navigation = Services.GetRequiredService<NavigationManager>();
+        var requests = Services.GetRequiredService<AppNavigationRequests>();
+        Render<MainLayout>(p => p.Add(c => c.Body, (RenderFragment)(b => b.AddContent(0, "contenido"))));
+
+        requests.Request(route);
+
+        Assert.False(AppNavigationRequests.IsAllowed(route));
+        Assert.Null(requests.Take());
+        Assert.Equal("http://localhost/", navigation.Uri);
     }
 }
