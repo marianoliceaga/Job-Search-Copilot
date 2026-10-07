@@ -7,9 +7,10 @@ The app is independent of the PC app: it has its own database on the phone. Data
 you export a file in one and import it in the other (phase A10). Like the web app, it prepares, analyses and drafts;
 you approve. It never sends an application, e-mail or message on your behalf.
 
-> **Status:** phases A0–A3 delivered: Configuración (Gemini key, connection test, models, call log), Perfil y CV maestro
+> **Status:** phases A0–A4 delivered: Configuración (Gemini key, connection test, models, call log), Perfil y CV maestro
 > (profile, CV import from a file on the phone, editor, versions) and Ofertas (the web app's sources, manual entry,
-> filters, analysis and ranking) work; the other sections show the phase that implements them. See
+> filters, analysis, ranking, and tailored CV and cover letter) work; the other sections show the phase that implements
+> them. See
 > [`docs/PLAN.md`](docs/PLAN.md). The UI is in Spanish.
 
 ## Install on your phone
@@ -48,6 +49,13 @@ into the app. On Android 12 and lower the app asks for permission to read files 
 **Ofertas → Buscar** reads the same sources as the PC app, with the same minimum interval per source. The phone and the
 PC keep separate histories, so if you search from both on the same day, keep each source's limit in mind (Remotive
 recommends at most 4 requests per day). Original postings open in the phone's browser.
+
+## Tailored CV and cover letter
+
+On an offer, **CV a medida** and **Carta** work as in the PC app (every text cites the master CV and is checked). Once a
+document is approved, **Compartir PDF** and **Compartir DOCX** open Android's share sheet: you choose where it goes (Files,
+Drive, an e-mail you write yourself...). The app keeps no copy of the file. The PDF is made with PDFsharp (the PC app uses
+QuestPDF, which does not run on Android); it follows the same rules: one column, real text, Lato font embedded.
 
 ## Signing key (once)
 

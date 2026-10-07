@@ -42,9 +42,11 @@ Directory.Build.props        own copy of the repo settings without TargetFramewo
 Directory.Packages.props     central package versions for android/ (the root file is not inherited either)
 src/JobPilot.Mobile/         MAUI host, net10.0-android: MauiProgram (DI: Core services, MudBlazor, BlazorWebView, data folder
                              = FileSystem.AppDataDirectory), Services/ (MauiSecretStore over SecureStorage,
-                             MauiFilePickerService over FilePicker with Android MIME types), App, MainPage
+                             MauiFilePickerService over FilePicker with Android MIME types, MauiShareService over Share with
+                             files in cache/sharing-root), App, MainPage
                              (BlazorWebView → Core Routes), Platforms/Android (MainActivity, MainApplication, AndroidManifest),
-                             Resources (icon, splash), wwwroot/index.html + app.css (safe areas, error UI, payload preview)
+                             Platforms/Android/Resources/xml (FileProvider limited to cache/sharing-root), Resources (icon,
+                             splash), wwwroot/index.html + app.css (safe areas, error UI, payload preview)
 src/JobPilot.Mobile.Core/    Razor class library, net10.0:
   MobileServiceCollectionExtensions  AddJobPilotMobile(configuration, paths): the app's own services
   Routes.razor               waits for AppInitializer (data folder + migrations), shows an error instead of crashing
@@ -56,7 +58,7 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
     Llm/                     port of the web client: GeminiLlmClient (key from GeminiKeyStore), LlmJson, contracts, options,
                              PromptLibrary.LoadEmbedded (web prompts), LlmSettingsStore, DbLlmCallLog, LlmUseCases (implemented)
     Secrets/                 ISecretStore (host implements it), GeminiKeyStore
-    Files/                   IFilePickerService (host implements it), PickedFile, PickResult
+    Files/                   IFilePickerService and IShareService (host implements them), PickedFile, PickResult
   Features/Settings/         SettingsPage (/configuracion: Gemini / Modelos / Registro), GeminiConnectionPanel (key entry,
                              connection test), UseCaseModelsPanel, LlmCallLogPanel, ConnectionTestHandler
   Features/Profile/          port of the web slice: ProfilePage (/perfil: Perfil / CV maestro), ProfileForm, ProfileStore +
@@ -69,6 +71,11 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
                              JobIngestion, JobSearchService, FollowedCompanyStore, JobPreferencesStore + JobSeedFiles (embedded
                              web seeds), ManualJobImport, JobListService, Analysis/ (job-analysis, AnalysisVerifier)
   Infrastructure/Text/       HtmlText (AngleSharp): third-party HTML → plain text
+  Features/Tailoring/        port of the web slice: TailoringSection (offer page), TailoredDocumentPage (share instead of
+                             download), editors, TailoringHandler, TailoringContext, TailoredDocumentStore, TechnologyCatalog
+                             (embedded web seed), Export/ (DocumentContent, DocxWriter as in the web app, PdfWriter on PDFsharp
+                             with its own line layout, DocumentExporter)
+  Fonts/                     Lato Regular/Bold (OFL.txt), embedded in exported PDFs
 tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTests, manifest, Gemini client and profile/CV
                              (ports of the web tests), prompts, configuration, migrations, settings and profile UI;
                              TestSupport/ (LlmTestHost with the app's real registrations, TestDatabase, JobsTestContext,
@@ -118,6 +125,15 @@ docs/PLAN.md                 Android plan
   (sources, followed companies).
 - `JobSeedFiles` reads embedded seeds; tests pass a folder through its internal constructor.
 - `WebSchemaTests` fails when a phone table is mapped differently from the web one: copy the web mapping, not a variant.
+- QuestPDF (the web app's PDF library) only ships binaries for Windows, Linux and macOS: the Android app writes PDFs with
+  PDFsharp (`Features/Tailoring/Export/PdfWriter.cs`). MigraDoc was tried first, but it positions every word separately and
+  the PDF had no space characters (PdfPig read "AlexRivera"); the writer draws whole lines with `XGraphics.DrawString`.
+- PDFsharp's platform-independent build has no system fonts: `GlobalFontSettings.FontResolver` serves the embedded Lato.
+- MAUI's default FileProvider paths expose the whole cache and app data; `Platforms/Android/Resources/xml/
+  microsoft_maui_essentials_fileprovider_file_paths.xml` limits sharing to `cache/sharing-root` (checked in the APK with
+  `aapt2 dump xmltree --file res/xml/microsoft_maui_essentials_fileprovider_file_paths.xml <apk>`).
+- `bin/Release/net10.0-android/*.apk` can be stale when a Release build used `-p:RuntimeIdentifier=...`: that build writes to
+  `bin/Release/net10.0-android/<rid>/`.
 - `PickResult` cannot be created with `new(null)` inside the record: it binds to the copy constructor. Use `new(File: null)`.
 - Android's picker filters by MIME type; many file managers report `.md` as `application/octet-stream`, so the picker also
   accepts it for Markdown and `CvTextExtractor` checks the extension afterwards.
@@ -141,6 +157,8 @@ docs/PLAN.md                 Android plan
 | 2026-10-06 | Profile and master CV ported from the web slice unchanged in behaviour (seed, versions, restore, import verifier flags, review before save); same tables as the web app | One behaviour in both apps; A10 maps the tables one to one. |
 | 2026-10-06 | Offers ported from the web slice with the same 8 sources, user agent and minimum intervals (embedded web settings); each app keeps its own `SourceRuns` | Chosen by the owner ("mismos intervalos que la web"); the Sources tab tells the owner that both apps count separately against each source's limits. |
 | 2026-10-06 | Phone tables mapped exactly like the web ones, enforced by comparing both EF model snapshots | A10 imports and exports rows without translation. |
+| 2026-10-06 | PDF export with PDFsharp 6 (MIT) and its own line layout, Lato embedded (same look as the web PDF); DOCX with Open XML as in the web app | QuestPDF has no Android binaries; chosen by the owner among PDFsharp/MigraDoc, Android's PdfDocument, DOCX only and print-to-PDF; MigraDoc dropped because its PDFs had no real spaces. |
+| 2026-10-06 | Approved documents leave the phone through Android's share sheet: written to `cache/sharing-root` right before sharing, deleted at the next share and at every app start; the FileProvider only exposes that folder | The plan's "Compartir de Android"; nothing is kept and no other app file can be reached through the provider. |
 | 2026-10-06 | Own `NoSendingTests` with the web list plus Android/MAUI composers (`smsto:`, `SmsManager`, `Email.Default`, `ACTION_SENDTO`…) | The web test only scans `src/`; the same guarantee for `android/src`. |
 
 ## Verified external facts
@@ -165,6 +183,12 @@ Checked on 2026-10-06:
   `https://himalayas.app/api`.
 - Blazor Hybrid links: external links (other host or `target="_blank"`) open in the device's handler by default. Source:
   `https://learn.microsoft.com/en-us/aspnet/core/blazor/hybrid/routing?view=aspnetcore-10.0`.
+- QuestPDF 2026.9.1: supported operating systems Windows, Linux and macOS (package README); runtimes only for win, linux,
+  osx. PDFsharp 6.2.4: MIT, `lib/net10.0`, no native code. Lato 1.104 from Google Fonts: SIL OFL 1.1 (in the font's name
+  table and `Fonts/OFL.txt`).
+- MAUI Share: `ShareFileRequest` with a file in `FileSystem.CacheDirectory`; on Android the FileProvider may expose the
+  whole cache and app data unless `microsoft_maui_essentials_fileprovider_file_paths.xml` overrides its paths. Source:
+  `https://learn.microsoft.com/en-us/dotnet/maui/platform-integration/data/share?view=net-maui-10.0`.
 - GitHub docs use `actions/upload-artifact@v4` with `retention-days`. Source:
   `https://docs.github.com/en/actions/tutorials/store-and-share-data`.
 
@@ -175,7 +199,8 @@ Checked on 2026-10-06:
   the call log after restarting the app, which confirms EF Core and secure storage at runtime)
 - [x] Phase A2 — Profile and master CV (pending: a real import on the phone with the owner's CV through Android's picker)
 - [x] Phase A3 — Offers (pending: a real "Buscar", a manual entry and an analysis with the owner's key on the phone)
-- [ ] Phase A4 — Tailored CV and cover letter
+- [x] Phase A4 — Tailored CV and cover letter (pending: a real generation with the owner's key and opening the shared PDF and
+  DOCX on the phone)
 - [ ] Phase A5 — Pipeline, reminders and dashboard
 - [ ] Phase A6 — Companies and outreach
 - [ ] Phase A7 — Interviews and negotiation

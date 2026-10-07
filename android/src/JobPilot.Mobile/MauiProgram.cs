@@ -20,6 +20,9 @@ public static class MauiProgram
         builder.Services.AddJobPilotMobile(MobileConfiguration.Load(), new MobilePaths(FileSystem.AppDataDirectory));
         builder.Services.AddSingleton<ISecretStore, MauiSecretStore>();
         builder.Services.AddSingleton<IFilePickerService, MauiFilePickerService>();
+        builder.Services.AddSingleton<IShareService, MauiShareService>();
+        // Exports shared in an earlier session are not kept.
+        MauiShareService.ClearSharedFiles();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

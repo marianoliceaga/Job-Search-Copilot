@@ -36,4 +36,15 @@ public class ManifestTests
         Assert.Equal("26.0", Property("SupportedOSPlatformVersion"));
         Assert.Equal("com.vidi.jobpilot", Property("ApplicationId"));
     }
+
+    [Fact]
+    public void Shared_files_can_only_come_from_the_sharing_folder_of_the_cache()
+    {
+        // Without this override, MAUI's FileProvider exposes the whole cache and app data (database included).
+        var paths = XDocument.Load(Path.Combine(AndroidFolder.Root, "src", "JobPilot.Mobile", "Platforms", "Android", "Resources", "xml",
+            "microsoft_maui_essentials_fileprovider_file_paths.xml")).Root!.Elements().ToList();
+
+        var path = Assert.Single(paths);
+        Assert.Equal(("cache-path", "sharing-root"), (path.Name.LocalName, (string?)path.Attribute("path")));
+    }
 }

@@ -77,6 +77,12 @@ The eight sources with their rate limits, manual entry, filters, analysis with G
 ### Phase A4 — Tailored CV and cover letter
 Generation with traceability, approval, DOCX/PDF export shared through Android's share sheet. QuestPDF on Android is
 verified before relying on it; if it does not work, the owner is asked.
+- QuestPDF has no Android binaries; the owner chose PDFsharp (2026-10-06). Same PDF rules as the web app (Letter, one
+  column, Lato embedded, real text with spaces, no tables or images), with tests for wrapping, bullets and page breaks.
+- Same generation, traceability validator, flags, approval and DOCX as the web app; tables identical to the web ones.
+- Export only after approval, through Android's share sheet; the file is not kept.
+- Acceptance on the phone (owner): generate a CV and a letter for an offer, approve them, share the PDF and DOCX (e.g. to
+  Files or Drive) and open them.
 
 ### Phase A5 — Pipeline, reminders and dashboard
 Stages, timeline, follow-up rules, `.ics`, Panel. Whether to use Android notifications is asked first (the web app runs

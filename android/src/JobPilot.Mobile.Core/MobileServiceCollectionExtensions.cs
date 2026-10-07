@@ -2,6 +2,7 @@ using JobPilot.Mobile.Core.Features.Jobs;
 using JobPilot.Mobile.Core.Features.Profile;
 using JobPilot.Mobile.Core.Features.Profile.Import;
 using JobPilot.Mobile.Core.Features.Settings;
+using JobPilot.Mobile.Core.Features.Tailoring;
 using JobPilot.Mobile.Core.Infrastructure;
 using JobPilot.Mobile.Core.Infrastructure.Llm;
 using JobPilot.Mobile.Core.Infrastructure.Persistence;
@@ -30,6 +31,7 @@ public static class MobileServiceCollectionExtensions
         services.AddSingleton<MasterCvStore>();
         services.AddTransient<CvImportHandler>();
         services.AddJobs(configuration);
+        services.AddTailoring();
         return services;
     }
 }

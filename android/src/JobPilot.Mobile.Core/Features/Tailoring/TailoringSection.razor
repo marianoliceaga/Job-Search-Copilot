@@ -1,0 +1,122 @@
+@using JobPilot.Mobile.Core.Infrastructure.Llm
+@using JobPilot.Mobile.Core.Infrastructure.Persistence
+@implements IDisposable
+@inject TailoringHandler Handler
+@inject TailoredDocumentStore Store
+@inject LlmSettingsStore Settings
+@inject NavigationManager Navigation
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h5">Postulación</MudText>
+    <MudText Typo="Typo.body2">
+        Generá un CV y una carta a medida a partir de tu CV maestro. Cada texto cita de qué elemento sale; lo que no se pueda
+        rastrear queda marcado y no se puede aprobar sin revisarlo.
+    </MudText>
+
+    @if (_documents.Count > 0)
+    {
+        <MudSimpleTable Dense="true" Elevation="0" Outlined="true">
+            <thead><tr><th>Documento</th><th>Estado</th><th>Creado</th><th>CV maestro</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var document in _documents)
+                {
+                    <tr>
+                        <td>@(document.Kind == TailoredKind.Cv ? "CV a medida" : "Carta de presentación")</td>
+                        <td>
+                            <MudChip T="string" Size="Size.Small" Color="@(document.Status == TailoredStatus.Approved ? Color.Success : Color.Default)">
+                                @(document.Status == TailoredStatus.Approved ? "Aprobado" : "Borrador")
+                            </MudChip>
+                        </td>
+                        <td>@LlmFormat.LocalTime(document.CreatedAtUtc)</td>
+                        <td>v@(document.MasterCvVersion)</td>
+                        <td><MudButton Size="Size.Small" Href="@($"/ofertas/{PostingId}/documentos/{document.Id}")">Abrir</MudButton></td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+
+    <MudStack Row="true">
+        <MudButton Variant="Variant.Outlined" OnClick="() => PrepareAsync(TailoredKind.Cv)" Disabled="_running">Preparar CV a medida</MudButton>
+        <MudButton Variant="Variant.Outlined" OnClick="() => PrepareAsync(TailoredKind.CoverLetter)" Disabled="_running">Preparar carta</MudButton>
+    </MudStack>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+
+    @if (_prepared is not null)
+    {
+        <LlmPayloadPreview Prompt="_prepared.Prompt" Model="@_model" />
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GenerateAsync" Disabled="_running">
+                @(_prepared.Kind == TailoredKind.Cv ? "Generar CV con Gemini" : "Generar carta con Gemini")
+            </MudButton>
+            @if (_running)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudText Typo="Typo.body2">Generando y verificando cada texto…</MudText>
+                <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
+            }
+        </MudStack>
+    }
+</MudStack>
+
+@code {
+    private IReadOnlyList<TailoredDocumentSummary> _documents = [];
+    private PreparedTailoring? _prepared;
+    private string _model = string.Empty;
+    private string? _error;
+    private bool _running;
+    private CancellationTokenSource? _cts;
+
+    [Parameter, EditorRequired]
+    public Guid PostingId { get; set; }
+
+    protected override async Task OnParametersSetAsync() =>
+        _documents = await Store.ListAsync(PostingId, CancellationToken.None);
+
+    private async Task PrepareAsync(TailoredKind kind)
+    {
+        _error = null;
+        (_prepared, _error) = await Handler.PrepareAsync(PostingId, kind, CancellationToken.None);
+        if (_prepared is not null)
+        {
+            var useCase = kind == TailoredKind.Cv ? LlmUseCases.CvTailoring : LlmUseCases.CoverLetter;
+            _model = (await Settings.ResolveAsync(useCase, CancellationToken.None)).Model;
+        }
+    }
+
+    private async Task GenerateAsync()
+    {
+        _running = true;
+        _error = null;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            var result = await Handler.RunAsync(_prepared!, _cts.Token);
+            if (result.DocumentId is { } id)
+            {
+                Navigation.NavigateTo($"/ofertas/{PostingId}/documentos/{id}");
+                return;
+            }
+
+            _error = result.Error!.Message + (result.Error.Detail is null ? string.Empty : $" ({result.Error.Detail})");
+        }
+        catch (OperationCanceledException)
+        {
+            _error = "Generación cancelada.";
+        }
+        finally
+        {
+            _running = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    public void Dispose() => _cts?.Cancel();
+}

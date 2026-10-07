@@ -17,6 +17,7 @@
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="PdfPig" />
     <PackageReference Include="AngleSharp" />
+    <PackageReference Include="PDFsharp" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,11 +35,17 @@
     <ProjectReference Include="..\..\..\src\JobPilot.Domain\JobPilot.Domain.csproj" />
   </ItemGroup>
 
+  <!-- Lato (SIL OFL 1.1, see Fonts/OFL.txt), the font of the web app's PDFs, embedded in the exported PDFs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\*.ttf" LogicalName="Fonts/%(Filename)%(Extension)" />
+    <None Include="Fonts\OFL.txt" />
+  </ItemGroup>
+
   <!-- Shared with the web app, read-only: the same versioned prompts and the same model, parameter and price defaults. -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Prompts\*.md" Link="Shared\Prompts\%(Filename)%(Extension)" LogicalName="Prompts/%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\..\src\JobPilot.Web\appsettings.json" Link="Shared\web-appsettings.json" LogicalName="web-appsettings.json" />
-    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Seed\profile.seed.json;..\..\..\src\JobPilot.Web\Seed\job-search.seed.json;..\..\..\src\JobPilot.Web\Seed\followed-companies.seed.json" Link="Shared\Seed\%(Filename)%(Extension)" LogicalName="Seed/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Seed\profile.seed.json;..\..\..\src\JobPilot.Web\Seed\job-search.seed.json;..\..\..\src\JobPilot.Web\Seed\followed-companies.seed.json;..\..\..\src\JobPilot.Web\Seed\technology-terms.txt" Link="Shared\Seed\%(Filename)%(Extension)" LogicalName="Seed/%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>
