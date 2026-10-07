@@ -6,24 +6,28 @@
 <MudChipSet T="string" @bind-SelectedValue="_section" SelectionMode="SelectionMode.SingleSelection" CheckMark="false"
             SelectedColor="Color.Primary" Variant="Variant.Outlined" Class="mb-2">
     <MudChip T="string" Value="@("gemini")" Text="Gemini" />
-    <MudChip T="string" Value="@("models")" Text="Modelos" />
-    <MudChip T="string" Value="@("notifications")" Text="Avisos" />
+    <MudChip T="string" Value="@("modelos")" Text="Modelos" />
+    <MudChip T="string" Value="@("avisos")" Text="Avisos" />
     <MudChip T="string" Value="@("google")" Text="Google" />
-    <MudChip T="string" Value="@("log")" Text="Registro" />
+    <MudChip T="string" Value="@("correo")" Text="Reglas de correo" />
+    <MudChip T="string" Value="@("registro")" Text="Registro" />
 </MudChipSet>
 <MudPaper Outlined="true" Class="pa-3">
     @switch (_section)
     {
-        case "models":
+        case "modelos":
             <UseCaseModelsPanel />
             break;
-        case "notifications":
+        case "avisos":
             <JobPilot.Mobile.Core.Features.Pipeline.NotificationsPanel />
             break;
         case "google":
             <JobPilot.Mobile.Core.Features.Google.GooglePanel />
             break;
-        case "log":
+        case "correo":
+            <JobPilot.Mobile.Core.Features.Mail.MailRulesPanel />
+            break;
+        case "registro":
             <LlmCallLogPanel />
             break;
         default:
@@ -33,5 +37,19 @@
 </MudPaper>
 
 @code {
+    private static readonly string[] Sections = ["gemini", "modelos", "avisos", "google", "correo", "registro"];
+
     private string _section = "gemini";
+
+    /// <summary>Opens a section directly (links from other pages, e.g. <c>/configuracion?seccion=google</c>).</summary>
+    [SupplyParameterFromQuery(Name = "seccion")]
+    public string? Section { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Section is not null && Sections.Contains(Section, StringComparer.Ordinal))
+        {
+            _section = Section;
+        }
+    }
 }

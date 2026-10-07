@@ -391,3 +391,4 @@ export/import feature (phase A10).
   for the status of A0–A10)
 - [x] Phase A8 — Google on the phone through Android's authorization API (pending: the owner's Android OAuth client and a real
   connection on the phone)
+- [x] Phase A9 — Mail brief ("Hoy") on the phone (pending: a real check on the owner's Gmail from the phone)

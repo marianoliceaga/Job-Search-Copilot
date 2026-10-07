@@ -7,10 +7,10 @@ The app is independent of the PC app: it has its own database on the phone. Data
 you export a file in one and import it in the other (phase A10). Like the web app, it prepares, analyses and drafts;
 you approve. It never sends an application, e-mail or message on your behalf.
 
-> **Status:** phases A0–A7 delivered: every section works — Configuración (Gemini key, connection test, models,
-> notifications, call log), Perfil y CV maestro, Ofertas (sources, manual entry, analysis, ranking, tailored CV and cover
-> letter), Pipeline, the Panel, Empresas, Outreach, Entrevistas and Negociación, plus the optional Google connection
-> (A8). Still to come: the mail brief (A9) and moving data between the PC and the phone (A10). See
+> **Status:** phases A0–A9 delivered: every section works — Configuración (Gemini key, connection test, models,
+> notifications, Google, mail rules, call log), Perfil y CV maestro, Ofertas (sources, manual entry, analysis, ranking,
+> tailored CV and cover letter), Pipeline, the Panel with the "Hoy" mail brief, Empresas, Outreach, Entrevistas and
+> Negociación, plus the optional Google connection. Still to come: moving data between the PC and the phone (A10). See
 > [`docs/PLAN.md`](docs/PLAN.md). The UI is in Spanish.
 
 ## Install on your phone
@@ -112,6 +112,20 @@ can connect. Then **Configuración → Google → Conectar con Google** shows Go
 only for the calendar, for accounts with Advanced Protection, where Gmail is blocked). The phone keeps no Google token:
 Android gives the app a one-hour access token each session, silently while the grant lasts; **Desconectar y revocar**
 revokes it. Phones without Google Play services cannot connect.
+
+## Mail brief ("Hoy")
+
+With Google connected with **Gmail y Calendar**, the Panel starts with **Hoy**, as on the PC: tap **Actualizar correo**
+and JobPilot reads your job-search mail since the last check (the first time, the last day) with the same rules as the PC
+app. It shows the threads waiting for you ("Te esperan", with "Registrar en <empresa>" to add the reply to an
+application, and "Listo" to hide a card until a new message), the roles from LinkedIn job alerts (added to Ofertas without
+description: paste it on the offer page before analysing), interviews in the next 48 hours and what was filtered (tap a
+chip to see examples).
+
+Mail is read only when you tap the button: nothing runs in the background, and nothing is sent, archived, labelled or
+marked as read. Only sender, subject and dates are kept; message texts are never stored or sent to Gemini. The rules are
+edited as JSON in **Configuración → Reglas de correo** (city, companies, pay floor and exchange rates are yours to fill
+in; pay is never estimated). The phone keeps its own rules: changes on the PC do not reach it.
 
 ## Signing key (once)
 

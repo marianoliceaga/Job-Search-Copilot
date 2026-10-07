@@ -129,6 +129,13 @@ Needs an Android OAuth client in Google Cloud; the current procedure is verified
 
 ### Phase A9 — Mail brief ("Hoy")
 The phase 9 brief on the phone, with the same rules and read-only Gmail access.
+- Delivered on 2026-10-07: the web mail check (rules store, LinkedIn alert parser, `MailCheckService`, `MailChecks` and
+  `MailWaiting` tables) ported unchanged; "Hoy" at the top of the Panel; "Reglas de correo" in Configuración; the generic
+  rules seed embedded from the web app. Mail is read only on "Actualizar correo" (no background work on the phone).
+- Phone layout: the update button on its own line, long subjects wrap, filter examples open with a tap instead of a
+  tooltip; Configuración sections can be opened from links (`/configuracion?seccion=...`).
+- Acceptance on the phone (owner): with Google connected with Gmail, update the mail, register a reply in an
+  application, mark a card "Listo", open an alert role in Ofertas and edit the rules.
 
 ### Phase A10 — Export and import between PC and phone
 One JSON file format exported and imported by both apps (the web app gets this feature too, confirmed again with the

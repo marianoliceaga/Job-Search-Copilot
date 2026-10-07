@@ -4,7 +4,7 @@
 @inject DashboardService Dashboard
 @inject TimeProvider Time
 
-@* Port of the web Panel; tables with more than three columns become lists to fit the phone. The "Hoy" brief arrives in A9. *@
+@* Port of the web Panel; tables with more than three columns become lists to fit the phone. *@
 
 <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">@AppSections.Dashboard.Title</MudText>
 
@@ -16,6 +16,8 @@ else
 {
     var pipeline = _data.Pipeline;
     <MudStack Spacing="3">
+        <JobPilot.Mobile.Core.Features.Mail.TodayPanel />
+
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6">
                 <MudPaper Outlined="true" Class="pa-3" data-testid="metric-offers">
@@ -124,7 +126,7 @@ else
                     </MudText>
                 </MudStack>
             }
-            <MudLink Href="/configuracion" Typo="Typo.body2">Ver el registro de llamadas</MudLink>
+            <MudLink Href="/configuracion?seccion=registro" Typo="Typo.body2">Ver el registro de llamadas</MudLink>
         </MudPaper>
     </MudStack>
 }

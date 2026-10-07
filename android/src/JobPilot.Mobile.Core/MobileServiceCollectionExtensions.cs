@@ -1,5 +1,6 @@
 using JobPilot.Mobile.Core.Features.Interviews;
 using JobPilot.Mobile.Core.Features.Jobs;
+using JobPilot.Mobile.Core.Features.Mail;
 using JobPilot.Mobile.Core.Features.Outreach;
 using JobPilot.Mobile.Core.Features.Pipeline;
 using JobPilot.Mobile.Core.Features.Profile;
@@ -42,6 +43,7 @@ public static class MobileServiceCollectionExtensions
         services.AddCompaniesAndOutreach(configuration);
         services.AddInterviewsAndNegotiation(configuration);
         services.AddGoogle(configuration);
+        services.AddMail();
         return services;
     }
 }

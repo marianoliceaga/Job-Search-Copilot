@@ -92,9 +92,22 @@ public sealed partial class SettingsPanelTests : BunitContext, IAsyncLifetime
     {
         var cut = Render<SettingsPage>();
 
-        // Five sections do not fit a phone's tab bar: chips wrap and keep every section visible.
-        Assert.Equal(["Gemini", "Modelos", "Avisos", "Google", "Registro"], cut.FindAll(".mud-chipset .mud-chip").Select(t => t.TextContent.Trim()));
+        // Six sections do not fit a phone's tab bar: chips wrap and keep every section visible.
+        Assert.Equal(["Gemini", "Modelos", "Avisos", "Google", "Reglas de correo", "Registro"], cut.FindAll(".mud-chipset .mud-chip").Select(t => t.TextContent.Trim()));
         Assert.Empty(cut.FindAll(".mud-tab"));
+    }
+
+    [Fact]
+    public void Links_open_a_section_and_the_mail_rules_are_validated_before_saving()
+    {
+        Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().NavigateTo("/configuracion?seccion=correo");
+        var cut = Render<SettingsPage>();
+
+        cut.WaitForAssertion(() => Assert.Contains("&quot;gmail&quot;", cut.Find("textarea[data-testid=mail-rules-json]").OuterHtml, StringComparison.Ordinal));
+        cut.Find("textarea[data-testid=mail-rules-json]").Input("{ nope");
+        cut.FindAll("button").First(b => b.TextContent.Contains("Guardar", StringComparison.Ordinal)).Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("El JSON no es válido", cut.Markup, StringComparison.Ordinal));
     }
 
     [GeneratedRegex("jp[0-9a-f]{8}")]

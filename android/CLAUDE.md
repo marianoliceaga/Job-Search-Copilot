@@ -105,6 +105,9 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
                              GoogleCalendarClient, IcsInviteParser (ports), GoogleOptions + GoogleScopes (endpoints only)
   Features/Google/           GooglePanel (Configuración → Google: Android client steps, connect, scopes, disconnect), GoogleUi
                              (confirmation dialogs, port); Pipeline/ApplicationGoogleService + ApplicationMailPanel ("Correo")
+  Features/Mail/             port of the web slice: TodayPanel ("Hoy" on the Panel; filter examples on tap), MailCheckService,
+                             LinkedInAlertParser, MailRulesStore + MailRulesSeed (embedded web seed), MailRulesPanel
+                             (Configuración → Reglas de correo); MailCheckRecord/MailWaitingRecord in Persistence/SupportRecords.cs
   Infrastructure/Notifications/ INotificationScheduler (host implements it), ScheduledNotification, AppNavigationRequests
                              (routes from tapped notifications, only /pipeline/{guid})
 tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTests, manifest, Gemini client and profile/CV
@@ -142,7 +145,7 @@ docs/PLAN.md                 Android plan
 - Native libraries must have 16 KB ELF segment alignment for Android 15+ devices with 16 KB pages: `libe_sqlite3.so` from
   SQLitePCLRaw 2.1.12 has `0x4000` (`readelf -lW`).
 - The Core library embeds `src/JobPilot.Web/Prompts/*.md`, `src/JobPilot.Web/appsettings.json` and the web seeds it needs
-  (`Seed/profile.seed.json`) at build time (links, not copies): a web prompt, price or seed change reaches the phone with
+  (`Seed/*.seed.json`, `technology-terms.txt`) at build time (links, not copies): a web prompt, price or seed change reaches the phone with
   the next APK.
 - MAUI suppresses trim analysis warnings (`SuppressTrimAnalysisWarnings=true`), so "0 warnings" says nothing about trimming.
   To see them: `dotnet build android/src/JobPilot.Mobile -c Release -p:SuppressTrimAnalysisWarnings=false
@@ -150,6 +153,7 @@ docs/PLAN.md                 Android plan
   assemblies (EF Core, SQLitePCLRaw, the Core library's System.Text.Json use) and MudBlazor; PdfPig and Open XML (marked
   trimmable) are trimmed without warnings. On 2026-10-07 (A8) the new ones were only IL2026 in the untrimmed Core Google code
   (JSON helpers, options binding); none from the Play services bindings or the host authorizer.
+  A9 added only IL2026 in the untrimmed Core mail rules JSON (`MailRulesStore`, `MailRulesSeed`).
 - The Core library adds the web SDK's implicit usings it needs (`Microsoft.Extensions.Configuration`, `DependencyInjection`,
   `Logging`) so ported web files compile unchanged.
 - External links (`target="_blank"` or another host) open in the phone's browser: that is BlazorWebView's default
@@ -182,7 +186,10 @@ docs/PLAN.md                 Android plan
 - Binding names: Java static `builder()` becomes `InvokeBuilder()` (`AuthorizationRequest`, `ClearTokenRequest`); Play
   services tasks are awaited with `AsAsync<T>()` (`Android.Gms.Extensions`). The package's XML docs are empty: list the API
   from the DLL metadata.
-- Configuración has five sections: chips, like every page with more sections than fit a phone's tab bar.
+- Configuración has six sections: chips, like every page with more sections than fit a phone's tab bar. Links open a section
+  with `/configuracion?seccion=gemini|modelos|avisos|google|correo|registro`.
+- Tooltips need hover: on the phone, extra details (e.g. the examples of a mail filter) open with a tap.
+- bUnit: a `data-testid` on a `MudTextField` lands on the `textarea`/`input` itself (`textarea[data-testid=...]`).
 - Android's picker filters by MIME type; many file managers report `.md` as `application/octet-stream`, so the picker also
   accepts it for Markdown and `CvTextExtractor` checks the extension afterwards.
 
@@ -216,6 +223,7 @@ docs/PLAN.md                 Android plan
 | 2026-10-07 | `.ics`, sent documents and follow-up drafts leave through the share sheet; follow-ups can also be copied (MAUI `Clipboard`); no Gmail/Calendar until A8 | No downloads on Android; the owner sends from their own mail app. |
 | 2026-10-07 | Google through Android's authorization API (Play services `AuthorizationClient`, play-services-auth 22.0.0) with an "Android" OAuth client (package + SHA-1); no client id/secret in the app, no refresh token, a one-hour access token per session in memory; only granted scopes, e-mail and date in `google-connection.json`; revocation through Google's revoke endpoint | Verified procedure approved by the owner: custom URI schemes are no longer supported for Android and loopback redirects are deprecated for mobile; Google discourages refresh tokens on devices. |
 | 2026-10-07 | Same Google scope as the web app (Gmail threads, responses, drafts; JobPilot calendar; "Solo Calendar") with the web confirmation dialogs; the Gmail client, calendar client and application service are ports | Chosen by the owner; one behaviour in both apps; `NoSendingTests` keep "never sends". |
+| 2026-10-07 | Mail brief ported unchanged (rules, classifier, alert roles → offers, waiting cards, stored facts only); read only on "Actualizar correo", no WorkManager job; the phone has its own rules document seeded from the web seed | Same behaviour as the web app; "nothing runs unattended"; each app keeps its own data until the A10 export/import. |
 | 2026-10-07 | Interviews and negotiation ported unchanged (practice rules, rubrics, comparator, script checks); sections as chips, comparison and history as cards, the score chart's SVG text doubled (its 640-wide viewBox is drawn at about half size on a phone) | Same rules as the web app; readable on a 360-400 px screen. |
 | 2026-10-07 | Companies and outreach ported unchanged (URL context research, fact verifier, three tones, only verified facts, LinkedIn review on pasted text); outreach drafts are copied or shared through the share sheet, LinkedIn proposals copied | Same "never invent" and "never send" rules as the web app; the share sheet hands the text to LinkedIn or a mail app where the owner sends it. |
 
@@ -294,5 +302,6 @@ Checked on 2026-10-07 (phase A5):
   offer comparison, a script and a roleplay with the owner's key)
 - [x] Phase A8 — Google (pending: the owner's Android OAuth client in Google Cloud, a signed APK, and a real connection, thread
   link, Gmail draft and calendar event on the phone)
-- [ ] Phase A9 — Mail brief
+- [x] Phase A9 — Mail brief (pending: a real check on the owner's Gmail from the phone, after the Android OAuth client and
+  leaving Advanced Protection, and the owner's city, pay floor and rates in the phone's rules)
 - [ ] Phase A10 — Export and import between PC and phone
