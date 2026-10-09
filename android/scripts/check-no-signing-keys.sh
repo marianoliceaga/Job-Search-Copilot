@@ -15,4 +15,15 @@ if [ -n "$found" ]; then
     exit 1
 fi
 
-echo "✓ No Android signing material or packages"
+# Google service account keys (the Play upload credential lives only in the PLAY_SERVICE_ACCOUNT_JSON secret).
+keys=$(git ls-files --cached --others --exclude-standard -z \
+    | xargs -0 -r grep -lE '"type"[[:space:]]*:[[:space:]]*"service_account"|-----BEGIN (RSA |ENCRYPTED )?PRIVATE KEY-----' 2>/dev/null \
+    | grep -v '^android/scripts/check-no-signing-keys.sh$' || true)
+
+if [ -n "$keys" ]; then
+    echo "✗ Private keys or Google service account keys that must not be committed:"
+    echo "$keys" | sed 's/^/    /'
+    exit 1
+fi
+
+echo "✓ No Android signing material, packages or service account keys"
