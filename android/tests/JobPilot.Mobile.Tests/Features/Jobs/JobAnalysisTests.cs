@@ -123,6 +123,7 @@ public class JobAnalysisTests
     public async Task Analysis_sends_profile_cv_and_wrapped_posting_and_stores_the_verified_result()
     {
         await using var context = await JobsTestContext.CreateAsync();
+        await context.SaveProfileAsync();
         await context.SaveCvAsync();
         var job = JobsTestContext.Job(description: "We need C# and Kubernetes. Contractor role. Open to LATAM. Pay: USD 120k - 150k per year.");
         var id = (await context.Ingestion.IngestAsync([job], new JobSearchPreferences(), false, Ct)).PostingIds[0];

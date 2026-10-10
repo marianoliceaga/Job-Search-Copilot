@@ -71,8 +71,8 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
     Files/                   IFilePickerService and IShareService (host implements them), PickedFile, PickResult
   Features/Settings/         SettingsPage (/configuracion: Gemini / Modelos / Registro), GeminiConnectionPanel (key entry,
                              connection test), UseCaseModelsPanel, LlmCallLogPanel, ConnectionTestHandler
-  Features/Profile/          port of the web slice: ProfilePage (/perfil: Perfil / CV maestro), ProfileForm, ProfileStore +
-                             ProfileSeed (embedded web seed), MasterCvStore (versions), MasterCvPanel, MasterCvEditor,
+  Features/Profile/          port of the web slice: ProfilePage (/perfil: Perfil / CV maestro), ProfileForm, ProfileStore
+                             (starts empty, no seed), MasterCvStore (versions), MasterCvPanel, MasterCvEditor,
                              CvImportPanel (Android picker), Import/ (CvTextExtractor with PdfPig/Open XML, ImportedCv,
                              CvImportHandler); Shared/ PartialDateField, StringListEditor
   Features/Jobs/             port of the web slice: JobsPage (/ofertas: Ofertas / Fuentes y empresas / Preferencias), JobDetailPage
@@ -91,7 +91,8 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
                              PipelineButton (offer page), ApplicationStore, PipelineSettingsStore, CalendarExport (Ical.Net),
                              FollowUpHandler + FollowUpPanel (copy or share the draft), PipelineFormat; ReminderNotifications
                              (settings, planner, sync after every change), NotificationsPanel (Configuración → Avisos)
-  Features/Dashboard/        DashboardPage (/, lists instead of tables), DashboardService (port)
+  Features/Dashboard/        DashboardPage (/, lists instead of tables), DashboardService (port), FirstStepsPanel (key, profile,
+                             CV and import until they are in place)
   Features/Companies/        port of the web slice: CompaniesPage (/empresas, cards instead of a table), CompanyPage
                              (/empresas/{id}), CompanyButton (offer page), CompanyStore, CompanyResearchHandler (URL context +
                              CompanyFactVerifier), CompanyFormat
@@ -154,8 +155,11 @@ docs/PLAY.md                 Google Play internal testing: steps, automation, tr
 - Native libraries must have 16 KB ELF segment alignment for Android 15+ devices with 16 KB pages: `libe_sqlite3.so` from
   SQLitePCLRaw 2.1.12 has `0x4000` (`readelf -lW`).
 - The Core library embeds `src/JobPilot.Web/Prompts/*.md`, `src/JobPilot.Web/appsettings.json` and the web seeds it needs
-  (`Seed/*.seed.json`, `technology-terms.txt`) at build time (links, not copies): a web prompt, price or seed change reaches the phone with
-  the next APK.
+  (`Seed/*.seed.json` except `profile.seed.json`, `technology-terms.txt`) at build time (links, not copies): a web prompt, price or
+  seed change reaches the phone with the next APK.
+- The profile created on first use has `UpdatedAtUtc = DateTime.MinValue`: "Combinar" keeps the newer profile, so a real date
+  would let a fresh install's empty profile beat the one in an older export. Tests that need profile data call
+  `JobsTestContext.SaveProfileAsync()` (fictional).
 - MAUI suppresses trim analysis warnings (`SuppressTrimAnalysisWarnings=true`), so "0 warnings" says nothing about trimming.
   To see them: `dotnet build android/src/JobPilot.Mobile -c Release -p:SuppressTrimAnalysisWarnings=false
   -p:TreatWarningsAsErrors=false -p:RuntimeIdentifier=android-arm64`. On 2026-10-06 the only ones were in the untrimmed
@@ -251,6 +255,7 @@ docs/PLAY.md                 Google Play internal testing: steps, automation, tr
 | 2026-10-07 | Google through Android's authorization API (Play services `AuthorizationClient`, play-services-auth 22.0.0) with an "Android" OAuth client (package + SHA-1); no client id/secret in the app, no refresh token, a one-hour access token per session in memory; only granted scopes, e-mail and date in `google-connection.json`; revocation through Google's revoke endpoint | Verified procedure approved by the owner: custom URI schemes are no longer supported for Android and loopback redirects are deprecated for mobile; Google discourages refresh tokens on devices. |
 | 2026-10-07 | Same Google scope as the web app (Gmail threads, responses, drafts; JobPilot calendar; "Solo Calendar") with the web confirmation dialogs; the Gmail client, calendar client and application service are ports | Chosen by the owner; one behaviour in both apps; `NoSendingTests` keep "never sends". |
 | 2026-10-09 | Google Play: internal testing only (the owner's choice), Gmail stays personal (no restricted-scope verification); the CI keystore is the Play upload key with Play App Signing; `android-release.yml` (owner's file, rewritten: it pointed at a non-existent project) builds, tests and signs the `.aab` on tags `v*` or manual runs and uploads it with a service account through the Play Developer API (`play_upload.py`, no third-party action; JWT signed with `openssl`); a Windows wizard (`Play-Wizard.ps1`) automates the PC side and guides the console steps | Public release would need a 12-tester/14-day closed test and Gmail verification with a yearly security assessment; the service account key is a single secret and never leaves GitHub. |
+| 2026-10-10 | The phone app starts with an empty profile (the web profile seed is no longer embedded); the Panel shows first steps (Gemini key, profile, master CV, import) until they are done; the empty profile counts as never edited for "Combinar" | Asked by the owner: other testers can install the Play build with their own Gemini key and Google account, and must not start from the owner's professional profile. |
 | 2026-10-07 | Export / "Combinar" import (A10) as in the web app: same file, schema and merge rules (ported code); the file leaves through the share sheet and comes back through the picker (max 100 MB); the database is copied to `backups/` in the app's private folder before combining; reminders are rescheduled afterwards | Owner's choices (combine, everything but secrets, deletions travel, undated edits take the file's value, share and pick); the backup protects the only copy of the phone's data. |
 | 2026-10-07 | Mail brief ported unchanged (rules, classifier, alert roles → offers, waiting cards, stored facts only); read only on "Actualizar correo", no WorkManager job; the phone has its own rules document seeded from the web seed | Same behaviour as the web app; "nothing runs unattended"; each app keeps its own data until the A10 export/import. |
 | 2026-10-07 | Interviews and negotiation ported unchanged (practice rules, rubrics, comparator, script checks); sections as chips, comparison and history as cards, the score chart's SVG text doubled (its 640-wide viewBox is drawn at about half size on a phone) | Same rules as the web app; readable on a 360-400 px screen. |

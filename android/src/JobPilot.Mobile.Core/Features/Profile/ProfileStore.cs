@@ -1,12 +1,14 @@
-using System.Text.Json;
 using JobPilot.Mobile.Core.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using ProfileEntity = JobPilot.Domain.Profiles.Profile;
 
 namespace JobPilot.Mobile.Core.Features.Profile;
 
-/// <summary>The owner's profile (single row). Created on first use from the seed file, then edited in the UI.</summary>
-public sealed class ProfileStore(IDbContextFactory<MobileDbContext> dbFactory, TimeProvider time, ProfileSeed seed)
+/// <summary>
+/// The owner's profile (single row). Created empty on first use, then filled in by the owner: the phone app can be installed
+/// by other people, so it starts without anyone's professional data.
+/// </summary>
+public sealed class ProfileStore(IDbContextFactory<MobileDbContext> dbFactory, TimeProvider time)
 {
     public async Task<ProfileEntity> GetAsync(CancellationToken cancellationToken)
     {
@@ -17,8 +19,8 @@ public sealed class ProfileStore(IDbContextFactory<MobileDbContext> dbFactory, T
             return profile;
         }
 
-        profile = seed.Load();
-        profile.UpdatedAtUtc = time.GetUtcNow().UtcDateTime;
+        // Never edited: the minimum date lets a profile from an imported file ("Combinar", newer wins) replace it.
+        profile = new ProfileEntity { UpdatedAtUtc = DateTime.MinValue };
         db.Profiles.Add(profile);
         await db.SaveChangesAsync(cancellationToken);
         return profile;
@@ -35,6 +37,14 @@ public sealed class ProfileStore(IDbContextFactory<MobileDbContext> dbFactory, T
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>Whether the owner has not filled in the profile yet (shown as a first step on the Panel).</summary>
+    public static bool IsBlank(ProfileEntity profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        return string.IsNullOrWhiteSpace(profile.Headline) && profile.YearsOfExperience is null && profile.Roles.Count == 0
+            && profile.Stack.Count == 0 && profile.Domains.Count == 0 && string.IsNullOrWhiteSpace(profile.WorkFromCountry);
+    }
+
     private static void Clean(ProfileEntity profile)
     {
         profile.Headline = profile.Headline.Trim();
@@ -46,18 +56,4 @@ public sealed class ProfileStore(IDbContextFactory<MobileDbContext> dbFactory, T
 
     private static List<string> CleanList(List<string> values) =>
         values.Select(v => v.Trim()).Where(v => v.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-}
-
-/// <summary>
-/// Initial profile values: the web app's <c>Seed/profile.seed.json</c>, embedded at build time (editable data, not code).
-/// </summary>
-public sealed class ProfileSeed
-{
-    public const string ResourceName = "Seed/profile.seed.json";
-
-    public ProfileEntity Load()
-    {
-        using var stream = typeof(ProfileSeed).Assembly.GetManifestResourceStream(ResourceName);
-        return stream is null ? new ProfileEntity() : JsonSerializer.Deserialize<ProfileEntity>(stream, DomainJson.Options) ?? new ProfileEntity();
-    }
 }

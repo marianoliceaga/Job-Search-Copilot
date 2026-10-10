@@ -8,32 +8,40 @@ public class ProfileStoreTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static ProfileSeed Seed => new();
-
     [Fact]
-    public async Task First_use_creates_the_profile_from_the_seed_file_once()
+    public async Task First_use_creates_one_empty_profile_marked_as_never_edited()
     {
         await using var database = await TestDatabase.CreateAsync();
-        var store = new ProfileStore(database.Factory, TimeProvider.System, Seed);
+        var store = new ProfileStore(database.Factory, TimeProvider.System);
 
         var profile = await store.GetAsync(Ct);
         await store.GetAsync(Ct);
 
-        Assert.Equal("Senior .NET / Backend Software Engineer", profile.Headline);
-        Assert.Equal(17, profile.YearsOfExperience);
-        Assert.Contains("Blazor", profile.Stack);
-        Assert.Equal("Argentina", profile.WorkFromCountry);
+        Assert.True(ProfileStore.IsBlank(profile));
+        Assert.Equal(string.Empty, profile.Headline);
+        Assert.Null(profile.YearsOfExperience);
+        Assert.Empty(profile.Stack);
+        Assert.Null(profile.WorkFromCountry);
+        Assert.Empty(profile.ApplicationEmphases);
         Assert.Equal("en", profile.ApplicationLanguage);
-        Assert.Equal(3, profile.ApplicationEmphases.Count);
+        Assert.Equal(DateTime.MinValue, profile.UpdatedAtUtc);
         await using var db = await database.Factory.CreateDbContextAsync(Ct);
         Assert.Equal(1, await db.Profiles.CountAsync(Ct));
+    }
+
+    [Fact]
+    public void The_app_does_not_embed_the_web_profile_seed()
+    {
+        var resources = typeof(ProfileStore).Assembly.GetManifestResourceNames();
+
+        Assert.DoesNotContain(resources, name => name.Contains("profile.seed", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
     public async Task Saving_cleans_lists_and_persists_changes()
     {
         await using var database = await TestDatabase.CreateAsync();
-        var store = new ProfileStore(database.Factory, TimeProvider.System, Seed);
+        var store = new ProfileStore(database.Factory, TimeProvider.System);
         var profile = await store.GetAsync(Ct);
 
         profile.Headline = "  Staff Engineer ";
@@ -43,16 +51,7 @@ public class ProfileStoreTests
         var reloaded = await store.GetAsync(Ct);
         Assert.Equal("Staff Engineer", reloaded.Headline);
         Assert.Equal(["C#", "Go"], reloaded.Stack);
-    }
-
-    [Fact]
-    public void The_seed_is_the_web_app_file()
-    {
-        var web = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AndroidFolder.RepositoryRoot, "src", "JobPilot.Web", "Seed", "profile.seed.json")))!;
-
-        var profile = Seed.Load();
-
-        Assert.Equal((string?)web["headline"], profile.Headline);
-        Assert.Equal(web["stack"]!.AsArray().Select(n => (string?)n), profile.Stack);
+        Assert.False(ProfileStore.IsBlank(reloaded));
+        Assert.NotEqual(DateTime.MinValue, reloaded.UpdatedAtUtc);
     }
 }

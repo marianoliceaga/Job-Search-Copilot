@@ -169,4 +169,23 @@ public class TransferTests
         Assert.Null(preview);
         Assert.Contains("otra versión", error, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task A_new_install_takes_the_profile_of_an_imported_file_even_if_the_file_is_older()
+    {
+        await using var owner = await TransferDevice.CreateAsync();
+        await using var phone = await TransferDevice.CreateAsync();
+        var profile = await owner.Pipeline.Jobs.Profiles.GetAsync(Ct);
+        profile.Headline = "Backend Engineer";
+        profile.Stack = ["C#"];
+        await owner.Pipeline.Jobs.Profiles.SaveAsync(profile, Ct);
+        phone.Pipeline.Jobs.Time.Advance(TimeSpan.FromDays(3));
+        Assert.True(JobPilot.Mobile.Core.Features.Profile.ProfileStore.IsBlank(await phone.Pipeline.Jobs.Profiles.GetAsync(Ct)));
+
+        await owner.SendToAsync(phone);
+
+        var imported = await phone.Pipeline.Jobs.Profiles.GetAsync(Ct);
+        Assert.Equal("Backend Engineer", imported.Headline);
+        Assert.Equal(["C#"], imported.Stack);
+    }
 }
