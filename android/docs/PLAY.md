@@ -97,6 +97,12 @@ switching: in the old app, **Configuración → Exportar / Importar → Exportar
 can reach from the phone), uninstall it, open the join link with the tester account, install from Play, enter the Gemini
 key again, reconnect Google and **Importar y combinar** the file.
 
+## Store listing (optional for internal testing)
+
+`android/docs/play/icon-512.png` is the 512×512 32-bit PNG icon for **Store presence → Main store listing → App icon**,
+rendered from the launcher icon (`src/JobPilot.Mobile/Resources/AppIcon`, white briefcase on `#594AE2`). Play rounds the
+corners itself. If the launcher icon changes, render this file again from the same SVGs.
+
 ## Other testers
 
 Anyone added to the testers list (up to 100) can install the same app. Each person enters their own Gemini key (charged to
