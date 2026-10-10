@@ -49,6 +49,7 @@ public class TailoringHandlerTests
             Skills = [new CvSkill { Name = "Blazor" }],
         };
         await jobs.Cvs.SaveAsync(cv, "test", Ct);
+        await jobs.SaveProfileAsync();
         var postingId = (await jobs.Ingestion.IngestAsync([JobsTestContext.Job(description: PostingDescription)], new JobSearchPreferences(), false, Ct)).PostingIds[0];
         var contexts = new TailoringContextFactory(jobs.Db, jobs.Cvs, jobs.Profiles, Catalog);
         var store = new TailoredDocumentStore(jobs.Db, jobs.Time);

@@ -101,11 +101,12 @@ public sealed class ProfilePageTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
-    public void The_profile_page_has_the_profile_and_master_cv_tabs_and_starts_from_the_seed()
+    public void The_profile_page_has_the_profile_and_master_cv_tabs_and_starts_empty()
     {
         var cut = Render<ProfilePage>();
 
         Assert.Equal(["Perfil", "CV maestro"], cut.FindAll(".mud-tab").Select(t => t.TextContent.Trim()));
-        cut.WaitForAssertion(() => Assert.Contains(new ProfileSeed().Load().Headline, cut.Markup, StringComparison.Ordinal));
+        cut.WaitForAssertion(() => Assert.Contains("Titular profesional", cut.Markup, StringComparison.Ordinal));
+        Assert.DoesNotContain(".NET / Backend", cut.Markup, StringComparison.Ordinal);
     }
 }

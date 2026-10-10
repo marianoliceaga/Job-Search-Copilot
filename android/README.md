@@ -40,6 +40,10 @@ overrides are edited in **Configuración → Modelos** and stored on the phone.
 
 ## Profile and master CV
 
+The phone app starts with an empty profile (anyone you add as a tester can install it): the Panel lists the first steps
+(Gemini key, profile, master CV) until they are done, and offers **Importar y combinar** for data exported from the PC or
+another phone.
+
 **Perfil y CV maestro → CV maestro → Elegir archivo** opens Android's document picker (PDF, DOCX or Markdown, up to
 10 MB). The text is extracted on the phone and shown before anything is sent; **Estructurar con Gemini** turns it into a
 draft that you review (values not found in the document are flagged) and save. The file is read once and not copied
@@ -159,6 +163,9 @@ After the first upload (by hand, once), every new version is built, tested, sign
 
 The app from Play and the APK from GitHub are signed with different keys and cannot update each other: export your data
 first (Configuración → Exportar / Importar), then switch.
+
+Other people can install the same app as testers and use their own Gemini key and Google account; their data stays on
+their phone. See "Other testers" in [`docs/PLAY.md`](docs/PLAY.md).
 
 ## Signing key (once)
 

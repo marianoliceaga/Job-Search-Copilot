@@ -29,7 +29,7 @@ public sealed class JobsTestContext : IAsyncDisposable
         Preferences = new JobPreferencesStore(Documents, Seeds);
         Companies = new FollowedCompanyStore(database.Factory, Documents, Seeds, Time);
         Ingestion = new JobIngestion(database.Factory, Time);
-        Profiles = new ProfileStore(database.Factory, Time, new ProfileSeed());
+        Profiles = new ProfileStore(database.Factory, Time);
         Cvs = new MasterCvStore(database.Factory, Time);
         List = new JobListService(database.Factory, Preferences, Profiles);
     }
@@ -75,6 +75,16 @@ public sealed class JobsTestContext : IAsyncDisposable
 
     public void WriteSeed(string fileName, object content) =>
         File.WriteAllText(Path.Combine(_seeds.Path, fileName), JsonSerializer.Serialize(content, JsonSerializerOptions.Web));
+
+    /// <summary>A fictional profile (the app starts with an empty one).</summary>
+    public async Task SaveProfileAsync()
+    {
+        var profile = await Profiles.GetAsync(CancellationToken.None);
+        profile.Headline = "Senior .NET Engineer";
+        profile.WorkFromCountry = "Argentina";
+        profile.ApplicationEmphases = ["Recent hands-on experience with Blazor"];
+        await Profiles.SaveAsync(profile, CancellationToken.None);
+    }
 
     public async Task SaveCvAsync()
     {

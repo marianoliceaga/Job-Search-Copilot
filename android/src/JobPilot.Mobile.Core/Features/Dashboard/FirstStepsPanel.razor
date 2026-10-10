@@ -1,0 +1,59 @@
+@using JobPilot.Mobile.Core.Features.Profile
+@using JobPilot.Mobile.Core.Infrastructure.Secrets
+@inject GeminiKeyStore Keys
+@inject ProfileStore Profiles
+@inject MasterCvStore Cvs
+
+@* First steps for a fresh install: the phone app starts without anyone's data (it can be installed by other people), so the
+   Panel lists what is still missing until everything is in place. *@
+@if (_steps is { } steps && steps.Any(s => !s.Done))
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" data-testid="first-steps">
+        <MudText Typo="Typo.h6" HtmlTag="h2">Primeros pasos</MudText>
+        <MudText Typo="Typo.body2" Class="mb-2">JobPilot usa tus datos para analizar ofertas y preparar tus postulaciones. Completá lo que falta:</MudText>
+        @foreach (var step in steps)
+        {
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start" Class="my-1">
+                <MudIcon Icon="@(step.Done ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.Circle)" Color="@(step.Done ? Color.Success : Color.Default)" Size="Size.Small" />
+                @if (step.Done)
+                {
+                    <MudText Typo="Typo.body2">@step.Label</MudText>
+                }
+                else
+                {
+                    <MudLink Href="@step.Href" Typo="Typo.body2" data-testid="@step.TestId">@step.Label</MudLink>
+                }
+            </MudStack>
+        }
+        @if (_freshInstall)
+        {
+            <MudText Typo="Typo.body2" Class="mt-2" data-testid="first-steps-import">
+                ¿Ya usabas JobPilot en tu PC o en otro teléfono? Traé tus datos desde
+                <MudLink Href="/configuracion?seccion=datos" Typo="Typo.body2">Configuración → Exportar / Importar</MudLink>.
+            </MudText>
+        }
+    </MudAlert>
+}
+
+@code {
+    private sealed record Step(string Label, string Href, string TestId, bool Done);
+
+    private IReadOnlyList<Step>? _steps;
+    private bool _freshInstall;
+
+    internal bool IsLoaded => _steps is not null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var hasKey = await Keys.HasKeyAsync();
+        var profileBlank = ProfileStore.IsBlank(await Profiles.GetAsync(CancellationToken.None));
+        var hasCv = await Cvs.GetAsync(CancellationToken.None) is not null;
+        _freshInstall = profileBlank && !hasCv;
+        _steps =
+        [
+            new("Cargá tu clave de Gemini", "/configuracion?seccion=gemini", "first-steps-key", hasKey),
+            new("Completá tu perfil: titular, experiencia, stack y país desde donde trabajás", "/perfil", "first-steps-profile", !profileBlank),
+            new("Importá o cargá tu CV maestro (Perfil → CV maestro)", "/perfil", "first-steps-cv", hasCv),
+        ];
+    }
+}

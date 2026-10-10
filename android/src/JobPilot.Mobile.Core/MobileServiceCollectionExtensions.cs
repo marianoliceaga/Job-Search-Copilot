@@ -34,7 +34,6 @@ public static class MobileServiceCollectionExtensions
         services.AddSingleton<SettingsDocumentStore>();
         services.AddMobileLlm(configuration);
         services.AddTransient<ConnectionTestHandler>();
-        services.AddSingleton<ProfileSeed>();
         services.AddSingleton<ProfileStore>();
         services.AddSingleton<MasterCvStore>();
         services.AddTransient<CvImportHandler>();
