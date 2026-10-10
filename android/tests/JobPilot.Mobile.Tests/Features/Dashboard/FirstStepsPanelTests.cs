@@ -1,7 +1,9 @@
 using Bunit;
 using JobPilot.Domain.Cv;
+using JobPilot.Domain.Jobs;
 using JobPilot.Mobile.Core;
 using JobPilot.Mobile.Core.Features.Dashboard;
+using JobPilot.Mobile.Core.Features.Jobs;
 using JobPilot.Mobile.Core.Features.Profile;
 using JobPilot.Mobile.Core.Infrastructure;
 using JobPilot.Mobile.Core.Infrastructure.Secrets;
@@ -48,6 +50,7 @@ public sealed class FirstStepsPanelTests : BunitContext, IAsyncLifetime
         Assert.Equal("/configuracion?seccion=gemini", cut.Find("[data-testid=first-steps-key]").GetAttribute("href"));
         Assert.Equal("/perfil", cut.Find("[data-testid=first-steps-profile]").GetAttribute("href"));
         Assert.Equal("/perfil", cut.Find("[data-testid=first-steps-cv]").GetAttribute("href"));
+        Assert.Equal("/ofertas?seccion=preferencias", cut.Find("[data-testid=first-steps-keywords]").GetAttribute("href"));
         Assert.Contains("/configuracion?seccion=datos", cut.Find("[data-testid=first-steps-import]").InnerHtml, StringComparison.Ordinal);
     }
 
@@ -78,6 +81,7 @@ public sealed class FirstStepsPanelTests : BunitContext, IAsyncLifetime
         profile.Headline = "Backend Engineer";
         await profiles.SaveAsync(profile, Ct);
         await Services.GetRequiredService<MasterCvStore>().SaveAsync(new MasterCv { Headline = "Backend Engineer" }, "manual", Ct);
+        await Services.GetRequiredService<JobPreferencesStore>().SaveAsync(new JobSearchPreferences { Keywords = ["c#"] }, Ct);
 
         var cut = Render<FirstStepsPanel>();
 

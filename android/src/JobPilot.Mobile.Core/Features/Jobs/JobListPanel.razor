@@ -2,11 +2,12 @@
 @implements IDisposable
 @inject JobListService Jobs
 @inject JobSearchService Search
+@inject JobPreferencesStore PreferencesStore
 @inject NavigationManager Navigation
 
 <MudStack Spacing="3">
     <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search" OnClick="SearchAsync" Disabled="_searching">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search" OnClick="SearchAsync" Disabled="@(_searching || !_canSearch)" data-testid="search">
             Buscar
         </MudButton>
         <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="() => _showAdd = !_showAdd">
@@ -19,6 +20,15 @@
             <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancelar</MudButton>
         }
     </MudStack>
+
+    @if (!_canSearch)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" data-testid="no-keywords">
+            Para buscar, agregá al menos una palabra clave (por ejemplo, tu tecnología o tu rol) en
+            <MudLink Href="/ofertas?seccion=preferencias" Typo="Typo.body2">Preferencias</MudLink>. Sin palabras clave la búsqueda
+            traería ofertas de cualquier rubro. Mientras tanto podés agregar ofertas a mano.
+        </MudAlert>
+    }
 
     @if (_showAdd)
     {
@@ -133,6 +143,7 @@
     private IReadOnlyList<SourceRunReport> _reports = [];
     private bool _loading = true;
     private bool _searching;
+    private bool _canSearch = true;
     private bool _showAdd;
     private string _progressText = string.Empty;
     private CancellationTokenSource? _cts;
@@ -145,7 +156,11 @@
     private bool _onlyRemote;
     private bool _discarded;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        _canSearch = JobPreferencesStore.CanSearch(await PreferencesStore.GetAsync(CancellationToken.None));
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {

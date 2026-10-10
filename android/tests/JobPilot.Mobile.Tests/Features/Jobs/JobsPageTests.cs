@@ -58,6 +58,37 @@ public sealed class JobsPageTests : BunitContext, IAsyncLifetime
     }
 
     [Fact]
+    public void Without_keywords_search_is_disabled_and_points_to_the_preferences()
+    {
+        var cut = Render<JobListPanel>();
+
+        cut.WaitForElement("[data-testid=no-keywords]");
+        Assert.True(cut.Find("button[data-testid=search]").HasAttribute("disabled"));
+        Assert.NotNull(cut.Find("[data-testid=no-keywords] a[href='/ofertas?seccion=preferencias']"));
+    }
+
+    [Fact]
+    public async Task With_keywords_search_is_enabled()
+    {
+        await Services.GetRequiredService<JobPreferencesStore>().SaveAsync(new JobSearchPreferences { Keywords = ["c#"] }, Xunit.TestContext.Current.CancellationToken);
+
+        var cut = Render<JobListPanel>();
+
+        cut.WaitForAssertion(() => Assert.False(cut.Find("button[data-testid=search]").HasAttribute("disabled")));
+        Assert.Empty(cut.FindAll("[data-testid=no-keywords]"));
+    }
+
+    [Fact]
+    public void A_link_can_open_the_preferences_tab()
+    {
+        Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().NavigateTo("/ofertas?seccion=preferencias");
+
+        var cut = Render<JobsPage>();
+
+        Assert.Equal("Preferencias", cut.Find(".mud-tab.mud-tab-active").TextContent.Trim());
+    }
+
+    [Fact]
     public async Task The_offer_page_links_to_the_source_outside_the_app_and_offers_company_outreach_and_pipeline()
     {
         var ingestion = Services.GetRequiredService<JobIngestion>();

@@ -101,8 +101,8 @@ key again, reconnect Google and **Importar y combinar** the file.
 
 Anyone added to the testers list (up to 100) can install the same app. Each person enters their own Gemini key (charged to
 their account; the paid tier keeps Google from using the content to improve its products) and connects their own Google
-account; the data stays on their phone and nothing reaches the owner. The app starts with an empty profile (no seed) and the
-Panel lists the first steps. For Gmail and Calendar they use the owner's Google Cloud project: while the consent screen is
+account; the data stays on their phone and nothing reaches the owner. The app starts without seeds (empty profile, no keywords, no
+followed companies) and the Panel lists the first steps. For Gmail and Calendar they use the owner's Google Cloud project: while the consent screen is
 in Testing, add their e-mail as a test user under **Audience**; they see the "unverified app" screen (unverified apps are
 limited to 100 users), and accounts in Advanced Protection cannot use Gmail.
 

@@ -24,7 +24,6 @@ public static class JobsServiceCollectionExtensions
         AddSource<LeverSource>(services);
         AddSource<AshbySource>(services);
 
-        services.AddSingleton<JobSeedFiles>();
         services.AddSingleton<JobPreferencesStore>();
         services.AddSingleton<FollowedCompanyStore>();
         services.AddSingleton<JobIngestion>();

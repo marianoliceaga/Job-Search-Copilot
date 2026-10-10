@@ -72,6 +72,8 @@ The eight sources with their rate limits, manual entry, filters, analysis with G
 - Same ingestion, dedup, filters, eligibility hint, compensation rules, analysis verifier and ranking as the web app;
   tables identical to the web ones (checked against the web model snapshot).
 - Original postings open in the phone's browser.
+- Changed on 2026-10-10 at the owner's request: the phone app starts without search keywords or followed companies (no web
+  seeds), and "Buscar" is disabled until there is at least one keyword.
 - Acceptance on the phone (owner): "Buscar" with the default sources, a manual entry (ATS URL and pasted text) and an
   analysis of one offer with the real CV.
 

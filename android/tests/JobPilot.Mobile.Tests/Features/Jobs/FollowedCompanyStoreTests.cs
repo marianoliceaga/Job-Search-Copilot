@@ -9,17 +9,17 @@ public class FollowedCompanyStoreTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task Seeds_the_initial_companies_only_once()
+    public async Task The_list_starts_empty_and_keeps_what_the_owner_adds_and_removes()
     {
         await using var context = await CreateAsync();
-        context.WriteSeed("followed-companies.seed.json", new[] { new { name = "Contoso", ats = "Ashby", boardToken = "contoso", notes = "seed" } });
 
-        var first = await context.Companies.GetAllAsync(Ct);
-        await context.Companies.RemoveAsync(first[0].Id, Ct);
-        var afterRemoval = await context.Companies.GetAllAsync(Ct);
+        Assert.Empty(await context.Companies.GetAllAsync(Ct));
+        await context.Companies.AddAsync("Contoso", AtsKind.Ashby, "contoso", null, Ct);
+        var added = Assert.Single(await context.Companies.GetAllAsync(Ct));
+        await context.Companies.RemoveAsync(added.Id, Ct);
 
-        Assert.Equal(("Contoso", AtsKind.Ashby, "contoso"), (first[0].Name, first[0].Ats, first[0].BoardToken));
-        Assert.Empty(afterRemoval);
+        Assert.Equal(("Contoso", AtsKind.Ashby, "contoso"), (added.Name, added.Ats, added.BoardToken));
+        Assert.Empty(await context.Companies.GetAllAsync(Ct));
     }
 
     [Fact]
@@ -50,13 +50,11 @@ public class FollowedCompanyStoreTests
     }
 
     [Fact]
-    public async Task The_repository_seed_contains_only_verified_public_boards()
+    public void The_app_does_not_embed_the_web_search_seeds()
     {
-        var seeds = new JobPilot.Mobile.Core.Features.Jobs.JobSeedFiles().LoadFollowedCompanies();
+        var resources = typeof(JobPilot.Mobile.Core.Features.Jobs.FollowedCompanyStore).Assembly.GetManifestResourceNames();
 
-        Assert.NotEmpty(seeds);
-        Assert.All(seeds, c => Assert.StartsWith("Verified ", c.Notes, StringComparison.Ordinal));
-        Assert.Equal(seeds.Count, seeds.Select(c => (c.Ats, c.BoardToken)).Distinct().Count());
-        await Task.CompletedTask;
+        Assert.DoesNotContain(resources, name => name.Contains("followed-companies.seed", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(resources, name => name.Contains("job-search.seed", StringComparison.OrdinalIgnoreCase));
     }
 }

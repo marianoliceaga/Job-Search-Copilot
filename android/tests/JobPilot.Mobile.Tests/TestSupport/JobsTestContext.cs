@@ -13,21 +13,18 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace JobPilot.Mobile.Tests.TestSupport;
 
-/// <summary>Job feature services on a temporary database, with a controllable clock and seed files (port of the web helper).</summary>
+/// <summary>Job feature services on a temporary database, with a controllable clock (port of the web helper).</summary>
 public sealed class JobsTestContext : IAsyncDisposable
 {
     private readonly TestDatabase _database;
-    private readonly TempDirectory _seeds = new();
 
     private JobsTestContext(TestDatabase database)
     {
         _database = database;
-        WriteSeed("job-search.seed.json", new { keywords = new[] { ".net", "c#", "asp.net" }, maxAgeDays = 30 });
         Time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 2, 12, 0, 0, TimeSpan.Zero));
-        Seeds = new JobSeedFiles(name => File.Exists(Path.Combine(_seeds.Path, name)) ? File.OpenRead(Path.Combine(_seeds.Path, name)) : null);
         Documents = new SettingsDocumentStore(database.Factory, Time);
-        Preferences = new JobPreferencesStore(Documents, Seeds);
-        Companies = new FollowedCompanyStore(database.Factory, Documents, Seeds, Time);
+        Preferences = new JobPreferencesStore(Documents);
+        Companies = new FollowedCompanyStore(database.Factory, Time);
         Ingestion = new JobIngestion(database.Factory, Time);
         Profiles = new ProfileStore(database.Factory, Time);
         Cvs = new MasterCvStore(database.Factory, Time);
@@ -35,8 +32,6 @@ public sealed class JobsTestContext : IAsyncDisposable
     }
 
     public FakeTimeProvider Time { get; }
-
-    public JobSeedFiles Seeds { get; }
 
     public SettingsDocumentStore Documents { get; }
 
@@ -54,7 +49,17 @@ public sealed class JobsTestContext : IAsyncDisposable
 
     public Microsoft.EntityFrameworkCore.IDbContextFactory<MobileDbContext> Db => _database.Factory;
 
-    public static async Task<JobsTestContext> CreateAsync() => new(await TestDatabase.CreateAsync());
+    /// <param name="keywords">Saves preferences with the tests' usual keywords (the app starts without any).</param>
+    public static async Task<JobsTestContext> CreateAsync(bool keywords = true)
+    {
+        var context = new JobsTestContext(await TestDatabase.CreateAsync());
+        if (keywords)
+        {
+            await context.Preferences.SaveAsync(new JobSearchPreferences { Keywords = [".net", "c#", "asp.net"], MaxAgeDays = 30 }, CancellationToken.None);
+        }
+
+        return context;
+    }
 
     public static JobSourceOptions SourceOptions(int minIntervalMinutes = 60)
     {
@@ -72,9 +77,6 @@ public sealed class JobsTestContext : IAsyncDisposable
 
     public JobSearchService Search(IEnumerable<IJobSource> sources, int minIntervalMinutes = 60) =>
         new(sources, Options.Create(SourceOptions(minIntervalMinutes)), Preferences, Companies, Ingestion, Db, Time, NullLogger<JobSearchService>.Instance);
-
-    public void WriteSeed(string fileName, object content) =>
-        File.WriteAllText(Path.Combine(_seeds.Path, fileName), JsonSerializer.Serialize(content, JsonSerializerOptions.Web));
 
     /// <summary>A fictional profile (the app starts with an empty one).</summary>
     public async Task SaveProfileAsync()
@@ -112,7 +114,6 @@ public sealed class JobsTestContext : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await _database.DisposeAsync();
-        _seeds.Dispose();
     }
 }
 

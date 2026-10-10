@@ -42,7 +42,7 @@ public sealed class PipelineTestContext : IAsyncDisposable
 
     public DateTime Now => Jobs.Time.GetUtcNow().UtcDateTime;
 
-    public static async Task<PipelineTestContext> CreateAsync() => new(await JobsTestContext.CreateAsync());
+    public static async Task<PipelineTestContext> CreateAsync(bool keywords = true) => new(await JobsTestContext.CreateAsync(keywords));
 
     public async Task<Guid> AddPostingAsync(string title = "Senior .NET Engineer", string company = "Northwind", string url = "https://remotive.com/jobs/1")
     {

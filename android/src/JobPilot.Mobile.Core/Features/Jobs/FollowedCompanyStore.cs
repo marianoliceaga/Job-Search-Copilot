@@ -7,18 +7,11 @@ namespace JobPilot.Mobile.Core.Features.Jobs;
 
 public sealed record CompanySuggestion(AtsKind Ats, string BoardToken, string CompanyName, int Postings);
 
-/// <summary>Companies whose public ATS boards are read on every search.</summary>
-public sealed class FollowedCompanyStore(
-    IDbContextFactory<MobileDbContext> dbFactory,
-    SettingsDocumentStore documents,
-    JobSeedFiles seeds,
-    TimeProvider time)
+/// <summary>Companies whose public ATS boards are read on every search. The list starts empty; the owner adds companies.</summary>
+public sealed class FollowedCompanyStore(IDbContextFactory<MobileDbContext> dbFactory, TimeProvider time)
 {
-    private const string SeededKey = "followed-companies-seeded";
-
     public async Task<IReadOnlyList<FollowedCompany>> GetAllAsync(CancellationToken cancellationToken)
     {
-        await SeedOnceAsync(cancellationToken);
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         var companies = await db.FollowedCompanies.AsNoTracking().ToListAsync(cancellationToken);
         return companies.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList();
@@ -82,21 +75,4 @@ public sealed class FollowedCompanyStore(
             .Concat(System.Text.RegularExpressions.Regex.Matches(description, @"https?://[^\s)\]""'<>]+").Select(m => m.Value));
         return candidates.Select(AtsUrlParser.Parse).OfType<AtsReference>().DistinctBy(r => (r.Ats, r.BoardToken));
     }
-
-    private async Task SeedOnceAsync(CancellationToken cancellationToken)
-    {
-        if (await documents.GetAsync<SeedFlag>(SeededKey, cancellationToken) is not null)
-        {
-            return;
-        }
-
-        foreach (var company in seeds.LoadFollowedCompanies())
-        {
-            await AddAsync(company.Name, company.Ats, company.BoardToken, company.Notes, cancellationToken);
-        }
-
-        await documents.SetAsync(SeededKey, new SeedFlag(time.GetUtcNow().UtcDateTime), cancellationToken);
-    }
-
-    private sealed record SeedFlag(DateTime SeededAtUtc);
 }

@@ -31,7 +31,7 @@ internal sealed class TransferDevice : IAsyncDisposable
 
     public TransferService Transfer { get; }
 
-    public static async Task<TransferDevice> CreateAsync() => new(await PipelineTestContext.CreateAsync());
+    public static async Task<TransferDevice> CreateAsync(bool keywords = true) => new(await PipelineTestContext.CreateAsync(keywords));
 
     public async Task<TransferData> ReadAsync()
     {
@@ -187,5 +187,21 @@ public class TransferTests
         var imported = await phone.Pipeline.Jobs.Profiles.GetAsync(Ct);
         Assert.Equal("Backend Engineer", imported.Headline);
         Assert.Equal(["C#"], imported.Stack);
+    }
+
+    [Fact]
+    public async Task A_new_install_takes_the_preferences_and_companies_of_an_imported_file()
+    {
+        await using var owner = await TransferDevice.CreateAsync();
+        await using var phone = await TransferDevice.CreateAsync(keywords: false);
+        await owner.Pipeline.Jobs.Companies.AddAsync("Contoso", JobPilot.Domain.Jobs.AtsKind.Lever, "contoso", null, Ct);
+        phone.Pipeline.Jobs.Time.Advance(TimeSpan.FromDays(3));
+        Assert.Empty((await phone.Pipeline.Jobs.Preferences.GetAsync(Ct)).Keywords);
+        Assert.Empty(await phone.Pipeline.Jobs.Companies.GetAllAsync(Ct));
+
+        await owner.SendToAsync(phone);
+
+        Assert.Equal([".net", "c#", "asp.net"], (await phone.Pipeline.Jobs.Preferences.GetAsync(Ct)).Keywords);
+        Assert.Equal("contoso", Assert.Single(await phone.Pipeline.Jobs.Companies.GetAllAsync(Ct)).BoardToken);
     }
 }

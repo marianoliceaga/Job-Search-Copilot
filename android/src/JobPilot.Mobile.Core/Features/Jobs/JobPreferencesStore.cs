@@ -1,28 +1,34 @@
-using System.Text.Json;
 using JobPilot.Domain.Jobs;
 using JobPilot.Mobile.Core.Infrastructure.Persistence;
 
 namespace JobPilot.Mobile.Core.Features.Jobs;
 
-/// <summary>Search and ranking preferences; created on first use from <c>Seed/job-search.seed.json</c>.</summary>
-public sealed class JobPreferencesStore(SettingsDocumentStore documents, JobSeedFiles seeds)
+/// <summary>
+/// Search and ranking preferences. Until the owner saves them, the defaults apply (no keywords) and nothing is stored, so
+/// preferences from an imported file are taken as they are.
+/// </summary>
+public sealed class JobPreferencesStore(SettingsDocumentStore documents)
 {
     private const string Key = "job-search-preferences";
 
     public async Task<JobSearchPreferences> GetAsync(CancellationToken cancellationToken)
     {
         var preferences = await documents.GetAsync<JobSearchPreferences>(Key, cancellationToken);
-        if (preferences is null)
-        {
-            preferences = seeds.LoadPreferences();
-            await SaveAsync(preferences, cancellationToken);
-        }
-
-        return Normalize(preferences);
+        return Normalize(preferences ?? new JobSearchPreferences());
     }
 
     public Task SaveAsync(JobSearchPreferences preferences, CancellationToken cancellationToken) =>
         documents.SetAsync(Key, Normalize(preferences), cancellationToken);
+
+    /// <summary>
+    /// Searching needs at least one keyword: without one the filter keeps every offer, so a search would store hundreds of
+    /// unrelated offers and spend the sources' request limits.
+    /// </summary>
+    public static bool CanSearch(JobSearchPreferences preferences)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+        return preferences.Keywords.Any(k => !string.IsNullOrWhiteSpace(k));
+    }
 
     private static JobSearchPreferences Normalize(JobSearchPreferences preferences)
     {
@@ -39,34 +45,4 @@ public sealed class JobPreferencesStore(SettingsDocumentStore documents, JobSeed
 
     private static List<string> Clean(List<string> values) =>
         values.Select(v => v.Trim()).Where(v => v.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-}
-
-/// <summary>
-/// Seed files with initial preferences and followed companies: the web app's <c>Seed/job-search.seed.json</c> and
-/// <c>Seed/followed-companies.seed.json</c>, embedded at build time (data, not code).
-/// </summary>
-public sealed class JobSeedFiles
-{
-    private readonly Func<string, Stream?> _open;
-
-    public JobSeedFiles()
-        : this(name => typeof(JobSeedFiles).Assembly.GetManifestResourceStream("Seed/" + name))
-    {
-    }
-
-    /// <param name="open">Opens a seed by file name, or returns null when it does not exist (tests use a folder).</param>
-    internal JobSeedFiles(Func<string, Stream?> open) => _open = open;
-
-    public JobSearchPreferences LoadPreferences() =>
-        Read<JobSearchPreferences>("job-search.seed.json") ?? new JobSearchPreferences();
-
-    public IReadOnlyList<FollowedCompany> LoadFollowedCompanies() =>
-        Read<List<FollowedCompany>>("followed-companies.seed.json") ?? [];
-
-    private T? Read<T>(string fileName)
-        where T : class
-    {
-        using var stream = _open(fileName);
-        return stream is null ? null : JsonSerializer.Deserialize<T>(stream, DomainJson.Options);
-    }
 }
