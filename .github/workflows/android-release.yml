@@ -1,40 +1,169 @@
-name: Build Android Release
+name: Android release (Google Play)
+
+# Builds the signed Android App Bundle (.aab) that Google Play needs and, once the Play service account is configured,
+# uploads it to the internal testing track. See android/docs/PLAY.md.
+#
+#   - Tag push "v1.2.3": builds version 1.2.3 and uploads it when PLAY_SERVICE_ACCOUNT_JSON is set.
+#   - Manual run (Actions > Android release > Run workflow, or `gh workflow run android-release.yml`): choose whether to
+#     upload. The very first bundle of a new app must be uploaded by hand in Play Console: run once without uploading
+#     and download the "JobPilot-play-<n>" artifact.
+#
+# The version code is this workflow's run number, so every run is newer than the previous one.
 
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload to Google Play (needs PLAY_SERVICE_ACCOUNT_JSON)"
+        type: boolean
+        default: true
+      track:
+        description: "Play track"
+        type: choice
+        options: [internal, alpha, beta]
+        default: internal
+      status:
+        description: "Release status (draft leaves it for you to roll out in Play Console)"
+        type: choice
+        options: [completed, draft]
+        default: completed
+      notes:
+        description: "Release notes (optional, Spanish)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release
+  cancel-in-progress: false
 
 jobs:
-  build-android:
-    runs-on: windows-latest
-
+  bundle:
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      PACKAGE_NAME: com.vidi.jobpilot
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
+      - name: Personal data check
+        run: bash scripts/check-no-personal-data.sh
 
-    - name: Install MAUI Workload
-      run: dotnet workload install maui-android
+      - name: No signing material in the repo
+        run: bash android/scripts/check-no-signing-keys.sh
 
-    - name: Restore Dependencies
-      run: dotnet restore JobPilot.sln
+      - name: Check signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::The ANDROID_* signing secrets are missing: run android/scripts/Play-Wizard.ps1 or see android/README.md."
+            exit 1
+          fi
 
-    - name: Decode Android Keystore
-      run: |
-        echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" > keystore_base64.txt
-        certutil -decode keystore_base64.txt jobpilot-release-key.keystore
+      - name: Version
+        id: version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            name="${GITHUB_REF_NAME#v}"
+          else
+            name="0.1.${{ github.run_number }}"
+          fi
+          if ! echo "$name" | grep -Eq '^[0-9]+(\.[0-9]+){0,3}$'; then
+            echo "::error::The tag must look like v1.2.3 (got ${GITHUB_REF_NAME})."
+            exit 1
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "Version $name (code ${{ github.run_number }})"
 
-    - name: Publish Android App Bundle (.aab)
-      run: |
-        dotnet publish JobPilot/JobPilot.csproj -c Release -f net10.0-android /p:AndroidPackageFormat=aab /p:AndroidKeyStore=true /p:AndroidSigningKeyStore=jobpilot-release-key.keystore /p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} /p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} /p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }}
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
 
-    - name: Upload Release Bundle
-      uses: actions/upload-artifact@v4
-      with:
-        name: jobpilot-release-aab
-        path: JobPilot/bin/Release/net10.0-android/*-Signed.aab
+      - name: Install the .NET MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Install Android SDK components required by the project
+        run: >
+          dotnet build android/src/JobPilot.Mobile -t:InstallAndroidDependencies -f net10.0-android
+          -p:AndroidSdkDirectory="$ANDROID_HOME" -p:AcceptAndroidSDKLicenses=True
+
+      - name: Test
+        run: |
+          dotnet restore android/JobPilot.Mobile.slnx
+          dotnet build android/JobPilot.Mobile.slnx -c Release --no-restore -p:AndroidSdkDirectory="$ANDROID_HOME"
+          dotnet test --solution android/JobPilot.Mobile.slnx -c Release --no-build
+
+      # The keystore and passwords go to the runner's temp folder only; `file:` is the password form that works for
+      # app bundles (`env:` only works for APKs).
+      - name: Build the signed app bundle
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          secrets_dir="$RUNNER_TEMP/signing"
+          mkdir -p "$secrets_dir" && chmod 700 "$secrets_dir"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$secrets_dir/jobpilot.keystore"
+          printf '%s' "$STORE_PASS" > "$secrets_dir/store.pass"
+          printf '%s' "$KEY_PASS" > "$secrets_dir/key.pass"
+          trap 'rm -rf "$secrets_dir"' EXIT
+          dotnet publish android/src/JobPilot.Mobile -f net10.0-android -c Release \
+            -p:AndroidSdkDirectory="$ANDROID_HOME" \
+            -p:AndroidPackageFormats=aab \
+            -p:ApplicationVersion=${{ steps.version.outputs.code }} \
+            -p:ApplicationDisplayVersion=${{ steps.version.outputs.name }} \
+            -p:AndroidKeyStore=true \
+            -p:AndroidSigningKeyStore="$secrets_dir/jobpilot.keystore" \
+            -p:AndroidSigningKeyAlias="$KEY_ALIAS" \
+            -p:AndroidSigningStorePass="file:$secrets_dir/store.pass" \
+            -p:AndroidSigningKeyPass="file:$secrets_dir/key.pass" \
+            -o "$RUNNER_TEMP/publish"
+          mkdir -p "$RUNNER_TEMP/out"
+          cp "$RUNNER_TEMP/publish/$PACKAGE_NAME-Signed.aab" "$RUNNER_TEMP/out/JobPilot-${{ steps.version.outputs.name }}.aab"
+
+      - name: Keep the app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: JobPilot-play-${{ steps.version.outputs.code }}
+          path: ${{ runner.temp }}/out/JobPilot-${{ steps.version.outputs.name }}.aab
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Decide whether to upload
+        id: upload
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          wanted="${{ github.event_name == 'push' || inputs.upload }}"
+          if [ "$wanted" != "true" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Not uploaded (upload unchecked). Download the JobPilot-play artifact for a manual upload."
+          elif [ -z "$SERVICE_ACCOUNT" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Not uploaded: PLAY_SERVICE_ACCOUNT_JSON is not set yet (android/docs/PLAY.md, step 6)."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload to Google Play
+        if: steps.upload.outputs.enabled == 'true'
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          TRACK: ${{ inputs.track || 'internal' }}
+          STATUS: ${{ inputs.status || 'completed' }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          args=(--package "$PACKAGE_NAME"
+                --bundle "$RUNNER_TEMP/out/JobPilot-${{ steps.version.outputs.name }}.aab"
+                --track "$TRACK" --status "$STATUS"
+                --release-name "${{ steps.version.outputs.name }}")
+          if [ -n "$NOTES" ]; then args+=(--notes "$NOTES"); fi
+          python3 android/scripts/play_upload.py "${args[@]}"

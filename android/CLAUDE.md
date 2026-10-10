@@ -7,7 +7,8 @@ acceptance criteria per phase: [`docs/PLAN.md`](docs/PLAN.md).
 ## Rules specific to the Android port
 
 - **Do not modify existing files outside `android/`**, except the ones the owner allowed: short Android sections in
-  `CLAUDE.md`, `README.md`, `docs/PLAN.md`, the new `.github/workflows/android.yml`, and the web app's export/import
+  `CLAUDE.md`, `README.md`, `docs/PLAN.md`, the new `.github/workflows/android.yml`, the owner's
+  `.github/workflows/android-release.yml` (Google Play), and the web app's export/import
   feature in phase A10 (scope confirmed by the owner on 2026-10-07: `Features/Transfer/`, its registration and tab, tests,
   and the deletion record in the web delete actions with its `DeletedRecords` table). `src/JobPilot.Domain` is referenced,
   never changed.
@@ -122,8 +123,11 @@ tests/JobPilot.Mobile.Tests/ xUnit v3 + bUnit: layout, architecture, NoSendingTe
                              FakeNotificationScheduler); the web's fictional
                              fixtures are linked into Fixtures/Cv and Fixtures/Sources; WebSchemaTests compares both EF
                              model snapshots; AndroidFolder helper
-scripts/                     check-no-signing-keys.sh
+scripts/                     check-no-signing-keys.sh (keystores, packages, private keys, service account JSON),
+                             Play-Wizard.ps1 (Windows wizard for Google Play, Spanish), play_upload.py (Play Developer API upload
+                             used by .github/workflows/android-release.yml)
 docs/PLAN.md                 Android plan
+docs/PLAY.md                 Google Play internal testing: steps, automation, troubleshooting, verified facts
 ```
 
 ## Gotchas
@@ -202,6 +206,17 @@ docs/PLAN.md                 Android plan
   imported by the other app's tests.
 - Tooltips need hover: on the phone, extra details (e.g. the examples of a mail filter) open with a tap.
 - bUnit: a `data-testid` on a `MudTextField` lands on the `textarea`/`input` itself (`textarea[data-testid=...]`).
+- App bundles need `file:` (not `env:`) signing password properties: `android-release.yml` writes them to the runner's temp
+  folder. `-p:AndroidPackageFormats=aab` on the command line overrides the project's `apk` default; the output is
+  `com.vidi.jobpilot-Signed.aab`.
+- The first bundle of a new Play app must be uploaded in Play Console; until a release exists the API answers "Only releases
+  with status draft may be created on draft app" (`play_upload.py` prints the fix).
+- Play re-signs the app with Google's app signing key: Google sign-in needs a second Android OAuth client with that SHA-1, and
+  an app from Play cannot update (or be updated by) a CI APK signed with the upload key.
+- Windows PowerShell 5.1: native stderr with `2>&1` under `$ErrorActionPreference = "Stop"` becomes an error, a comma in an
+  argument (`--json a,b`) splits it into two, and an advanced function binds `-R` as its own parameter; the wizard uses
+  `Continue` + `$LASTEXITCODE`, quotes comma lists and passes `gh` arguments through a simple function. It is saved as UTF-8
+  with BOM so 5.1 reads the accents. Parse-check it with `pwsh` (`dotnet tool install --global PowerShell`).
 - Android's picker filters by MIME type; many file managers report `.md` as `application/octet-stream`, so the picker also
   accepts it for Markdown and `CvTextExtractor` checks the extension afterwards.
 
@@ -235,6 +250,7 @@ docs/PLAN.md                 Android plan
 | 2026-10-07 | `.ics`, sent documents and follow-up drafts leave through the share sheet; follow-ups can also be copied (MAUI `Clipboard`); no Gmail/Calendar until A8 | No downloads on Android; the owner sends from their own mail app. |
 | 2026-10-07 | Google through Android's authorization API (Play services `AuthorizationClient`, play-services-auth 22.0.0) with an "Android" OAuth client (package + SHA-1); no client id/secret in the app, no refresh token, a one-hour access token per session in memory; only granted scopes, e-mail and date in `google-connection.json`; revocation through Google's revoke endpoint | Verified procedure approved by the owner: custom URI schemes are no longer supported for Android and loopback redirects are deprecated for mobile; Google discourages refresh tokens on devices. |
 | 2026-10-07 | Same Google scope as the web app (Gmail threads, responses, drafts; JobPilot calendar; "Solo Calendar") with the web confirmation dialogs; the Gmail client, calendar client and application service are ports | Chosen by the owner; one behaviour in both apps; `NoSendingTests` keep "never sends". |
+| 2026-10-09 | Google Play: internal testing only (the owner's choice), Gmail stays personal (no restricted-scope verification); the CI keystore is the Play upload key with Play App Signing; `android-release.yml` (owner's file, rewritten: it pointed at a non-existent project) builds, tests and signs the `.aab` on tags `v*` or manual runs and uploads it with a service account through the Play Developer API (`play_upload.py`, no third-party action; JWT signed with `openssl`); a Windows wizard (`Play-Wizard.ps1`) automates the PC side and guides the console steps | Public release would need a 12-tester/14-day closed test and Gmail verification with a yearly security assessment; the service account key is a single secret and never leaves GitHub. |
 | 2026-10-07 | Export / "Combinar" import (A10) as in the web app: same file, schema and merge rules (ported code); the file leaves through the share sheet and comes back through the picker (max 100 MB); the database is copied to `backups/` in the app's private folder before combining; reminders are rescheduled afterwards | Owner's choices (combine, everything but secrets, deletions travel, undated edits take the file's value, share and pick); the backup protects the only copy of the phone's data. |
 | 2026-10-07 | Mail brief ported unchanged (rules, classifier, alert roles → offers, waiting cards, stored facts only); read only on "Actualizar correo", no WorkManager job; the phone has its own rules document seeded from the web seed | Same behaviour as the web app; "nothing runs unattended"; each app keeps its own data until the A10 export/import. |
 | 2026-10-07 | Interviews and negotiation ported unchanged (practice rules, rubrics, comparator, script checks); sections as chips, comparison and history as cards, the score chart's SVG text doubled (its 640-wide viewBox is drawn at about half size on a phone) | Same rules as the web app; readable on a 360-400 px screen. |
@@ -319,3 +335,5 @@ Checked on 2026-10-07 (phase A5):
   leaving Advanced Protection, and the owner's city, pay floor and rates in the phone's rules)
 - [x] Phase A10 — Export and import between PC and phone (pending: a real transfer PC → phone → PC with the owner's data,
   through the share sheet and the picker)
+- [x] Google Play internal testing tooling (pending: the owner runs `Play-Wizard.ps1`, the first manual upload, the service
+  account and the Play OAuth client; see `docs/PLAY.md`)

@@ -15,7 +15,8 @@ you approve. It never sends an application, e-mail or message on your behalf.
 
 ## Install on your phone
 
-Android 8.0 (API 26) or later. The app is installed from an APK signed with your own key, not from Google Play.
+Android 8.0 (API 26) or later. The app is installed from an APK signed with your own key, or from Google Play's internal
+testing track (see [Google Play](#google-play-internal-testing)).
 
 1. Download the APK from the latest successful run of the **Android** workflow (GitHub → Actions → Android → run →
    Artifacts → `JobPilot-android-<n>`). Artifacts are kept for 30 days. The download is a zip with the `.apk` inside.
@@ -141,6 +142,23 @@ in; pay is never estimated). The phone keeps its own rules: changes on the PC do
 
 Importing the same file twice changes nothing, so you can go back and forth. The file is **not encrypted**: send it only
 to yourself and delete it after importing.
+
+## Google Play (internal testing)
+
+The app can also be installed and updated from Google Play, on the **internal testing** track (only you and testers you
+add by e-mail; no public listing). On Windows, run the wizard from the repository folder; it automates the tools, signing
+secrets, fingerprints, bundle builds and uploads, and opens each Play Console / Google Cloud page for the few clicks that
+must be done by hand:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File android\scripts\Play-Wizard.ps1
+```
+
+After the first upload (by hand, once), every new version is built, tested, signed and uploaded by
+**Actions → Android release (Google Play)** or by pushing a tag `v1.2.3`. Full guide: [`docs/PLAY.md`](docs/PLAY.md).
+
+The app from Play and the APK from GitHub are signed with different keys and cannot update each other: export your data
+first (Configuración → Exportar / Importar), then switch.
 
 ## Signing key (once)
 

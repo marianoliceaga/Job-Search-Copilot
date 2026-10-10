@@ -246,7 +246,8 @@ and Jobicy require attribution and a link back).
 [`android/`](android/README.md) holds the Android version (.NET MAUI Blazor Hybrid, Android 8.0+), built in phases
 with its own solution, tests and CI workflow (`.github/workflows/android.yml`). It reuses `JobPilot.Domain`, keeps its
 own data on the phone and exchanges data with this app through an export/import file. Installing and signing:
-[`android/README.md`](android/README.md).
+[`android/README.md`](android/README.md); Google Play (internal testing) with a Windows wizard:
+[`android/docs/PLAY.md`](android/docs/PLAY.md).
 
 **Moving data between the PC and the phone:** Configuración → **Exportar / Importar**. "Exportar" downloads one JSON file
 with all your JobPilot data (never the Gemini key or the Google connection). On the other device, "Importar y combinar"
