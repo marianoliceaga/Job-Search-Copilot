@@ -103,6 +103,11 @@ key again, reconnect Google and **Importar y combinar** the file.
 rendered from the launcher icon (`src/JobPilot.Mobile/Resources/AppIcon`, white briefcase on `#594AE2`). Play rounds the
 corners itself. If the launcher icon changes, render this file again from the same SVGs.
 
+`android/docs/play/feature-graphic-1024x500.png` is the **Feature graphic** (1024×500, 24-bit PNG without alpha): the icon
+tile, the name and the tagline "Tu búsqueda de trabajo remoto, en el bolsillo." (es-419, the listing's default language) on
+the icon's purple, next to a flat illustration of a man standing on a bus using his phone. Text and the illustration stay away
+from the edges.
+
 ## Other testers
 
 Anyone added to the testers list (up to 100) can install the same app. Each person enters their own Gemini key (charged to

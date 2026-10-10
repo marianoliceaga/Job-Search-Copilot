@@ -130,7 +130,8 @@ scripts/                     check-no-signing-keys.sh (keystores, packages, priv
                              used by .github/workflows/android-release.yml)
 docs/PLAN.md                 Android plan
 docs/PLAY.md                 Google Play internal testing: steps, automation, troubleshooting, verified facts
-docs/play/icon-512.png       Play Store icon (512×512, 32-bit PNG), rendered from Resources/AppIcon (same design)
+docs/play/                   Play Store icon (icon-512.png, 512×512, 32-bit PNG, same design as Resources/AppIcon) and feature
+                             graphic (feature-graphic-1024x500.png, 24-bit PNG, Spanish tagline)
 ```
 
 ## Gotchas
