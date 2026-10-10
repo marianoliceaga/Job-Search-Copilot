@@ -106,7 +106,8 @@ corners itself. If the launcher icon changes, render this file again from the sa
 `android/docs/play/feature-graphic-1024x500.png` is the **Feature graphic** (1024×500, 24-bit PNG without alpha): the icon
 tile, the name and the tagline "Tu búsqueda de trabajo remoto, en el bolsillo." (es-419, the listing's default language) on
 the icon's purple, next to a flat illustration of a man standing on a bus using his phone. Text and the illustration stay away
-from the edges.
+from the edges. `feature-graphic-1024x500-en.png` is the same image with the English tagline "Your remote job search, in
+your pocket." for an English (en-US) translation of the listing.
 
 ## Other testers
 
