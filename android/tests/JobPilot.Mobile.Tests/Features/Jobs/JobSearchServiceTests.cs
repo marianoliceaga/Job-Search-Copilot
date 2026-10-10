@@ -31,6 +31,22 @@ public class JobSearchServiceTests
     }
 
     [Fact]
+    public async Task Without_keywords_no_source_is_queried()
+    {
+        await using var context = await CreateAsync(keywords: false);
+        var source = FakeJobSource.Returning("fake-a", Job());
+
+        var report = Assert.Single(await context.Search([source]).RunAsync(null, Ct));
+
+        Assert.Equal(SourceRunStatus.Skipped, report.Status);
+        Assert.Equal(JobSearchService.NoKeywordsMessage, report.Message);
+        Assert.Equal(0, source.Calls);
+        await using var db = await context.Db.CreateDbContextAsync(Ct);
+        Assert.Equal(0, await db.SourceRuns.CountAsync(Ct));
+        Assert.Equal(0, await db.JobPostings.CountAsync(Ct));
+    }
+
+    [Fact]
     public async Task Respects_the_minimum_interval_between_requests_to_a_source()
     {
         await using var context = await CreateAsync();

@@ -45,9 +45,16 @@ public sealed partial class JobSearchService(
         return statuses;
     }
 
+    public const string NoKeywordsMessage = "Agregá al menos una palabra clave en Ofertas → Preferencias antes de buscar.";
+
     public async Task<IReadOnlyList<SourceRunReport>> RunAsync(IProgress<SearchProgress>? progress, CancellationToken cancellationToken)
     {
         var preferences = await preferencesStore.GetAsync(cancellationToken);
+        if (!JobPreferencesStore.CanSearch(preferences))
+        {
+            return [new SourceRunReport("-", "Búsqueda", SourceRunStatus.Skipped, NoKeywordsMessage, null)];
+        }
+
         var followed = await companies.GetAllAsync(cancellationToken);
         var context = new SourceFetchContext(followed, preferences.Keywords);
         var enabled = Sources.Where(s => !preferences.DisabledSources.Contains(s.Key, StringComparer.OrdinalIgnoreCase)).ToList();

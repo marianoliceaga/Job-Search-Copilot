@@ -46,7 +46,7 @@
   <ItemGroup>
     <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Prompts\*.md" Link="Shared\Prompts\%(Filename)%(Extension)" LogicalName="Prompts/%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\..\..\src\JobPilot.Web\appsettings.json" Link="Shared\web-appsettings.json" LogicalName="web-appsettings.json" />
-    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Seed\job-search.seed.json;..\..\..\src\JobPilot.Web\Seed\followed-companies.seed.json;..\..\..\src\JobPilot.Web\Seed\mail-rules.seed.json;..\..\..\src\JobPilot.Web\Seed\technology-terms.txt" Link="Shared\Seed\%(Filename)%(Extension)" LogicalName="Seed/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\..\src\JobPilot.Web\Seed\mail-rules.seed.json;..\..\..\src\JobPilot.Web\Seed\technology-terms.txt" Link="Shared\Seed\%(Filename)%(Extension)" LogicalName="Seed/%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

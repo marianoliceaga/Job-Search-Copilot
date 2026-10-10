@@ -40,9 +40,10 @@ overrides are edited in **Configuración → Modelos** and stored on the phone.
 
 ## Profile and master CV
 
-The phone app starts with an empty profile (anyone you add as a tester can install it): the Panel lists the first steps
-(Gemini key, profile, master CV) until they are done, and offers **Importar y combinar** for data exported from the PC or
-another phone.
+The phone app starts without anyone's data (anyone you add as a tester can install it): empty profile, no search
+keywords and no followed companies. The Panel lists the first steps (Gemini key, profile, master CV, search keywords) until
+they are done, and offers **Importar y combinar** for data exported from the PC or another phone. **Buscar** stays disabled
+until there is at least one keyword (without one the search would store offers of any field and spend the sources' limits).
 
 **Perfil y CV maestro → CV maestro → Elegir archivo** opens Android's document picker (PDF, DOCX or Markdown, up to
 10 MB). The text is extracted on the phone and shown before anything is sent; **Estructurar con Gemini** turns it into a

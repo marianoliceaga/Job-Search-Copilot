@@ -2,7 +2,8 @@
 
 <MudText Typo="Typo.h4" HtmlTag="h1" GutterBottom="true">Ofertas</MudText>
 
-<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-3" MinimumTabWidth="0px" KeepPanelsAlive="false">
+<MudTabs Outlined="true" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-3" MinimumTabWidth="0px" KeepPanelsAlive="false"
+         @bind-ActivePanelIndex="_tab">
     <MudTabPanel Text="Ofertas">
         <JobListPanel />
     </MudTabPanel>
@@ -13,3 +14,22 @@
         <PreferencesPanel />
     </MudTabPanel>
 </MudTabs>
+
+@code {
+    private static readonly string[] Sections = ["ofertas", "fuentes", "preferencias"];
+
+    private int _tab;
+
+    /// <summary>Opens a tab directly (links from other pages, e.g. <c>/ofertas?seccion=preferencias</c>).</summary>
+    [SupplyParameterFromQuery(Name = "seccion")]
+    public string? Section { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        var index = Array.IndexOf(Sections, Section);
+        if (index >= 0)
+        {
+            _tab = index;
+        }
+    }
+}

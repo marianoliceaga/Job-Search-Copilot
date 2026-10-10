@@ -1,8 +1,10 @@
+@using JobPilot.Mobile.Core.Features.Jobs
 @using JobPilot.Mobile.Core.Features.Profile
 @using JobPilot.Mobile.Core.Infrastructure.Secrets
 @inject GeminiKeyStore Keys
 @inject ProfileStore Profiles
 @inject MasterCvStore Cvs
+@inject JobPreferencesStore Preferences
 
 @* First steps for a fresh install: the phone app starts without anyone's data (it can be installed by other people), so the
    Panel lists what is still missing until everything is in place. *@
@@ -48,12 +50,14 @@
         var hasKey = await Keys.HasKeyAsync();
         var profileBlank = ProfileStore.IsBlank(await Profiles.GetAsync(CancellationToken.None));
         var hasCv = await Cvs.GetAsync(CancellationToken.None) is not null;
-        _freshInstall = profileBlank && !hasCv;
+        var hasKeywords = JobPreferencesStore.CanSearch(await Preferences.GetAsync(CancellationToken.None));
+        _freshInstall = profileBlank && !hasCv && !hasKeywords;
         _steps =
         [
             new("Cargá tu clave de Gemini", "/configuracion?seccion=gemini", "first-steps-key", hasKey),
             new("Completá tu perfil: titular, experiencia, stack y país desde donde trabajás", "/perfil", "first-steps-profile", !profileBlank),
             new("Importá o cargá tu CV maestro (Perfil → CV maestro)", "/perfil", "first-steps-cv", hasCv),
+            new("Elegí las palabras clave de tu búsqueda (Ofertas → Preferencias)", "/ofertas?seccion=preferencias", "first-steps-keywords", hasKeywords),
         ];
     }
 }
