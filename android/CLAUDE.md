@@ -132,7 +132,8 @@ docs/PLAN.md                 Android plan
 docs/PLAY.md                 Google Play internal testing: steps, automation, troubleshooting, verified facts
 docs/play/                   Play Store icon (icon-512.png, 512×512, 32-bit PNG, same design as Resources/AppIcon) and feature
                              graphics (feature-graphic-1024x500.png with the Spanish tagline, -en.png with the English one;
-                             24-bit PNG)
+                             24-bit PNG), phone screenshots (screenshots/es and screenshots/en, 1080×1920, captions per
+                             language, UI in Spanish, fictional data)
 ```
 
 ## Gotchas

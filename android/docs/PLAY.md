@@ -109,6 +109,12 @@ the icon's purple, next to a flat illustration of a man standing on a bus using 
 from the edges. `feature-graphic-1024x500-en.png` is the same image with the English tagline "Your remote job search, in
 your pocket." for an English (en-US) translation of the listing.
 
+`android/docs/play/screenshots/es/` and `screenshots/en/` hold six phone screenshots (1080×1920, 9:16, 24-bit PNG) with a
+caption per language: Panel, offers ranked by fit, an offer's analysis, an application's timeline, the offer comparator and a
+company profile. The app's UI is Spanish in both sets; all data is fictional (Northwind Traders, Contoso, `example.com`).
+They were captured from a throwaway Blazor Server host over `JobPilot.Mobile.Core` (see Gotchas in `android/CLAUDE.md`) at
+360×640 CSS pixels and 3× scale, then framed with the caption on the icon's purple.
+
 ## Other testers
 
 Anyone added to the testers list (up to 100) can install the same app. Each person enters their own Gemini key (charged to
