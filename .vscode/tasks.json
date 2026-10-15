@@ -2,6 +2,22 @@
   "version": "2.0.0",
   "tasks": [
     {
+      // Stops any JobPilot.Web left running, which would lock the build output and hold port 5080
+      // ("address already in use"): the apphost (dotnet run) and `dotnet JobPilot.Web.dll` (debugger).
+      "label": "stop-jobpilot",
+      "type": "process",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "$ids = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'JobPilot.Web.exe' -or ($_.Name -eq 'dotnet.exe' -and $_.CommandLine -like '*JobPilot.Web.dll*') } | ForEach-Object { $_.ProcessId }); if ($ids.Count -gt 0) { Stop-Process -Id $ids -Force -ErrorAction SilentlyContinue; Wait-Process -Id $ids -Timeout 15 -ErrorAction SilentlyContinue }; exit 0"
+      ],
+      "presentation": {
+        "reveal": "silent"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "build",
       "type": "process",
       "command": "dotnet",
@@ -13,6 +29,7 @@
         "/property:GenerateFullPaths=true",
         "/consoleloggerparameters:NoSummary"
       ],
+      "dependsOn": "stop-jobpilot",
       "group": {
         "kind": "build",
         "isDefault": true
