@@ -200,6 +200,10 @@ docs/play/                   Play Store icon (icon-512.png, 512×512, 32-bit PNG
   `OperatingSystem.IsAndroidVersionAtLeast(n)`, and use string constants for newer broadcast actions in attributes.
 - Alarms are matched by request code and intent action (not extras): `AndroidNotificationScheduler` cancels the previous
   ids from its stored schedule (`files/scheduled-notifications.json`, source-generated JSON) before scheduling new ones.
+- NuGet audit runs on restore and its warnings are errors: when an advisory lands on a transitive package (PDFsharp's
+  `System.Security.Cryptography.Pkcs`, 2026-10-15), CI fails at restore even without code changes. Pin a patched version
+  in `Directory.Packages.props` and reference it from the Core library; `dotnet list package --vulnerable
+  --include-transitive` shows what is flagged.
 - Ical.Net is not trimmed (not marked trimmable; it reports IL2104 in the trim analysis but its linked size equals the
   package's).
 - Xamarin.GooglePlayServices.Auth 122.0.0 raises AndroidX Fragment, Collection and Lifecycle above MAUI 10.0.110's
