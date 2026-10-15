@@ -27,6 +27,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IShareService, MauiShareService>();
         builder.Services.AddSingleton<INotificationScheduler, AndroidNotificationScheduler>();
         builder.Services.AddSingleton<IGoogleAuthorizer, AndroidGoogleAuthorizer>();
+        builder.Services.AddSingleton<IAppSigningInfo, AndroidAppSigningInfo>();
         // Exports shared in an earlier session are not kept.
         MauiShareService.ClearSharedFiles();
 

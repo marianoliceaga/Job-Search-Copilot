@@ -103,7 +103,7 @@ public sealed class AndroidGoogleAuthorizer : IGoogleAuthorizer
     private static string Message(int statusCode) => statusCode switch
     {
         CommonStatusCodes.DeveloperError =>
-            "Google no reconoce esta app. Revisá el cliente OAuth de tipo Android en Google Cloud: paquete com.vidi.jobpilot y la huella SHA-1 de la keystore que firma el APK.",
+            "Google no reconoce esta app. Revisá el cliente OAuth de tipo Android en Google Cloud: el paquete y la huella SHA-1 del paso 4 del asistente (puede tardar unos minutos en aplicarse).",
         CommonStatusCodes.NetworkError => "No se pudo conectar con Google.",
         CommonStatusCodes.Canceled => "Cancelaste el permiso en Google.",
         _ => $"Google no dio el permiso (código {statusCode}).",

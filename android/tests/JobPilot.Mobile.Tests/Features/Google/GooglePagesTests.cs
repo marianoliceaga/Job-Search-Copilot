@@ -26,6 +26,8 @@ public sealed class GooglePagesTests : BunitContext, IAsyncLifetime
     private readonly TempDirectory _directory = new();
     private readonly FakeGoogleAuthorizer _authorizer = new();
     private readonly FakeGoogleHandler _google = new();
+    private readonly FakeShareService _share = new();
+    private readonly FakeAppSigningInfo _signing = new();
     private Guid _postingId;
 
     public GooglePagesTests()
@@ -38,7 +40,8 @@ public sealed class GooglePagesTests : BunitContext, IAsyncLifetime
         Services.AddSingleton<INotificationScheduler>(new FakeNotificationScheduler());
         Services.AddSingleton<IGoogleAuthorizer>(_authorizer);
         Services.AddSingleton<IFilePickerService>(new FakeFilePicker());
-        Services.AddSingleton<IShareService>(new FakeShareService());
+        Services.AddSingleton<IShareService>(_share);
+        Services.AddSingleton<IAppSigningInfo>(_signing);
         Services.ConfigureHttpClientDefaults(builder => builder.ConfigurePrimaryHttpMessageHandler(() => _google));
     }
 
@@ -79,8 +82,7 @@ public sealed class GooglePagesTests : BunitContext, IAsyncLifetime
         _google.On("GET", "/gmail/v1/users/me/profile", HttpStatusCode.OK, new { emailAddress = "alex@example.com" });
         var cut = Render<GooglePanel>();
 
-        // The setup steps name the Android client: package and signing certificate, nothing to paste in the app.
-        Assert.Contains("com.vidi.jobpilot", cut.Markup, StringComparison.Ordinal);
+        cut.Find("[data-testid=google-skip-to-connect]").Click();
         cut.Find("[data-testid=google-connect]").Click();
 
         var status = cut.WaitForElement("[data-testid=google-status]");
@@ -103,4 +105,57 @@ public sealed class GooglePagesTests : BunitContext, IAsyncLifetime
         cut.FindAll(".mud-chipset .mud-chip").Single(c => c.TextContent.Trim() == "Correo").Click();
         cut.WaitForAssertion(() => Assert.Contains("Buscar en Gmail", cut.Markup, StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void The_wizard_shows_this_installs_package_and_sha1_for_the_android_client()
+    {
+        _signing.Certificate = "abc"u8.ToArray();
+        var cut = Render<GooglePanel>();
+
+        Assert.Contains("jp-step-current", cut.Find("[data-testid=google-step-1]").ClassName, StringComparison.Ordinal);
+        Assert.Empty(cut.FindAll("[data-testid=google-connect]"));
+        for (var i = 0; i < 3; i++)
+        {
+            cut.Find("[data-testid=google-step-next]").Click();
+        }
+
+        Assert.Equal("com.vidi.jobpilot", cut.Find("[data-testid=google-package]").TextContent);
+        // SHA-1 of "abc", formatted as Google Cloud and keytool show it.
+        Assert.Equal("A9:99:3E:36:47:06:81:6A:BA:3E:25:71:78:50:C2:6C:9C:D0:D8:9D", cut.Find("[data-testid=google-sha1]").TextContent);
+        cut.Find("[data-testid=google-sha1-copy]").Click();
+        Assert.Equal("A9:99:3E:36:47:06:81:6A:BA:3E:25:71:78:50:C2:6C:9C:D0:D8:9D", Assert.Single(_share.Copied));
+
+        cut.Find("[data-testid=google-step-next]").Click();
+        Assert.NotNull(cut.Find("[data-testid=google-connect]"));
+    }
+
+    [Fact]
+    public void When_the_signature_cannot_be_read_the_wizard_says_where_to_find_it()
+    {
+        var cut = Render<GooglePanel>();
+
+        cut.Find("[data-testid=google-step-4] button").Click();
+
+        Assert.Contains("keytool", cut.Find("[data-testid=google-sha1-missing]").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Without_a_host_implementation_the_app_still_knows_its_package_name()
+    {
+        using var provider = new ServiceCollection().AddJobPilotMobile(MobileConfiguration.Load(), new MobilePaths(_directory.Path)).BuildServiceProvider();
+
+        var signing = provider.GetRequiredService<IAppSigningInfo>();
+
+        Assert.Equal("com.vidi.jobpilot", signing.PackageName);
+        Assert.Null(signing.SigningCertificate());
+    }
+}
+
+internal sealed class FakeAppSigningInfo : IAppSigningInfo
+{
+    public byte[]? Certificate { get; set; }
+
+    public string PackageName => SigningFingerprint.PackageName;
+
+    public byte[]? SigningCertificate() => Certificate;
 }

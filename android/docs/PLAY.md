@@ -77,7 +77,8 @@ Google requires the first bundle of a new app to be uploaded in Play Console.
 ## 7. Google sign-in for the Play build
 
 Google Cloud → **Google Auth Platform → Clients → Create client → Android**, package `com.vidi.jobpilot`, SHA-1 of
-Play's **app signing key** (step 5.5). Keep the existing Android client for the CI APKs: each signing key needs its own
+Play's **app signing key** (step 5.5). Once the app from Play is installed, its **Configuración → Google** wizard shows that
+same SHA-1 (read from the installed app) with a copy button. Keep the existing Android client for the CI APKs: each signing key needs its own
 client. The app embeds no client id, so nothing changes in the code. Under **Audience**, keep your account as a test user
 (Testing) or publish the consent screen for personal use: unverified apps show an "unverified app" screen and are limited
 to 100 users.

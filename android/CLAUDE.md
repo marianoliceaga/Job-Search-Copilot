@@ -52,7 +52,8 @@ src/JobPilot.Mobile/         MAUI host, net10.0-android: MauiProgram (DI: Core s
                              Clipboard with files in cache/sharing-root), Platforms/Android/Notifications
                              (AndroidNotificationScheduler over AlarmManager, ReminderReceiver shows a notification,
                              RescheduleReceiver restores alarms after boot/update), Platforms/Android/Google
-                             (AndroidGoogleAuthorizer over Play services AuthorizationClient), MainActivity (single top, opens
+                             (AndroidGoogleAuthorizer over Play services AuthorizationClient, AndroidAppSigningInfo over
+                             PackageManager signing info), MainActivity (single top, opens
                              the page of a tapped notification, receives Google's consent result), App, MainPage
                              (BlazorWebView → Core Routes), Platforms/Android (MainActivity, MainApplication, AndroidManifest),
                              Platforms/Android/Resources/xml (FileProvider limited to cache/sharing-root), Resources (icon,
@@ -105,11 +106,13 @@ src/JobPilot.Mobile.Core/    Razor class library, net10.0:
   Features/Outreach/         port of the web slice: OutreachPage (/outreach?oferta=|empresa=), OutreachMessagesPanel (copy or
                              share, no Gmail drafts), LinkedInReviewPanel (copy), OutreachHandler, OutreachStore,
                              LinkedInReviewHandler; OutreachRecord in Persistence/SupportRecords.cs
-  Infrastructure/Google/     IGoogleAuthorizer (host implements it), GoogleAuthService (no stored tokens; google-connection.json
-                             keeps granted scopes, e-mail and date), GoogleApiClient (401 → clear token, retry once), GmailClient,
-                             GoogleCalendarClient, IcsInviteParser (ports), GoogleOptions + GoogleScopes (endpoints only)
-  Features/Google/           GooglePanel (Configuración → Google: Android client steps, connect, scopes, disconnect), GoogleUi
-                             (confirmation dialogs, port); Pipeline/ApplicationGoogleService + ApplicationMailPanel ("Correo")
+  Infrastructure/Google/     IGoogleAuthorizer and IAppSigningInfo (host implements them; package-only default for tests and
+                             previews), SigningFingerprint (SHA-1 as keytool shows it), GoogleAuthService (no stored tokens;
+                             google-connection.json keeps granted scopes, e-mail and date), GoogleApiClient (401 → clear token,
+                             retry once), GmailClient, GoogleCalendarClient, IcsInviteParser (ports), GoogleOptions + GoogleScopes
+  Features/Google/           GooglePanel (Configuración → Google: connect, scopes, disconnect), GoogleSetupWizard (5 steps:
+                             project, APIs, consent screen, Android client with this install's package and SHA-1 to copy,
+                             connect), GoogleUi (confirmation dialogs, port); Pipeline/ApplicationGoogleService + ApplicationMailPanel ("Correo")
   Features/Mail/             port of the web slice: TodayPanel ("Hoy" on the Panel; filter examples on tap), MailCheckService,
                              LinkedInAlertParser, MailRulesStore + MailRulesSeed (embedded web seed), MailRulesPanel
                              (Configuración → Reglas de correo); MailCheckRecord/MailWaitingRecord in Persistence/SupportRecords.cs
@@ -226,6 +229,9 @@ docs/play/                   Play Store icon (icon-512.png, 512×512, 32-bit PNG
   argument (`--json a,b`) splits it into two, and an advanced function binds `-R` as its own parameter; the wizard uses
   `Continue` + `$LASTEXITCODE`, quotes comma lists and passes `gh` arguments through a simple function. It is saved as UTF-8
   with BOM so 5.1 reads the accents. Parse-check it with `pwsh` (`dotnet tool install --global PowerShell`).
+- The installed app's signing certificate: `PackageManager.GetPackageInfo(name, PackageInfoFlags.Of(...SigningCertificates))`
+  on API 33+, the `PackageInfoFlags` overload on 28-32 (obsolete on 33, CA1422) and `Signatures` before 28 (obsolete,
+  CS0618); `SigningInfo.GetSigningCertificateHistory()` ends with the current signer when there is one signer.
 - Android's picker filters by MIME type; many file managers report `.md` as `application/octet-stream`, so the picker also
   accepts it for Markdown and `CvTextExtractor` checks the extension afterwards.
 
@@ -262,6 +268,7 @@ docs/play/                   Play Store icon (icon-512.png, 512×512, 32-bit PNG
 | 2026-10-09 | Google Play: internal testing only (the owner's choice), Gmail stays personal (no restricted-scope verification); the CI keystore is the Play upload key with Play App Signing; `android-release.yml` (owner's file, rewritten: it pointed at a non-existent project) builds, tests and signs the `.aab` on tags `v*` or manual runs and uploads it with a service account through the Play Developer API (`play_upload.py`, no third-party action; JWT signed with `openssl`); a Windows wizard (`Play-Wizard.ps1`) automates the PC side and guides the console steps | Public release would need a 12-tester/14-day closed test and Gmail verification with a yearly security assessment; the service account key is a single secret and never leaves GitHub. |
 | 2026-10-10 | The phone app starts with an empty profile (the web profile seed is no longer embedded); the Panel shows first steps (Gemini key, profile, master CV, import) until they are done; the empty profile counts as never edited for "Combinar" | Asked by the owner: other testers can install the Play build with their own Gemini key and Google account, and must not start from the owner's professional profile. |
 | 2026-10-10 | No search keywords or followed companies at first either (job-search and followed-companies seeds not embedded); preferences are stored only when the owner saves them; "Buscar" is disabled (and `JobSearchService` queries nothing) until there is a keyword, with a link to Preferencias and a "Primeros pasos" item | Asked by the owner; chosen by the owner over searching without keywords, which would store offers of any field and spend the sources' request limits (Remotive ≈ 4/day). |
+| 2026-10-15 | Google setup wizard on the phone (asked by the owner; the PC got one too): Google Cloud steps with links, and the Android client step shows the installed app's package name and signing SHA-1 read from Android (`IAppSigningInfo`), with copy buttons; the DEVELOPER_ERROR message points to that step | The SHA-1 differs between a CI APK and a Play install; reading it from the app removes the keytool step and the most common mistake. |
 | 2026-10-07 | Export / "Combinar" import (A10) as in the web app: same file, schema and merge rules (ported code); the file leaves through the share sheet and comes back through the picker (max 100 MB); the database is copied to `backups/` in the app's private folder before combining; reminders are rescheduled afterwards | Owner's choices (combine, everything but secrets, deletions travel, undated edits take the file's value, share and pick); the backup protects the only copy of the phone's data. |
 | 2026-10-07 | Mail brief ported unchanged (rules, classifier, alert roles → offers, waiting cards, stored facts only); read only on "Actualizar correo", no WorkManager job; the phone has its own rules document seeded from the web seed | Same behaviour as the web app; "nothing runs unattended"; each app keeps its own data until the A10 export/import. |
 | 2026-10-07 | Interviews and negotiation ported unchanged (practice rules, rubrics, comparator, script checks); sections as chips, comparison and history as cards, the score chart's SVG text doubled (its 640-wide viewBox is drawn at about half size on a phone) | Same rules as the web app; readable on a 360-400 px screen. |

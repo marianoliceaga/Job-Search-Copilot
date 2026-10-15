@@ -25,34 +25,27 @@
     }
     else if (!_status.Connected)
     {
-        <MudExpansionPanels Outlined="true" Elevation="0">
-            <MudExpansionPanel Text="Configuración en Google Cloud (una sola vez)">
-                <ol>
-                    <li>En el mismo proyecto de Google Cloud que usás para la app de la PC (con Gmail API y Google Calendar API habilitadas y la misma
-                        pantalla de consentimiento), andá a <em>Google Auth Platform → Clients → Create client</em> y elegí <strong>Android</strong>.</li>
-                    <li>Nombre del paquete: <code>com.vidi.jobpilot</code>.</li>
-                    <li>Huella SHA-1 de tu keystore de firma: <code>keytool -list -v -keystore jobpilot.keystore -alias jobpilot</code>.</li>
-                </ol>
-                <MudText Typo="Typo.body2">No hay que copiar nada a la app: Google la reconoce por el paquete y la firma del APK.</MudText>
-            </MudExpansionPanel>
-        </MudExpansionPanels>
-        <MudText Typo="Typo.subtitle1"><strong>Qué querés conectar</strong></MudText>
-        <MudRadioGroup T="GoogleAccess" @bind-Value="_access" data-testid="google-access">
-            <MudRadio T="GoogleAccess" Value="GoogleAccess.Full" Color="Color.Primary">Gmail y Calendar</MudRadio>
-            <MudRadio T="GoogleAccess" Value="GoogleAccess.CalendarOnly" Color="Color.Primary">Solo Calendar</MudRadio>
-        </MudRadioGroup>
-        <MudText Typo="Typo.body2">
-            Si tu cuenta tiene la <strong>Protección avanzada</strong> de Google, Gmail queda bloqueado para apps no verificadas como esta: elegí
-            <strong>Solo Calendar</strong>. Para los correos seguís teniendo "Copiar", "Compartir" y el registro manual de respuestas.
-        </MudText>
-        <MudText Typo="Typo.subtitle1"><strong>Permisos que se piden</strong></MudText>
-        <ul>@foreach (var scope in GoogleScopes.For(_access)) { <li>@GoogleUi.ScopeLabel(scope)</li> }</ul>
-        <MudText Typo="Typo.body2">En la pantalla de Google podés destildar cualquiera: la función correspondiente queda desactivada.</MudText>
-        <MudStack Row="true" AlignItems="AlignItems.Center">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Link" OnClick="() => ConnectAsync(_access)" Disabled="_busy"
-                       data-testid="google-connect">Conectar con Google</MudButton>
-            @if (_busy) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
-        </MudStack>
+        <GoogleSetupWizard>
+            <ConnectStep>
+                <MudText Typo="Typo.subtitle1"><strong>Qué querés conectar</strong></MudText>
+                <MudRadioGroup T="GoogleAccess" @bind-Value="_access" data-testid="google-access">
+                    <MudRadio T="GoogleAccess" Value="GoogleAccess.Full" Color="Color.Primary">Gmail y Calendar</MudRadio>
+                    <MudRadio T="GoogleAccess" Value="GoogleAccess.CalendarOnly" Color="Color.Primary">Solo Calendar</MudRadio>
+                </MudRadioGroup>
+                <MudText Typo="Typo.body2">
+                    Si tu cuenta tiene la <strong>Protección avanzada</strong> de Google, Gmail queda bloqueado para apps no verificadas como esta: elegí
+                    <strong>Solo Calendar</strong>. Para los correos seguís teniendo "Copiar", "Compartir" y el registro manual de respuestas.
+                </MudText>
+                <MudText Typo="Typo.subtitle1"><strong>Permisos que se piden</strong></MudText>
+                <ul>@foreach (var scope in GoogleScopes.For(_access)) { <li>@GoogleUi.ScopeLabel(scope)</li> }</ul>
+                <MudText Typo="Typo.body2">En la pantalla de Google podés destildar cualquiera: la función correspondiente queda desactivada.</MudText>
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Link" OnClick="() => ConnectAsync(_access)" Disabled="_busy"
+                               data-testid="google-connect">Conectar con Google</MudButton>
+                    @if (_busy) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+                </MudStack>
+            </ConnectStep>
+        </GoogleSetupWizard>
     }
     else
     {

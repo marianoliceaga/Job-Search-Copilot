@@ -41,7 +41,8 @@ git config core.hooksPath .githooks              # optional: run the check on ev
 # Gemini API key (never committed)
 dotnet user-secrets set "Gemini:ApiKey" "<key>" --project src/JobPilot.Web   # or env var GEMINI_API_KEY
 
-# Optional Google integration (OAuth client of type "Web application", redirect http://localhost:5080/google/callback)
+# Optional Google integration (OAuth client of type "Web application", redirect http://localhost:5080/google/callback).
+# The setup wizard in Configuración → Google stores the client encrypted in the data folder; user-secrets take priority.
 dotnet user-secrets set "Google:ClientId" "<client id>" --project src/JobPilot.Web
 dotnet user-secrets set "Google:ClientSecret" "<client secret>" --project src/JobPilot.Web
 
@@ -98,11 +99,13 @@ src/JobPilot.Web/
                              contractor costs, facts text), NegotiationScriptHandler
   Features/Outreach/         OutreachPage (/outreach: Mensajes / Perfil de LinkedIn), OutreachHandler (outreach-message, three
                              tones), OutreachStore (history, mark as sent → pipeline timeline), LinkedInReviewHandler
-  Infrastructure/Google/     GoogleOptions + GoogleScopes, GoogleTokenStore (Data Protection, data folder), GoogleAuthService
-                             (OAuth web flow, refresh, revoke), GoogleApiClient base, GmailClient (threads, drafts, MIME),
+  Infrastructure/Google/     GoogleOptions + GoogleScopes, GoogleTokenStore and GoogleClientStore (Data Protection, data
+                             folder), GoogleAuthService (OAuth web flow, refresh, revoke; client from configuration, else
+                             from the wizard), GoogleApiClient base, GmailClient (threads, drafts, MIME),
                              GoogleCalendarClient (JobPilot calendar), DI + /google/connect and /google/callback endpoints
   Features/Google/           GoogleUi (confirmation dialogs showing exactly what is sent to Google)
-  Features/Settings/         GooglePanel (setup steps, connect, granted scopes, disconnect)
+  Features/Settings/         GooglePanel (granted scopes, disconnect), GoogleSetupWizard (6 steps: project, APIs, consent
+                             screen, web client with the redirect URI to copy, client id/secret, connect)
   Features/Mail/             TodayPanel ("Hoy" on the Panel), MailCheckService (on-demand Gmail read, classify, alert roles →
                              offers, waiting cards), LinkedInAlertParser (AngleSharp), MailRulesStore + MailRulesPanel (rules
                              JSON in Configuración); pure rules, scoring and classifier in JobPilot.Domain/Mail
@@ -142,7 +145,8 @@ docs/PLAN.md                 approved plan
 - **LLM results:** never throw for provider errors; check `LlmResult.IsSuccess` and show `Error.Message`
   (Spanish, user-facing). Never fill gaps with app-made data.
 - **Configuration:** model names, LLM parameters, prices and source settings live in configuration, never
-  in code. Secrets via user-secrets (`UserSecretsId=jobpilot-web-local`) or environment variables.
+  in code. Secrets via user-secrets (`UserSecretsId=jobpilot-web-local`) or environment variables; the only exception is the
+  Google OAuth client entered in the setup wizard, encrypted with Data Protection in the data folder (`google-client.bin`).
 - **Local data** (phase 1+): default directory `Environment.SpecialFolder.LocalApplicationData/JobPilot`
   (`%LocalAppData%\JobPilot` on Windows, `~/.local/share/JobPilot` on Linux,
   `~/Library/Application Support/JobPilot` on macOS), overridable via configuration. Never inside the
@@ -304,6 +308,7 @@ docs/PLAN.md                 approved plan
 | 2026-10-03 | "Solo Calendar" connection option (`GoogleAccess.CalendarOnly`, `/google/connect?alcance=calendario`) requests only `calendar.app.created` | Advanced Protection accounts block unverified apps from Gmail (`policy_enforced`); Calendar may still be allowed, to be confirmed by the owner. |
 | 2026-10-03 | Interviews go to a secondary "JobPilot" calendar (`calendar.app.created`), created on first use and recreated if deleted; events only after a confirmation dialog showing the event; the Google event id is stored on the interview so it can be removed | No access to the owner's primary calendar. |
 | 2026-10-03 | Gmail threads are linked per application (only thread id and subject stored); messages are read on demand, never sent to Gemini; "Registrar como respuesta" stores sender, subject and date only | Privacy; the timeline keeps facts, not mail bodies. |
+| 2026-10-15 | Google setup wizard in Configuración → Google (PC and phone, asked by the owner): steps in Google Cloud with direct links; on the PC the OAuth client's id and secret are pasted in the wizard and stored in `google-client.bin` (Data Protection, like the token), configuration (user-secrets, environment) still wins; on the phone the wizard shows the installed app's package and signing SHA-1 | Chosen by the owner over keeping user-secrets only; the secret stays out of the repository, the database and export files, and no restart is needed. |
 | 2026-10-03 | Token stored in `google-token.bin` in the data folder, encrypted with ASP.NET Core Data Protection (keys in `{data}/keys`, DPAPI on Windows); `invalid_grant` deletes it and asks to reconnect (7-day refresh tokens for "Testing" apps) | Secrets never in the repo or the database; clear recovery path. |
 | 2026-10-06 | Phase 9 ports the job-search parts of the owner's JobSearchDesk ("LinkedMail Job Finder"): LinkedIn alert parser, role scoring, thread classifier; agreed: brief only inside JobPilot (no e-mail, `gmail.send` still forbidden), mail read only on "Actualizar correo" (no scheduler), job-search mail only (no banks, bills, security notices), primary calendar not read | Keeps "never sends" and "nothing runs unattended"; the owner unenrols from Advanced Protection to use Gmail. |
 | 2026-10-06 | Mail rules (sets, waiting rules, filter categories, scoring) are a settings document seeded from a generic Spanish `Seed/mail-rules.seed.json` and edited as JSON; saving compiles every rule; pay is compared only with the owner's floor and exchange rates | Same rule language as JobSearchDesk; personal lists (city, companies) stay local; never estimate pay. |

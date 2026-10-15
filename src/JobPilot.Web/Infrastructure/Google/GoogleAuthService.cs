@@ -8,7 +8,13 @@ using Microsoft.Extensions.Options;
 
 namespace JobPilot.Web.Infrastructure.Google;
 
-public sealed record GoogleStatus(bool Configured, bool Connected, string? Email, IReadOnlyList<string> GrantedScopes, DateTime? ConnectedAtUtc)
+public sealed record GoogleStatus(
+    bool Configured,
+    bool Connected,
+    string? Email,
+    IReadOnlyList<string> GrantedScopes,
+    DateTime? ConnectedAtUtc,
+    GoogleClientSource ClientSource = GoogleClientSource.None)
 {
     public bool CanReadMail => GrantedScopes.Contains(GoogleScopes.GmailReadonly);
 
@@ -37,6 +43,7 @@ public sealed class GoogleAuthService(
     IHttpClientFactory httpFactory,
     IOptionsMonitor<GoogleOptions> options,
     GoogleTokenStore store,
+    GoogleClientStore clients,
     JobPilotOptions jobPilot,
     TimeProvider time)
 {
@@ -51,16 +58,30 @@ public sealed class GoogleAuthService(
     public GoogleStatus Status()
     {
         var token = store.Read();
-        return new GoogleStatus(options.CurrentValue.IsConfigured, token is not null, token?.Email, token?.Scopes ?? [], token?.ConnectedAtUtc);
+        var client = Client();
+        return new GoogleStatus(client.Source != GoogleClientSource.None, token is not null, token?.Email, token?.Scopes ?? [], token?.ConnectedAtUtc, client.Source);
+    }
+
+    /// <summary>The OAuth client in use: user-secrets or environment first, then the one entered in the setup wizard.</summary>
+    private (string? Id, string? Secret, GoogleClientSource Source) Client()
+    {
+        var google = options.CurrentValue;
+        if (google.IsConfigured)
+        {
+            return (google.ClientId, google.ClientSecret, GoogleClientSource.Configuration);
+        }
+
+        return clients.Read() is { } saved ? (saved.ClientId, saved.ClientSecret, GoogleClientSource.App) : (null, null, GoogleClientSource.None);
     }
 
     /// <summary>The Google consent page URL; the state is single-use and expires in 10 minutes.</summary>
     public string BuildAuthorizationUrl(GoogleAccess access = GoogleAccess.Full)
     {
         var google = options.CurrentValue;
-        if (!google.IsConfigured)
+        var client = Client();
+        if (client.Source == GoogleClientSource.None)
         {
-            throw new InvalidOperationException("Falta configurar Google:ClientId y Google:ClientSecret (ver README).");
+            throw new InvalidOperationException("Falta configurar el cliente OAuth de Google (Configuración → Google).");
         }
 
         var now = time.GetUtcNow().UtcDateTime;
@@ -73,7 +94,7 @@ public sealed class GoogleAuthService(
         _states[state] = now + StateLifetime;
         var query = new Dictionary<string, string>
         {
-            ["client_id"] = google.ClientId!,
+            ["client_id"] = client.Id!,
             ["redirect_uri"] = RedirectUri,
             ["response_type"] = "code",
             ["scope"] = string.Join(' ', GoogleScopes.For(access)),
@@ -99,12 +120,12 @@ public sealed class GoogleAuthService(
             return GoogleResult<GoogleStatus>.Fail(error == "access_denied" ? "Cancelaste el permiso en Google." : $"Google devolvió un error: {error}.");
         }
 
-        var google = options.CurrentValue;
+        var client = Client();
         var response = await PostTokenAsync(new Dictionary<string, string>
         {
             ["code"] = code,
-            ["client_id"] = google.ClientId!,
-            ["client_secret"] = google.ClientSecret!,
+            ["client_id"] = client.Id ?? string.Empty,
+            ["client_secret"] = client.Secret ?? string.Empty,
             ["redirect_uri"] = RedirectUri,
             ["grant_type"] = "authorization_code",
         }, cancellationToken);
@@ -154,11 +175,11 @@ public sealed class GoogleAuthService(
                 return GoogleResult<string>.Fail("El permiso de Google venció. Volvé a conectar (Configuración → Google).");
             }
 
-            var google = options.CurrentValue;
+            var client = Client();
             var response = await PostTokenAsync(new Dictionary<string, string>
             {
-                ["client_id"] = google.ClientId ?? string.Empty,
-                ["client_secret"] = google.ClientSecret ?? string.Empty,
+                ["client_id"] = client.Id ?? string.Empty,
+                ["client_secret"] = client.Secret ?? string.Empty,
                 ["refresh_token"] = token.RefreshToken,
                 ["grant_type"] = "refresh_token",
             }, cancellationToken);
@@ -236,7 +257,13 @@ public sealed class GoogleAuthService(
             {
             }
 
-            return GoogleResult<TokenResponse>.Fail(error == InvalidGrant ? InvalidGrant : $"Google rechazó el pedido de token ({(int)response.StatusCode} {error}).");
+            return GoogleResult<TokenResponse>.Fail(error switch
+            {
+                InvalidGrant => InvalidGrant,
+                "invalid_client" or "unauthorized_client" =>
+                    "Google no reconoce el cliente OAuth: revisá el Client ID y el Client secret en Configuración → Google.",
+                _ => $"Google rechazó el pedido de token ({(int)response.StatusCode} {error}).",
+            });
         }
         catch (HttpRequestException)
         {

@@ -1,0 +1,151 @@
+@using JobPilot.Mobile.Core.Infrastructure.Files
+@using JobPilot.Mobile.Core.Infrastructure.Google
+@inject IAppSigningInfo Signing
+@inject IShareService Share
+
+@* Step-by-step setup of the Google connection on the phone. Steps 1-4 happen in Google Cloud (links open the phone's
+   browser); the Android client needs this install's package name and SHA-1, which the app reads itself. The last step is the
+   connection, supplied by the panel. *@
+<MudPaper Outlined="true" Class="pa-3" data-testid="google-wizard">
+    <MudText Typo="Typo.h6" HtmlTag="h2">Asistente de configuración</MudText>
+    <MudText Typo="Typo.body2" Class="mb-1">
+        Una sola vez por instalación. Los pasos 1 a 4 se hacen en Google Cloud con tu cuenta (los links abren el navegador; es más cómodo en la PC).
+        Si ya configuraste la app de la PC, usá el mismo proyecto y empezá en el paso 4.
+    </MudText>
+    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => Go(4)" data-testid="google-skip-to-connect">Ya está configurado: ir a conectar</MudButton>
+
+    @for (var i = 0; i < Steps.Length; i++)
+    {
+        var index = i;
+        <div class="jp-step @(index == _current ? "jp-step-current" : string.Empty)" data-testid="@($"google-step-{index + 1}")">
+            <MudButton Variant="Variant.Text" FullWidth="true" Class="jp-step-header" OnClick="() => Go(index)" aria-expanded="@(index == _current ? "true" : "false")">
+                <MudAvatar Size="Size.Small" Color="@(index < _furthest && index != _current ? Color.Success : index == _current ? Color.Primary : Color.Default)" Class="mr-3">
+                    @if (index < _furthest && index != _current) { <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" /> } else { @(index + 1) }
+                </MudAvatar>
+                <MudText Typo="Typo.subtitle1" Align="Align.Left" Class="flex-grow-1">@Steps[index]</MudText>
+            </MudButton>
+            @if (index == _current)
+            {
+                <div class="jp-step-body">
+                    @switch (index)
+                    {
+                        case 0:
+                            <MudText Typo="Typo.body2">
+                                Entrá a Google Cloud con tu cuenta y creá un proyecto, por ejemplo "JobPilot". Si ya tenés uno (el de la PC o el de la clave de
+                                Gemini) usá ese: se elige arriba a la izquierda en la consola.
+                            </MudText>
+                            <MudLink Href="https://console.cloud.google.com/projectcreate" Target="_blank">Crear un proyecto en Google Cloud</MudLink>
+                            break;
+                        case 1:
+                            <MudText Typo="Typo.body2">Con tu proyecto elegido, abrí cada API y tocá <strong>Enable</strong> (Habilitar):</MudText>
+                            <ul>
+                                <li><MudLink Href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" Target="_blank">Gmail API</MudLink></li>
+                                <li><MudLink Href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" Target="_blank">Google Calendar API</MudLink></li>
+                            </ul>
+                            <MudText Typo="Typo.body2">Si solo vas a conectar el calendario, alcanza con Google Calendar API.</MudText>
+                            break;
+                        case 2:
+                            <MudText Typo="Typo.body2">
+                                Abrí <MudLink Href="https://console.cloud.google.com/auth/overview" Target="_blank">Google Auth Platform</MudLink> y tocá
+                                <strong>Get started</strong> (si ya lo hiciste para la PC, saltá este paso):
+                            </MudText>
+                            <ol>
+                                <li>Nombre de la app: <strong>JobPilot</strong>; correo de soporte: el tuyo.</li>
+                                <li>Público (<em>Audience</em>): <strong>External</strong>.</li>
+                                <li>Correo de contacto: el tuyo. Aceptá la política y tocá <strong>Create</strong>.</li>
+                                <li>En <em>Audience → Test users</em>, agregá la cuenta de Google que vas a conectar.</li>
+                            </ol>
+                            <MudText Typo="Typo.body2">Al conectar vas a ver "Google no verificó esta app": tocá <em>Avanzado → Ir a JobPilot</em>.</MudText>
+                            break;
+                        case 3:
+                            @AndroidClientStep()
+                            break;
+                        default:
+                            @ConnectStep
+                            break;
+                    }
+                    <MudStack Row="true" Class="mt-3">
+                        @if (index > 0)
+                        {
+                            <MudButton Variant="Variant.Text" OnClick="() => Go(index - 1)">Atrás</MudButton>
+                        }
+                        @if (index < Steps.Length - 1)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => Go(index + 1)" data-testid="google-step-next">Listo, siguiente</MudButton>
+                        }
+                    </MudStack>
+                </div>
+            }
+        </div>
+    }
+</MudPaper>
+
+@code {
+    private static readonly string[] Steps =
+    [
+        "Proyecto de Google Cloud",
+        "Habilitar Gmail API y Google Calendar API",
+        "Pantalla de consentimiento",
+        "Cliente OAuth de tipo Android",
+        "Conectar tu cuenta",
+    ];
+
+    private int _current;
+    private int _furthest;
+    private string? _sha1;
+    private string? _copied;
+
+    /// <summary>The connection step (account choice, permissions and the connect button), rendered by the panel.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment ConnectStep { get; set; } = null!;
+
+    protected override void OnInitialized() => _sha1 = Signing.SigningCertificate() is { } certificate ? SigningFingerprint.Sha1(certificate) : null;
+
+    private void Go(int index) => (_current, _furthest) = (index, Math.Max(_furthest, index));
+
+    private RenderFragment AndroidClientStep() => __builder =>
+    {
+        <MudText Typo="Typo.body2">
+            Abrí <MudLink Href="https://console.cloud.google.com/auth/clients/create" Target="_blank">Create client</MudLink>
+            (Google Auth Platform → Clients), elegí el tipo <strong>Android</strong> y completá con estos datos de esta instalación:
+        </MudText>
+        <MudText Typo="Typo.caption" Class="mt-2">Nombre del paquete</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <code data-testid="google-package">@Signing.PackageName</code>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="() => CopyAsync(Signing.PackageName)">
+                @(_copied == Signing.PackageName ? "Copiado" : "Copiar")
+            </MudButton>
+        </MudStack>
+        <MudText Typo="Typo.caption" Class="mt-2">Huella del certificado SHA-1</MudText>
+        @if (_sha1 is not null)
+        {
+            <code class="jp-sha1" data-testid="google-sha1">@_sha1</code>
+            <div>
+                <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="() => CopyAsync(_sha1)" data-testid="google-sha1-copy">
+                    @(_copied == _sha1 ? "Copiado" : "Copiar")
+                </MudButton>
+            </div>
+            <MudText Typo="Typo.body2" Class="mt-2">
+                Es la firma de <strong>esta</strong> instalación: la de tu clave si la app vino de GitHub, la de Google si vino de Google Play. Cada una
+                necesita su propio cliente Android; si cambiás de una a otra, creá el otro cliente con la huella que se vea acá.
+            </MudText>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" data-testid="google-sha1-missing">
+                No se pudo leer la firma de la app. Sacala de tu keystore con
+                <code>keytool -list -v -keystore jobpilot.keystore -alias jobpilot</code>, o en Google Play Console → Integridad de la app → Firma de apps.
+            </MudAlert>
+        }
+        <MudText Typo="Typo.body2" Class="mt-2">
+            Tocá <strong>Create</strong>. No hay que copiar nada de vuelta a la app: Google la reconoce por el paquete y la firma. Puede tardar unos minutos
+            en aplicarse.
+        </MudText>
+    };
+
+    private async Task CopyAsync(string text)
+    {
+        await Share.CopyTextAsync(text);
+        _copied = text;
+    }
+}

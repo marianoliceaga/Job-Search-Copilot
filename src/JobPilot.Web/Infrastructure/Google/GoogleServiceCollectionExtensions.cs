@@ -10,6 +10,7 @@ public static class GoogleServiceCollectionExtensions
         services.AddOptions<GoogleOptions>().Bind(configuration.GetSection(GoogleOptions.SectionName));
         services.AddHttpClient(GoogleAuthService.HttpClientName, http => http.Timeout = TimeSpan.FromSeconds(30));
         services.AddSingleton<GoogleTokenStore>();
+        services.AddSingleton<GoogleClientStore>();
         services.AddSingleton<GoogleAuthService>();
         services.AddHttpClient<GmailClient>((sp, http) =>
         {
