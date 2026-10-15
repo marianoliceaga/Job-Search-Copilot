@@ -165,10 +165,12 @@ follow-ups, upcoming interviews and the estimated LLM cost by use case.
 
 ### Google (optional)
 
-**Configuración → Google** explains the one-time setup: a Google Cloud project with Gmail API and Google Calendar API
-enabled, an OAuth consent screen (External, your account as test user) and an OAuth client of type
-**Web application** with the redirect URI `http://localhost:5080/google/callback`. Store its id and secret with
-user-secrets (`Google:ClientId`, `Google:ClientSecret`) and restart. JobPilot asks for three scopes:
+**Configuración → Google** has a step-by-step setup wizard: a Google Cloud project with Gmail API and Google Calendar
+API enabled, an OAuth consent screen (External, your account as test user) and an OAuth client of type
+**Web application** with the redirect URI `http://localhost:5080/google/callback` (with a copy button). Paste the
+client's id and secret in the wizard: they are stored encrypted in your data folder (`google-client.bin`, never in the
+database, the repository or an export) and work without restarting. User-secrets (`Google:ClientId`,
+`Google:ClientSecret`) still work and take priority. JobPilot asks for three scopes:
 
 - `gmail.readonly`: search and read threads that you link to an application (only the thread id and subject are stored;
   messages are read on demand and never sent to Gemini).

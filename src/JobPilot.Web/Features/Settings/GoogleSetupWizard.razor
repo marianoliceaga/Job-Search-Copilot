@@ -1,0 +1,260 @@
+@using JobPilot.Web.Features.Google
+@using JobPilot.Web.Infrastructure.Google
+@inject GoogleAuthService Auth
+@inject GoogleClientStore Clients
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+@* Step-by-step setup of the Google connection. Steps 1-4 happen in Google Cloud (the app cannot check them); the client
+   step and the connection are checked against the stored client and token. *@
+<MudPaper Outlined="true" Class="pa-3" data-testid="google-wizard">
+    <MudText Typo="Typo.h6" HtmlTag="h2">Asistente de configuración</MudText>
+    <MudText Typo="Typo.body2" Class="mb-2">
+        Una sola vez. Los pasos 1 a 4 se hacen en Google Cloud con tu cuenta (los links abren otra pestaña); después pegás el cliente acá y conectás.
+    </MudText>
+
+    @for (var i = 0; i < Steps.Length; i++)
+    {
+        var index = i;
+        var done = IsDone(index);
+        <div class="jp-step @(index == _current ? "jp-step-current" : string.Empty)" data-testid="@($"google-step-{index + 1}")">
+            <MudButton Variant="Variant.Text" FullWidth="true" Class="jp-step-header" OnClick="() => Go(index)" aria-expanded="@(index == _current ? "true" : "false")">
+                <MudAvatar Size="Size.Small" Color="@(done ? Color.Success : index == _current ? Color.Primary : Color.Default)" Class="mr-3">
+                    @if (done) { <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" /> } else { @(index + 1) }
+                </MudAvatar>
+                <MudText Typo="Typo.subtitle1" Align="Align.Left" Class="flex-grow-1">@Steps[index]</MudText>
+            </MudButton>
+            @if (index == _current)
+            {
+                <div class="jp-step-body">
+                    @switch (index)
+                    {
+                        case 0:
+                            <MudText Typo="Typo.body2">
+                                Entrá a Google Cloud con tu cuenta y creá un proyecto, por ejemplo "JobPilot". Si ya tenés uno (por ejemplo el de la clave de
+                                Gemini) podés usar ese: elegilo arriba a la izquierda en la consola.
+                            </MudText>
+                            <MudLink Href="https://console.cloud.google.com/projectcreate" Target="_blank" rel="noopener noreferrer">Crear un proyecto en Google Cloud</MudLink>
+                            break;
+                        case 1:
+                            <MudText Typo="Typo.body2">Con tu proyecto elegido, abrí cada API y tocá <strong>Enable</strong> (Habilitar):</MudText>
+                            <ul>
+                                <li><MudLink Href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" Target="_blank" rel="noopener noreferrer">Gmail API</MudLink></li>
+                                <li><MudLink Href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" Target="_blank" rel="noopener noreferrer">Google Calendar API</MudLink></li>
+                            </ul>
+                            <MudText Typo="Typo.body2">Si solo vas a conectar el calendario, alcanza con Google Calendar API.</MudText>
+                            break;
+                        case 2:
+                            <MudText Typo="Typo.body2">
+                                Abrí <MudLink Href="https://console.cloud.google.com/auth/overview" Target="_blank" rel="noopener noreferrer">Google Auth Platform</MudLink>
+                                y tocá <strong>Get started</strong>:
+                            </MudText>
+                            <ol>
+                                <li>Nombre de la app: <strong>JobPilot</strong>; correo de soporte: el tuyo.</li>
+                                <li>Público (<em>Audience</em>): <strong>External</strong>.</li>
+                                <li>Correo de contacto: el tuyo. Aceptá la política y tocá <strong>Create</strong>.</li>
+                                <li>En <em>Audience → Test users</em>, agregá tu cuenta de Google.</li>
+                            </ol>
+                            <MudAlert Severity="Severity.Info" Dense="true">
+                                Recomendado en la PC: <em>Audience → Publish app → In production</em>, sin pedir verificación (Google lo permite para uso
+                                personal). Si la dejás en <em>Testing</em>, el permiso vence a los 7 días y hay que volver a conectar. Al conectar vas a ver
+                                "Google no verificó esta app": tocá <em>Avanzado → Ir a JobPilot</em>.
+                            </MudAlert>
+                            break;
+                        case 3:
+                            <MudText Typo="Typo.body2">
+                                Abrí <MudLink Href="https://console.cloud.google.com/auth/clients/create" Target="_blank" rel="noopener noreferrer">Create client</MudLink>
+                                (Google Auth Platform → Clients):
+                            </MudText>
+                            <ol>
+                                <li>Tipo de aplicación: <strong>Web application</strong>; nombre: <strong>JobPilot PC</strong>.</li>
+                                <li>En <em>Authorized redirect URIs</em> agregá exactamente esta dirección:</li>
+                            </ol>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mb-2">
+                                <code data-testid="google-redirect-uri">@Auth.RedirectUri</code>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="() => CopyAsync(Auth.RedirectUri)">
+                                    @(_copied == Auth.RedirectUri ? "Copiado" : "Copiar")
+                                </MudButton>
+                            </MudStack>
+                            <MudText Typo="Typo.body2">
+                                Tocá <strong>Create</strong> y dejá abierta la ventana con el <strong>Client ID</strong> y el <strong>Client secret</strong>: los pegás en el
+                                paso siguiente. Google puede tardar unos minutos en aplicar un cliente nuevo.
+                            </MudText>
+                            break;
+                        case 4:
+                            @ClientStep()
+                            break;
+                        default:
+                            @ConnectStep()
+                            break;
+                    }
+                    <MudStack Row="true" Class="mt-3">
+                        @if (index > 0)
+                        {
+                            <MudButton Variant="Variant.Text" OnClick="() => Go(index - 1)">Atrás</MudButton>
+                        }
+                        @if (index < 4 || (index == 4 && _status.Configured))
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => Go(index + 1)" data-testid="google-step-next">
+                                @(index < 4 ? "Listo, siguiente" : "Siguiente")
+                            </MudButton>
+                        }
+                    </MudStack>
+                </div>
+            }
+        </div>
+    }
+</MudPaper>
+
+@code {
+    private static readonly string[] Steps =
+    [
+        "Proyecto de Google Cloud",
+        "Habilitar Gmail API y Google Calendar API",
+        "Pantalla de consentimiento",
+        "Cliente OAuth de tipo Web application",
+        "Pegar el cliente en JobPilot",
+        "Conectar tu cuenta",
+    ];
+
+    private GoogleStatus _status = new(false, false, null, [], null);
+    private int _current;
+    private int _furthest;
+    private GoogleAccess _access = GoogleAccess.Full;
+    private string? _clientId;
+    private string? _clientSecret;
+    private string? _clientError;
+    private bool _replacing;
+    private string? _copied;
+
+    protected override void OnInitialized()
+    {
+        _status = Auth.Status();
+        _current = _status.Configured ? 5 : 0;
+    }
+
+    private void Go(int index) => (_current, _furthest) = (index, Math.Max(_furthest, index));
+
+    // Steps in Google Cloud cannot be checked from here: they count as done once the owner moved past them.
+    private bool IsDone(int index) => index switch
+    {
+        4 => _status.Configured,
+        5 => _status.Connected,
+        _ => _status.Configured || index < _furthest,
+    };
+
+    private RenderFragment ClientStep() => __builder =>
+    {
+        if (_status.ClientSource == GoogleClientSource.Configuration)
+        {
+            <MudAlert Severity="Severity.Success" Dense="true" data-testid="google-client-config">
+                El cliente está cargado con user-secrets o variables de entorno, que tienen prioridad. No hace falta pegarlo acá.
+            </MudAlert>
+        }
+        else if (_status.ClientSource == GoogleClientSource.App && !_replacing)
+        {
+            <MudAlert Severity="Severity.Success" Dense="true" data-testid="google-client-saved">
+                El cliente está guardado en esta PC, cifrado en la carpeta de datos de JobPilot (no viaja en las exportaciones).
+            </MudAlert>
+            @if (_status.Connected)
+            {
+                <MudText Typo="Typo.body2" Class="mt-2">Para cambiarlo, primero desconectá Google.</MudText>
+            }
+            else
+            {
+                <MudStack Row="true" Class="mt-2">
+                    <MudButton Variant="Variant.Outlined" OnClick="() => _replacing = true">Reemplazar</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="RemoveClient" data-testid="google-client-remove">Borrar</MudButton>
+                </MudStack>
+            }
+        }
+        else
+        {
+            <MudText Typo="Typo.body2">
+                Pegá el Client ID y el Client secret del cliente que creaste. Se guardan cifrados en la carpeta de datos de JobPilot (nunca en la base
+                de datos, el repositorio ni las exportaciones).
+            </MudText>
+            <MudTextField T="string" @bind-Value="_clientId" Label="Client ID" Variant="Variant.Outlined" Immediate="true" autocomplete="off"
+                          HelperText="Termina en .apps.googleusercontent.com" data-testid="google-client-id" />
+            <MudTextField T="string" @bind-Value="_clientSecret" Label="Client secret" Variant="Variant.Outlined" Immediate="true" autocomplete="off"
+                          InputType="InputType.Password" data-testid="google-client-secret" />
+            @if (_clientError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" data-testid="google-client-error">@_clientError</MudAlert>
+            }
+            <MudStack Row="true" Class="mt-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveClient"
+                           Disabled="@(string.IsNullOrWhiteSpace(_clientId) || string.IsNullOrWhiteSpace(_clientSecret))" data-testid="google-client-save">
+                    Guardar cliente
+                </MudButton>
+                @if (_replacing)
+                {
+                    <MudButton Variant="Variant.Text" OnClick="() => _replacing = false">Cancelar</MudButton>
+                }
+            </MudStack>
+        }
+    };
+
+    private RenderFragment ConnectStep() => __builder =>
+    {
+        if (!_status.Configured)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true">Primero completá el paso 5.</MudAlert>
+            return;
+        }
+
+        <MudText Typo="Typo.subtitle1"><strong>Qué querés conectar</strong></MudText>
+        <MudRadioGroup T="GoogleAccess" @bind-Value="_access" data-testid="google-access">
+            <MudRadio T="GoogleAccess" Value="GoogleAccess.Full" Color="Color.Primary">Gmail y Calendar</MudRadio>
+            <MudRadio T="GoogleAccess" Value="GoogleAccess.CalendarOnly" Color="Color.Primary">Solo Calendar</MudRadio>
+        </MudRadioGroup>
+        <MudText Typo="Typo.body2">
+            Si tu cuenta tiene la <strong>Protección avanzada</strong> de Google, Gmail queda bloqueado para apps no verificadas como esta
+            (Google muestra "Error 400: policy_enforced"): elegí <strong>Solo Calendar</strong>. Para los correos seguís teniendo "Copiar" y el registro manual de respuestas.
+        </MudText>
+        <MudText Typo="Typo.subtitle1"><strong>Permisos que se piden</strong></MudText>
+        <ul>@foreach (var scope in GoogleScopes.For(_access)) { <li>@GoogleUi.ScopeLabel(scope)</li> }</ul>
+        <MudText Typo="Typo.body2">
+            Se abre la página de Google: elegí tu cuenta y aceptá. En esa pantalla podés destildar cualquier permiso: la función correspondiente queda desactivada.
+            Si Google muestra "redirect_uri_mismatch", revisá la dirección del paso 4.
+        </MudText>
+        <div class="mt-2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Link" OnClick="Connect" data-testid="google-connect">Conectar con Google</MudButton>
+        </div>
+    };
+
+    private void SaveClient()
+    {
+        _clientError = Clients.Save(_clientId, _clientSecret);
+        if (_clientError is not null)
+        {
+            return;
+        }
+
+        (_clientId, _clientSecret, _replacing) = (null, null, false);
+        _status = Auth.Status();
+        Go(5);
+    }
+
+    private void RemoveClient()
+    {
+        Clients.Delete();
+        _status = Auth.Status();
+    }
+
+    // A full page load: the OAuth flow leaves the app and comes back through /google/callback.
+    private void Connect() => Navigation.NavigateTo(_access == GoogleAccess.CalendarOnly ? "/google/connect?alcance=calendario" : "/google/connect", forceLoad: true);
+
+    private async Task CopyAsync(string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("jobPilot.copyText", text);
+            _copied = text;
+        }
+        catch (JSException)
+        {
+            _copied = null;
+        }
+    }
+}

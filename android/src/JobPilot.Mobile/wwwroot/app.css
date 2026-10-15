@@ -68,6 +68,11 @@ h1:focus {
     font-family: Roboto, sans-serif;
 }
 
+.jp-step { border-top: 1px solid var(--mud-palette-lines-default); }
+.jp-step-header { justify-content: flex-start; text-transform: none; padding: 8px 4px; }
+.jp-step-body { padding: 4px 4px 12px 4px; }
+.jp-sha1 { display: block; word-break: break-all; font-size: 0.8rem; margin: 4px 0; }
+
 .jp-payload {
     white-space: pre-wrap;
     word-break: break-word;

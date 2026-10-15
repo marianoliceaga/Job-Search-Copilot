@@ -12,6 +12,11 @@ h1:focus {
         content: "Ocurrió un error.";
     }
 
+.jp-step { border-top: 1px solid var(--mud-palette-lines-default); }
+.jp-step-header { justify-content: flex-start; text-transform: none; padding: 8px 4px; }
+.jp-step-body { padding: 4px 8px 12px 48px; }
+@media (max-width: 600px) { .jp-step-body { padding-left: 8px; } }
+
 .jp-payload {
     white-space: pre-wrap;
     word-break: break-word;

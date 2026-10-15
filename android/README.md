@@ -105,16 +105,18 @@ create Gmail **drafts** (never sends) and add interviews to a secondary "JobPilo
 action shows what is sent before it happens.
 
 The phone uses Android's own authorization (Google Play services), which Google documents for Android apps; the PC app's
-web OAuth client does not work on a phone. One-time setup in the same Google Cloud project as the PC app (same consent
-screen, test users, Gmail API and Google Calendar API):
+web OAuth client does not work on a phone. **Configuración → Google** has a step-by-step setup wizard with links to each
+Google Cloud page (same project, consent screen, test users, Gmail API and Google Calendar API as the PC app):
 
-1. **Google Auth Platform → Clients → Create client**, application type **Android**.
-2. Package name: `com.vidi.jobpilot`.
-3. SHA-1 fingerprint of your signing keystore (the one in the GitHub secrets):
-   `keytool -list -v -keystore jobpilot.keystore -alias jobpilot`.
+1. Project, APIs and consent screen (skip them if the PC app is already set up).
+2. **Google Auth Platform → Clients → Create client**, application type **Android**, with the package name
+   (`com.vidi.jobpilot`) and the SHA-1 the wizard shows with copy buttons. The app reads that SHA-1 from its own
+   signature, so it is the right one for this install: your keystore's for an APK from GitHub, Google's app signing key's
+   for an install from Google Play (each needs its own client). Without it, `keytool -list -v -keystore jobpilot.keystore
+   -alias jobpilot` prints it.
 
-Nothing is pasted into the app: Google recognises it by package and signature, so only the APK signed with that keystore
-can connect. Then **Configuración → Google → Conectar con Google** shows Google's consent screen ("Solo Calendar" asks
+Nothing is pasted into the app: Google recognises it by package and signature. Then the wizard's last step,
+**Conectar con Google**, shows Google's consent screen ("Solo Calendar" asks
 only for the calendar, for accounts with Advanced Protection, where Gmail is blocked). The phone keeps no Google token:
 Android gives the app a one-hour access token each session, silently while the grant lasts; **Desconectar y revocar**
 revokes it. Phones without Google Play services cannot connect.

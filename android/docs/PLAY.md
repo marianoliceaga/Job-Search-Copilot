@@ -77,7 +77,8 @@ Google requires the first bundle of a new app to be uploaded in Play Console.
 ## 7. Google sign-in for the Play build
 
 Google Cloud → **Google Auth Platform → Clients → Create client → Android**, package `com.vidi.jobpilot`, SHA-1 of
-Play's **app signing key** (step 5.5). Keep the existing Android client for the CI APKs: each signing key needs its own
+Play's **app signing key** (step 5.5). Once the app from Play is installed, its **Configuración → Google** wizard shows that
+same SHA-1 (read from the installed app) with a copy button. Keep the existing Android client for the CI APKs: each signing key needs its own
 client. The app embeds no client id, so nothing changes in the code. Under **Audience**, keep your account as a test user
 (Testing) or publish the consent screen for personal use: unverified apps show an "unverified app" screen and are limited
 to 100 users.
@@ -96,6 +97,24 @@ The app from Play and the APK from GitHub are signed with different keys, so one
 switching: in the old app, **Configuración → Exportar / Importar → Exportar y compartir** (save the file somewhere you
 can reach from the phone), uninstall it, open the join link with the tester account, install from Play, enter the Gemini
 key again, reconnect Google and **Importar y combinar** the file.
+
+## Store listing (optional for internal testing)
+
+`android/docs/play/icon-512.png` is the 512×512 32-bit PNG icon for **Store presence → Main store listing → App icon**,
+rendered from the launcher icon (`src/JobPilot.Mobile/Resources/AppIcon`, white briefcase on `#594AE2`). Play rounds the
+corners itself. If the launcher icon changes, render this file again from the same SVGs.
+
+`android/docs/play/feature-graphic-1024x500.png` is the **Feature graphic** (1024×500, 24-bit PNG without alpha): the icon
+tile, the name and the tagline "Tu búsqueda de trabajo remoto, en el bolsillo." (es-419, the listing's default language) on
+the icon's purple, next to a flat illustration of a man standing on a bus using his phone. Text and the illustration stay away
+from the edges. `feature-graphic-1024x500-en.png` is the same image with the English tagline "Your remote job search, in
+your pocket." for an English (en-US) translation of the listing.
+
+`android/docs/play/screenshots/es/` and `screenshots/en/` hold six phone screenshots (1080×1920, 9:16, 24-bit PNG) with a
+caption per language: Panel, offers ranked by fit, an offer's analysis, an application's timeline, the offer comparator and a
+company profile. The app's UI is Spanish in both sets; all data is fictional (Northwind Traders, Contoso, `example.com`).
+They were captured from a throwaway Blazor Server host over `JobPilot.Mobile.Core` (see Gotchas in `android/CLAUDE.md`) at
+360×640 CSS pixels and 3× scale, then framed with the caption on the icon's purple.
 
 ## Other testers
 
