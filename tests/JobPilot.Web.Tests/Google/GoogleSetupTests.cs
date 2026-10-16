@@ -4,6 +4,7 @@ using JobPilot.Web.Features.Settings;
 using JobPilot.Web.Infrastructure;
 using JobPilot.Web.Infrastructure.Google;
 using JobPilot.Web.Tests.TestSupport;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -163,5 +164,101 @@ public sealed class GoogleSetupTests : BunitContext
         Assert.NotNull(cut.Find("[data-testid=google-connect]"));
         cut.Find("[data-testid=google-step-5] button").Click();
         Assert.NotNull(cut.Find("[data-testid=google-client-config]"));
+    }
+
+    // The file Google Cloud offers with "Download JSON" (fictional values; the secret is shorter than a real one).
+    private static string ClientJson(string redirect = "http://localhost:5080/google/callback", string type = "web") =>
+        $$$"""
+        {"{{{type}}}":{"client_id":"{{{ClientId}}}","project_id":"jobsearch-copilot-test","auth_uri":"https://accounts.google.com/o/oauth2/auth",
+        "token_uri":"https://oauth2.googleapis.com/token","client_secret":"GOCSPX-fake","redirect_uris":["{{{redirect}}}"]}}
+        """;
+
+    [Fact]
+    public void The_downloaded_client_file_is_read_with_its_redirect_check()
+    {
+        var ok = GoogleClientInput.FromJson(ClientJson(), "http://localhost:5080/google/callback");
+        var otherPort = GoogleClientInput.FromJson(ClientJson("http://localhost:5081/google/callback"), "http://localhost:5080/google/callback");
+
+        Assert.Equal((ClientId, "GOCSPX-fake", null, null), (ok.ClientId, ok.ClientSecret, ok.Error, ok.Warning));
+        Assert.True(otherPort.HasBoth);
+        Assert.Contains("redirect_uri_mismatch", otherPort.Warning, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("installed", "tipo Desktop")]
+    [InlineData("other", "no tiene un cliente de tipo Web application")]
+    public void Client_files_of_another_type_are_rejected(string type, string expected) =>
+        Assert.Contains(expected, GoogleClientInput.FromJson(ClientJson(type: type), "http://localhost:5080/google/callback").Error, StringComparison.Ordinal);
+
+    [Theory]
+    [InlineData("not json")]
+    [InlineData("[1,2]")]
+    [InlineData("""{"web":{"client_id":"x.apps.googleusercontent.com"}}""")]
+    public void Broken_client_files_are_rejected(string json) =>
+        Assert.NotNull(GoogleClientInput.FromJson(json, "http://localhost:5080/google/callback").Error);
+
+    [Theory]
+    [InlineData("Client ID\n123-wizard.apps.googleusercontent.com\nClient secret\nGOCSPX-fake", true)]
+    [InlineData("123-wizard.apps.googleusercontent.com GOCSPX-fake", true)]
+    [InlineData("123-wizard.apps.googleusercontent.com", false)]
+    [InlineData("GOCSPX-fake", false)]
+    public void A_paste_with_both_values_is_split(string text, bool both)
+    {
+        var result = GoogleClientInput.FromText(text, "http://localhost:5080/google/callback");
+
+        Assert.Equal(both, result.HasBoth);
+        if (both)
+        {
+            Assert.Equal((ClientId, "GOCSPX-fake"), (result.ClientId, result.ClientSecret));
+        }
+    }
+
+    [Fact]
+    public void The_wizard_saves_the_client_from_the_downloaded_file()
+    {
+        AddServices();
+        var cut = Render<GoogleSetupWizard>();
+        for (var i = 0; i < 4; i++)
+        {
+            cut.Find("[data-testid=google-step-next]").Click();
+        }
+
+        cut.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText(ClientJson("http://localhost:5081/google/callback"), "client_secret_123.json"));
+
+        Assert.Equal((ClientId, "GOCSPX-fake"), (Services.GetRequiredService<GoogleClientStore>().Read()!.ClientId, Services.GetRequiredService<GoogleClientStore>().Read()!.ClientSecret));
+        Assert.Contains("jp-step-current", cut.Find("[data-testid=google-step-6]").ClassName, StringComparison.Ordinal);
+        Assert.Contains("5080", cut.Find("[data-testid=google-client-warning]").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_desktop_client_file_is_explained_and_not_saved()
+    {
+        AddServices();
+        var cut = Render<GoogleSetupWizard>();
+        for (var i = 0; i < 4; i++)
+        {
+            cut.Find("[data-testid=google-step-next]").Click();
+        }
+
+        cut.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText(ClientJson(type: "installed"), "client_secret_123.json"));
+
+        Assert.Contains("tipo Desktop", cut.Find("[data-testid=google-client-error]").TextContent, StringComparison.Ordinal);
+        Assert.Null(Services.GetRequiredService<GoogleClientStore>().Read());
+    }
+
+    [Fact]
+    public void Pasting_both_values_in_one_field_fills_both()
+    {
+        AddServices();
+        var cut = Render<GoogleSetupWizard>();
+        for (var i = 0; i < 4; i++)
+        {
+            cut.Find("[data-testid=google-step-next]").Click();
+        }
+
+        cut.Find("input[data-testid=google-client-secret]").Input($"Client ID {ClientId} Client secret GOCSPX-fake");
+        cut.Find("[data-testid=google-client-save]").Click();
+
+        Assert.Equal((ClientId, "GOCSPX-fake"), (Services.GetRequiredService<GoogleClientStore>().Read()!.ClientId, Services.GetRequiredService<GoogleClientStore>().Read()!.ClientSecret));
     }
 }

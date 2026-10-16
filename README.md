@@ -171,8 +171,9 @@ follow-ups, upcoming interviews and the estimated LLM cost by use case.
 
 **Configuración → Google** has a step-by-step setup wizard: a Google Cloud project with Gmail API and Google Calendar
 API enabled, an OAuth consent screen (External, your account as test user) and an OAuth client of type
-**Web application** with the redirect URI `http://localhost:5080/google/callback` (with a copy button). Paste the
-client's id and secret in the wizard: they are stored encrypted in your data folder (`google-client.bin`, never in the
+**Web application** with the redirect URI `http://localhost:5080/google/callback` (with a copy button). When Google shows
+the new client, choose **Download JSON** (Google shows the secret only once) and load that file in the wizard, or paste the
+id and secret (both at once works too): they are stored encrypted in your data folder (`google-client.bin`, never in the
 database, the repository or an export) and work without restarting. User-secrets (`Google:ClientId`,
 `Google:ClientSecret`) still work and take priority. JobSearch Copilot asks for three scopes:
 

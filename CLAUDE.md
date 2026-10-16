@@ -102,7 +102,8 @@ src/JobPilot.Web/
   Infrastructure/Google/     GoogleOptions + GoogleScopes, GoogleTokenStore and GoogleClientStore (Data Protection, data
                              folder), GoogleAuthService (OAuth web flow, refresh, revoke; client from configuration, else
                              from the wizard), GoogleApiClient base, GmailClient (threads, drafts, MIME),
-                             GoogleCalendarClient (JobSearch Copilot calendar), DI + /google/connect and /google/callback endpoints
+                             GoogleCalendarClient (JobSearch Copilot calendar), GoogleClientInput (client JSON / pasted values),
+                             DI + /google/connect and /google/callback endpoints
   Features/Google/           GoogleUi (confirmation dialogs showing exactly what is sent to Google)
   Features/Settings/         GooglePanel (granted scopes, disconnect), GoogleSetupWizard (6 steps: project, APIs, consent
                              screen, web client with the redirect URI to copy, client id/secret, connect)
@@ -313,6 +314,7 @@ windows/                     Windows desktop app (WPF + WebView2 host over the w
 | 2026-10-16 | Product name "JobSearch Copilot" (was JobPilot) in everything the owner sees: titles, app bar, Android app label, messages, the Google calendar created from now on, DOCX creator, .ics product id, user agent (`JobSearchCopilot/1.0`), generated file names (`jobsearch-copilot-pc-….json`, `-celular-`, `-pipeline.ics`, `-postulacion.ics`, backups), Play listing graphics and docs. Code names (projects, namespaces, classes) and internal identifiers stay: data folder `JobPilot`, configuration section `JobPilot`, Data Protection application name and purposes, `com.vidi.jobpilot`, export format `jobpilot-transfer`, user-secrets id, notification channel, .ics UIDs, CI artifact names | Asked by the owner (visible text and docs only); internal identifiers kept so existing data, keys, exports, the installed app and Google calendars keep working. A calendar created before keeps its old name in Google. |
 | 2026-10-16 | Windows desktop app in `windows/`: WPF + WebView2 window over the published web app (child process on localhost, or the one already running), same data folder, per-user Inno Setup installer built by CI; details in `windows/CLAUDE.md` | Chosen by the owner: every web feature in its own window without a browser or the .NET SDK. |
 | 2026-10-16 | Gemini key pasted in Configuración → Conexión con Gemini, stored in `gemini-key.bin` (Data Protection); user-secrets and environment win; never shown back, never in the database or exports | Chosen by the owner for the installed desktop app, which has no `dotnet user-secrets`. |
+| 2026-10-16 | The wizard loads the client from Google Cloud's downloaded JSON (`GoogleClientInput`: `web` clients only, warns when the redirect URI is missing) or from a paste holding both values | Asked by the owner (easier than copying two values); Google shows the client secret only once, at creation. |
 | 2026-10-15 | Google setup wizard in Configuración → Google (PC and phone, asked by the owner): steps in Google Cloud with direct links; on the PC the OAuth client's id and secret are pasted in the wizard and stored in `google-client.bin` (Data Protection, like the token), configuration (user-secrets, environment) still wins; on the phone the wizard shows the installed app's package and signing SHA-1 | Chosen by the owner over keeping user-secrets only; the secret stays out of the repository, the database and export files, and no restart is needed. |
 | 2026-10-03 | Token stored in `google-token.bin` in the data folder, encrypted with ASP.NET Core Data Protection (keys in `{data}/keys`, DPAPI on Windows); `invalid_grant` deletes it and asks to reconnect (7-day refresh tokens for "Testing" apps) | Secrets never in the repo or the database; clear recovery path. |
 | 2026-10-06 | Phase 9 ports the job-search parts of the owner's JobSearchDesk ("LinkedMail Job Finder"): LinkedIn alert parser, role scoring, thread classifier; agreed: brief only inside JobSearch Copilot (no e-mail, `gmail.send` still forbidden), mail read only on "Actualizar correo" (no scheduler), job-search mail only (no banks, bills, security notices), primary calendar not read | Keeps "never sends" and "nothing runs unattended"; the owner unenrols from Advanced Protection to use Gmail. |
@@ -385,6 +387,12 @@ Checked on 2026-10-06 (phase 9):
   `https://support.google.com/cloud/answer/13464323`.
 - Advanced Protection only lets Google apps and verified third-party apps read Gmail. Sources:
   `https://support.google.com/accounts/answer/7519408`, `https://support.google.com/accounts/answer/7539956`.
+
+Checked on 2026-10-16:
+
+- Google Auth Platform shows the full OAuth client secret only once, when it is created, and asks to download it then; a lost
+  secret is replaced with **Add Secret** on the client (at most two secrets per client). Source:
+  `https://support.google.com/cloud/answer/15549257`.
 
 ## Status
 
