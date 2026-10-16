@@ -54,8 +54,12 @@ Warnings are treated as errors. Tests use xUnit v3 on Microsoft.Testing.Platform
 
 ### Gemini API key
 
-Store it with [user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) (outside the
-repository), then restart the app:
+Paste it in **Configuración → Conexión con Gemini** and choose **Guardar clave** (create one in
+[Google AI Studio](https://aistudio.google.com/apikey)). It is stored encrypted in the data folder (`gemini-key.bin`), never in
+the database or in export files, and never shown back.
+
+Or store it with [user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) (outside the
+repository), then restart the app (a key in user secrets or the environment takes priority over the pasted one):
 
 ```bash
 dotnet user-secrets set "Gemini:ApiKey" "<your key>" --project src/JobPilot.Web
@@ -242,6 +246,12 @@ model, prompt version, tokens, latency and estimated cost: **Configuración → 
 Job listings belong to their publishers. JobSearch Copilot shows the source and the original link for every
 listing and respects each provider's terms and rate limits (for example Remotive, Remote OK, Himalayas
 and Jobicy require attribution and a link back).
+
+## Windows desktop app
+
+[`windows/`](windows/README.md) holds a Windows version: this same app in its own window (WebView2), with a Start menu
+shortcut and an installer, no browser tab and no .NET SDK needed. It shares the data folder with `dotnet run`. The installer
+is built by `.github/workflows/windows.yml`; download and install steps: [`windows/README.md`](windows/README.md).
 
 ## Android app
 

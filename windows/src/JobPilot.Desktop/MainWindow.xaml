@@ -1,0 +1,36 @@
+<Window x:Class="JobPilot.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="JobSearch Copilot"
+        Icon="app.ico"
+        Width="1280" Height="820" MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Shown while the owner connects Google in the browser (Google does not allow signing in from embedded browsers). -->
+        <Border x:Name="GoogleBanner" Grid.Row="0" Visibility="Collapsed" Background="#FFF4E5" Padding="16,10">
+            <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right" Content="Listo, actualizar" Padding="12,4" Margin="12,0,0,0" Click="GoogleDone_Click" />
+                <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                           Text="Seguí la conexión con Google en el navegador que se abrió. Cuando termines, volvé a esta ventana: se actualiza sola." />
+            </DockPanel>
+        </Border>
+
+        <wv2:WebView2 x:Name="Browser" Grid.Row="1" Visibility="Hidden" />
+
+        <StackPanel x:Name="StatusPanel" Grid.Row="1" MaxWidth="680" Margin="24" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock x:Name="StatusText" FontSize="16" TextWrapping="Wrap" Text="Iniciando JobSearch Copilot…" />
+            <TextBox x:Name="DetailsText" Visibility="Collapsed" Margin="0,12,0,0" MaxHeight="260" IsReadOnly="True" TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
+            <StackPanel x:Name="ActionsPanel" Orientation="Horizontal" Margin="0,16,0,0" Visibility="Collapsed">
+                <Button x:Name="RetryButton" Content="Reintentar" Padding="12,4" Click="Retry_Click" />
+                <Button x:Name="LinkButton" Padding="12,4" Margin="8,0,0,0" Visibility="Collapsed" Click="Link_Click" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>

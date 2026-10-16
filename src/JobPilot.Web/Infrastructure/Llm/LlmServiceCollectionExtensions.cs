@@ -33,6 +33,7 @@ public static class LlmServiceCollectionExtensions
         services.AddSingleton<DbLlmCallLog>();
         services.AddSingleton<ILlmCallLog>(sp => sp.GetRequiredService<DbLlmCallLog>());
         services.AddSingleton<LlmSettingsStore>();
+        services.AddSingleton<GeminiKeyStore>();
 
         services.AddHttpClient<GeminiLlmClient>((sp, http) =>
             {

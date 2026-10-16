@@ -22,6 +22,7 @@ public sealed partial class GeminiLlmClient(
     IOptionsMonitor<LlmOptions> llmOptions,
     LlmSettingsStore settings,
     ILlmCallLog callLog,
+    GeminiKeyStore keys,
     TimeProvider time) : ILlmClient, ILlmModelCatalog
 {
     private const string ApiKeyHeader = "x-goog-api-key";
@@ -43,10 +44,10 @@ public sealed partial class GeminiLlmClient(
         var gemini = geminiOptions.CurrentValue;
         var resolved = await settings.ResolveAsync(prompt.UseCase, cancellationToken);
 
-        if (!gemini.HasApiKey)
+        if (keys.ApiKey is not { } apiKey)
         {
             return LlmResult<T>.Failure(LlmErrorKind.Configuration,
-                "Falta la API key de Gemini. Configurala con user-secrets o una variable de entorno (ver README).");
+                "Falta la API key de Gemini. Pegala en Configuración → Conexión con Gemini.");
         }
 
         if (!IsValidModelName(resolved.Model))
@@ -77,7 +78,7 @@ public sealed partial class GeminiLlmClient(
                 Attempt = attempt,
             };
 
-            var reply = await SendAsync(resolved.Model, body, gemini.ApiKey!, record, cancellationToken);
+            var reply = await SendAsync(resolved.Model, body, apiKey, record, cancellationToken);
 
             var cost = LlmCostCalculator.Estimate(reply.Usage, pricing);
             record.EstimatedCostUsd = cost;
@@ -143,8 +144,7 @@ public sealed partial class GeminiLlmClient(
 
     public async Task<LlmResult<IReadOnlyList<LlmModelInfo>>> ListModelsAsync(CancellationToken cancellationToken)
     {
-        var gemini = geminiOptions.CurrentValue;
-        if (!gemini.HasApiKey)
+        if (keys.ApiKey is not { } apiKey)
         {
             return LlmResult<IReadOnlyList<LlmModelInfo>>.Failure(LlmErrorKind.Configuration, "Falta la API key de Gemini.");
         }
@@ -155,7 +155,7 @@ public sealed partial class GeminiLlmClient(
         {
             var uri = "models?pageSize=1000" + (pageToken is null ? string.Empty : "&pageToken=" + Uri.EscapeDataString(pageToken));
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-            request.Headers.Add(ApiKeyHeader, gemini.ApiKey);
+            request.Headers.Add(ApiKeyHeader, apiKey);
 
             try
             {

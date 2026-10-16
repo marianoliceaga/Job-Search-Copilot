@@ -185,3 +185,12 @@ unchanged and keeps its own data; phase A10 adds an export/import file to both a
 Phase A10 in the web app (confirmed by the owner on 2026-10-07): Configuración → Exportar / Importar in
 `src/JobPilot.Web/Features/Transfer/`, a `DeletedRecords` table written by every delete action, and "Combinar" imports
 (details in `android/docs/PLAN.md`).
+
+## Windows desktop app
+
+Approved on 2026-10-16: a Windows version in `windows/` that runs the web app as a child process and shows it in a WPF +
+WebView2 window, with the same data folder and a per-user installer (Inno Setup) built by CI. Web app changes only where
+the installed app needs them: the Gemini key can be pasted in Configuración. Acceptance: the installer installs and updates
+without administrator rights; the window starts the app (or uses a running one) and stops it on close; third-party links and
+the Google connection open in the default browser; build with 0 warnings and tests green. Details:
+[`windows/CLAUDE.md`](../windows/CLAUDE.md).

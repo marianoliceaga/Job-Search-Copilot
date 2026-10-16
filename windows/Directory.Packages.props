@@ -1,0 +1,7 @@
+<Project>
+  <!-- The repo's central package versions plus the desktop host's own packages. -->
+  <Import Project="..\Directory.Packages.props" />
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+  </ItemGroup>
+</Project>
