@@ -18,7 +18,7 @@
         @if (_enabled && !_access.CanNotify)
         {
             <MudAlert Severity="Severity.Warning" Dense="true" data-testid="notifications-blocked">
-                Android tiene bloqueadas las notificaciones de JobPilot. Activalas en Ajustes → Apps → JobPilot → Notificaciones.
+                Android tiene bloqueadas las notificaciones de JobSearch Copilot. Activalas en Ajustes → Apps → JobSearch Copilot → Notificaciones.
             </MudAlert>
         }
         @if (_enabled && _access.ExactAlarmsNeedPermission && !_access.CanUseExactAlarms)
@@ -99,7 +99,7 @@
         if (enabled && !await Scheduler.RequestNotificationPermissionAsync())
         {
             _enabled = false;
-            _message = "Android no permitió las notificaciones. Podés activarlas en Ajustes → Apps → JobPilot → Notificaciones y volver a intentar.";
+            _message = "Android no permitió las notificaciones. Podés activarlas en Ajustes → Apps → JobSearch Copilot → Notificaciones y volver a intentar.";
             await RefreshAsync();
             return;
         }

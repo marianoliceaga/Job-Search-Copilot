@@ -12,7 +12,7 @@
 {
     <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" data-testid="first-steps">
         <MudText Typo="Typo.h6" HtmlTag="h2">Primeros pasos</MudText>
-        <MudText Typo="Typo.body2" Class="mb-2">JobPilot usa tus datos para analizar ofertas y preparar tus postulaciones. Completá lo que falta:</MudText>
+        <MudText Typo="Typo.body2" Class="mb-2">JobSearch Copilot usa tus datos para analizar ofertas y preparar tus postulaciones. Completá lo que falta:</MudText>
         @foreach (var step in steps)
         {
             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start" Class="my-1">
@@ -30,7 +30,7 @@
         @if (_freshInstall)
         {
             <MudText Typo="Typo.body2" Class="mt-2" data-testid="first-steps-import">
-                ¿Ya usabas JobPilot en tu PC o en otro teléfono? Traé tus datos desde
+                ¿Ya usabas JobSearch Copilot en tu PC o en otro teléfono? Traé tus datos desde
                 <MudLink Href="/configuracion?seccion=datos" Typo="Typo.body2">Configuración → Exportar / Importar</MudLink>.
             </MudText>
         }

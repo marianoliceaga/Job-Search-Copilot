@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Asistente para publicar JobPilot (Android) en Google Play, en la prueba interna (solo vos).
+    Asistente para publicar JobSearch Copilot (Android) en Google Play, en la prueba interna (solo vos).
 
 .DESCRIPTION
     Te lleva paso a paso y automatiza lo que se puede desde tu PC:
@@ -310,7 +310,7 @@ function Step-PlayConsole($State) {
     Write-Host ""
     Write-Host "  5.1 Crear la app" -ForegroundColor White
     Open-Url "https://play.google.com/console/developers/app-list"
-    Write-Step "'Crear app' > Nombre: JobPilot > Idioma predeterminado: Español (Latinoamérica) – es-419"
+    Write-Step "'Crear app' > Nombre: JobSearch Copilot > Idioma predeterminado: Español (Latinoamérica) – es-419"
     Write-Step "App (no juego) > Gratis > aceptá las dos declaraciones > 'Crear app'."
     Wait-Enter
     Write-Host "  5.2 Testers" -ForegroundColor White
@@ -353,7 +353,7 @@ function Step-ServiceAccount($State) {
     Write-Host "  6.3 Darle permiso en Play Console" -ForegroundColor White
     Open-Url "https://play.google.com/console/developers/users-and-permissions"
     Write-Step "'Invitar usuarios nuevos' > mail de la cuenta de servicio (termina en .iam.gserviceaccount.com)."
-    Write-Step "Permisos de la app: agregá JobPilot con 'Publicar apps en segmentos de prueba' (Release apps to testing tracks)."
+    Write-Step "Permisos de la app: agregá JobSearch Copilot con 'Publicar apps en segmentos de prueba' (Release apps to testing tracks)."
     Write-Step "'Invitar usuario' y confirmá."
     Wait-Enter
     Write-Host "  6.4 Cargar la clave en GitHub" -ForegroundColor White
@@ -389,14 +389,14 @@ function Step-GoogleSignIn($State) {
     }
     if ($sha1) { Copy-Text $sha1 "SHA-1 de Play" }
     Open-Url "https://console.cloud.google.com/auth/clients/create"
-    Write-Step "Tipo de aplicación: Android. Nombre: JobPilot (Play)."
+    Write-Step "Tipo de aplicación: Android. Nombre: JobSearch Copilot (Play)."
     Write-Step "Nombre del paquete: $Package"
     Write-Step "Huella SHA-1: la de Play (ya está en el portapapeles). 'Crear'."
     Write-Step "Dejá el cliente que ya tenías: sirve para los APK de GitHub."
     Wait-Enter
     Open-Url "https://console.cloud.google.com/auth/audience"
     Write-Step "Público (Audience): si está en 'Prueba', agregá tu mail como usuario de prueba."
-    Write-Step "Es una app personal sin verificar: Google muestra 'app no verificada'; tocá 'Avanzado' > 'Ir a JobPilot'."
+    Write-Step "Es una app personal sin verificar: Google muestra 'app no verificada'; tocá 'Avanzado' > 'Ir a JobSearch Copilot'."
     Wait-Enter
     Set-StateValue $State "step7" $true
 }
@@ -446,7 +446,7 @@ $Steps = @(
 
 $state = Get-State
 while ($true) {
-    Write-Title "JobPilot > Google Play (prueba interna, solo vos)"
+    Write-Title "JobSearch Copilot > Google Play (prueba interna, solo vos)"
     $next = $null
     for ($i = 0; $i -lt $Steps.Count; $i++) {
         $done = [bool](Get-StateValue $state $Steps[$i].Key)

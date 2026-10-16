@@ -7,7 +7,7 @@ namespace JobPilot.Web.Infrastructure.Google;
 public sealed record CalendarEventRequest(string Summary, string? Description, DateTime StartUtc, DateTime EndUtc);
 
 /// <summary>
-/// Google Calendar REST (v3) with the calendar.app.created scope: the app creates its own "JobPilot" calendar and only
+/// Google Calendar REST (v3) with the calendar.app.created scope: the app creates its own "JobSearch Copilot" calendar and only
 /// touches events there. Events are created after the owner confirms them in the UI.
 /// </summary>
 public sealed class GoogleCalendarClient(HttpClient http, GoogleAuthService auth, SettingsDocumentStore documents, IOptionsMonitor<GoogleOptions> options, TimeProvider time)
@@ -15,7 +15,7 @@ public sealed class GoogleCalendarClient(HttpClient http, GoogleAuthService auth
 {
     private const string CalendarKey = "google-calendar";
 
-    /// <summary>The id of the JobPilot calendar, created on first use (and again if it was deleted in Google).</summary>
+    /// <summary>The id of the JobSearch Copilot calendar, created on first use (and again if it was deleted in Google).</summary>
     public async Task<GoogleResult<string>> EnsureCalendarAsync(CancellationToken cancellationToken)
     {
         if (await documents.GetAsync<StoredCalendar>(CalendarKey, cancellationToken) is { } stored)
@@ -33,7 +33,7 @@ public sealed class GoogleCalendarClient(HttpClient http, GoogleAuthService auth
         }
 
         var created = await SendAsync<CalendarResource>(HttpMethod.Post, "calendars",
-            new { summary = options.CurrentValue.CalendarName, description = "Entrevistas creadas por JobPilot", timeZone = IanaTimeZone(time.LocalTimeZone) },
+            new { summary = options.CurrentValue.CalendarName, description = "Entrevistas creadas por JobSearch Copilot", timeZone = IanaTimeZone(time.LocalTimeZone) },
             GoogleScopes.CalendarAppCreated, cancellationToken);
         if (created.Value is not { } calendar)
         {

@@ -1,6 +1,6 @@
-# JobPilot for Android
+# JobSearch Copilot for Android
 
-The Android version of [JobPilot](../README.md): the same remote job search assistant, on your phone. Built with
+The Android version of [JobSearch Copilot](../README.md): the same remote job search assistant, on your phone. Built with
 **.NET 10 MAUI Blazor Hybrid and MudBlazor** (the web app's UI library), using the **Gemini API** as its only LLM.
 
 The app is independent of the PC app: it has its own database on the phone. Data moves between both apps only when
@@ -101,7 +101,7 @@ tables are cards.
 ## Google (optional)
 
 With Google connected the phone can link Gmail threads to an application, record a company's reply in the timeline,
-create Gmail **drafts** (never sends) and add interviews to a secondary "JobPilot" calendar, as the PC app does. Every
+create Gmail **drafts** (never sends) and add interviews to a secondary "JobSearch Copilot" calendar, as the PC app does. Every
 action shows what is sent before it happens.
 
 The phone uses Android's own authorization (Google Play services), which Google documents for Android apps; the PC app's
@@ -124,7 +124,7 @@ revokes it. Phones without Google Play services cannot connect.
 ## Mail brief ("Hoy")
 
 With Google connected with **Gmail y Calendar**, the Panel starts with **Hoy**, as on the PC: tap **Actualizar correo**
-and JobPilot reads your job-search mail since the last check (the first time, the last day) with the same rules as the PC
+and JobSearch Copilot reads your job-search mail since the last check (the first time, the last day) with the same rules as the PC
 app. It shows the threads waiting for you ("Te esperan", with "Registrar en <empresa>" to add the reply to an
 application, and "Listo" to hide a card until a new message), the roles from LinkedIn job alerts (added to Ofertas without
 description: paste it on the offer page before analysing), interviews in the next 48 hours and what was filtered (tap a
@@ -140,7 +140,7 @@ in; pay is never estimated). The phone keeps its own rules: changes on the PC do
 **Configuración → Exportar / Importar** in both apps:
 
 1. On the device with the data, **Exportar** (on the phone, "Exportar y compartir" opens Android's share sheet: Drive,
-   your own mail, a USB cable…). The file has all your JobPilot data, never the Gemini key or the Google connection.
+   your own mail, a USB cable…). The file has all your JobSearch Copilot data, never the Gemini key or the Google connection.
 2. On the other device, **Importar y combinar** → choose the file. You see what would be added, updated, deleted or left
    out, per section; nothing changes until you tap **Combinar**.
 3. Combining adds what is missing, keeps the most recent change when something changed on both devices, takes the file's

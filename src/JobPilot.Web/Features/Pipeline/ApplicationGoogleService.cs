@@ -99,7 +99,7 @@ public sealed class ApplicationGoogleService(
         ArgumentNullException.ThrowIfNull(interview);
         var start = interview.ScheduledAtUtc ?? throw new ArgumentException("The event is not a scheduled interview.", nameof(interview));
         var link = posting.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? posting.Url : null;
-        var description = string.Join("\n", new[] { interview.Text, link, "Creado con JobPilot." }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        var description = string.Join("\n", new[] { interview.Text, link, "Creado con JobSearch Copilot." }.Where(s => !string.IsNullOrWhiteSpace(s)));
         return new CalendarEventRequest($"Entrevista: {posting.Title} — {posting.Company}", description, start, start.AddMinutes(interview.DurationMinutes ?? 60));
     }
 

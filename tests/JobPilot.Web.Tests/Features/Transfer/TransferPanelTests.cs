@@ -40,7 +40,7 @@ public sealed class TransferPanelTests : BunitContext, IAsyncLifetime
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("[data-testid=export-done]")));
         var call = Assert.Single(JSInterop.Invocations, i => i.Identifier == "jobPilot.downloadFile");
-        Assert.StartsWith("jobpilot-pc-", (string)call.Arguments[0]!, StringComparison.Ordinal);
+        Assert.StartsWith("jobsearch-copilot-pc-", (string)call.Arguments[0]!, StringComparison.Ordinal);
         Assert.Equal(TransferService.ContentType, call.Arguments[1]);
     }
 }

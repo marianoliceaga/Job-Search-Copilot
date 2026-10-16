@@ -27,14 +27,14 @@ public sealed class CalendarExport(ApplicationStore applications, PipelineSettin
             items.AddRange(PipelineCalendar.Items(application, offer, url, policy, now, time.LocalTimeZone));
         }
 
-        var name = applicationId is null ? "jobpilot-pipeline.ics" : "jobpilot-postulacion.ics";
+        var name = applicationId is null ? "jobsearch-copilot-pipeline.ics" : "jobsearch-copilot-postulacion.ics";
         return (name, Encoding.UTF8.GetBytes(Serialize(items, now)), items.Count);
     }
 
     public static string Serialize(IEnumerable<CalendarItem> items, DateTime stampUtc)
     {
         ArgumentNullException.ThrowIfNull(items);
-        var calendar = new Calendar { ProductId = "-//JobPilot//Pipeline//ES" };
+        var calendar = new Calendar { ProductId = "-//JobSearch Copilot//Pipeline//ES" };
         foreach (var item in items)
         {
             var calendarEvent = new CalendarEvent

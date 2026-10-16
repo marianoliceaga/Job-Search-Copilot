@@ -15,7 +15,7 @@ public sealed class GoogleOptions
     public Uri CalendarBaseUrl { get; set; } = new("https://www.googleapis.com/calendar/v3/");
 
     /// <summary>Name of the secondary calendar the app creates for interviews.</summary>
-    public string CalendarName { get; set; } = "JobPilot";
+    public string CalendarName { get; set; } = "JobSearch Copilot";
 }
 
 /// <summary>
@@ -43,7 +43,7 @@ public static class GoogleScopes
     public static IReadOnlyList<string> For(GoogleAccess access) => access == GoogleAccess.CalendarOnly ? CalendarOnly : All;
 }
 
-/// <summary>What the owner chooses to connect: everything, or only the JobPilot calendar.</summary>
+/// <summary>What the owner chooses to connect: everything, or only the JobSearch Copilot calendar.</summary>
 public enum GoogleAccess
 {
     Full,

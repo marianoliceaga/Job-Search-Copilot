@@ -15,7 +15,7 @@ public static class GoogleUi
     {
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(draft);
-        var html = $"<p>Se crea un <strong>borrador</strong> en tu Gmail. JobPilot no lo envía: lo revisás y lo enviás vos desde Gmail.</p>" +
+        var html = $"<p>Se crea un <strong>borrador</strong> en tu Gmail. JobSearch Copilot no lo envía: lo revisás y lo enviás vos desde Gmail.</p>" +
                    $"<pre class=\"jp-payload\">Para: {Encode(string.IsNullOrWhiteSpace(draft.To) ? "(vacío: lo completás en Gmail)" : draft.To)}\n" +
                    $"Asunto: {Encode(draft.Subject)}\n" +
                    (draft.ThreadId is null ? string.Empty : "Como respuesta en el hilo vinculado\n") +
@@ -27,7 +27,7 @@ public static class GoogleUi
     {
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(request);
-        var html = "<p>Se crea este evento en el calendario <strong>JobPilot</strong> de tu Google Calendar (no en tu calendario principal).</p>" +
+        var html = "<p>Se crea este evento en el calendario <strong>JobSearch Copilot</strong> de tu Google Calendar (no en tu calendario principal).</p>" +
                    $"<pre class=\"jp-payload\">{Encode(request.Summary)}\n" +
                    $"{request.StartUtc.ToLocalTime().ToString("dddd dd/MM/yyyy HH:mm", Culture)} – {request.EndUtc.ToLocalTime().ToString("HH:mm", Culture)}\n\n" +
                    $"{Encode(request.Description ?? string.Empty)}</pre>";
@@ -37,7 +37,7 @@ public static class GoogleUi
     public static string ScopeLabel(string scope) => scope switch
     {
         GoogleScopes.GmailReadonly => "Leer tus correos (para vincular y leer hilos de una postulación)",
-        GoogleScopes.GmailCompose => "Crear borradores (Google lo llama \"administrar borradores y enviar\"; JobPilot nunca envía)",
+        GoogleScopes.GmailCompose => "Crear borradores (Google lo llama \"administrar borradores y enviar\"; JobSearch Copilot nunca envía)",
         GoogleScopes.CalendarAppCreated => "Crear el calendario \"JobPilot\" y manejar solo sus eventos",
         _ => scope,
     };

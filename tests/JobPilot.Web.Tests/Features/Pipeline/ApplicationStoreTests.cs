@@ -226,7 +226,7 @@ public class CalendarExportTests
         var (fileName, content, count) = await context.Calendar.ExportAsync(null, Ct);
         var calendar = Calendar.Load(System.Text.Encoding.UTF8.GetString(content))!;
 
-        Assert.Equal("jobpilot-pipeline.ics", fileName);
+        Assert.Equal("jobsearch-copilot-pipeline.ics", fileName);
         Assert.Equal(2, count);
         Assert.Contains(calendar.Events, e => e.Summary == "Entrevista: Senior .NET Engineer — Northwind" && e.Description!.Contains("Technical", StringComparison.Ordinal));
         Assert.Contains(calendar.Events, e => e.Summary == "Follow-up: Senior .NET Engineer — Northwind" && e.IsAllDay);

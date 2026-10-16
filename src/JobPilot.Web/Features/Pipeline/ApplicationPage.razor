@@ -17,7 +17,7 @@
 @inject JobPilot.Web.Infrastructure.Google.GoogleAuthService GoogleAuth
 @inject ApplicationGoogleService Google
 
-<PageTitle>@(_detail?.Posting.Title ?? "Postulación") · JobPilot</PageTitle>
+<PageTitle>@(_detail?.Posting.Title ?? "Postulación") · JobSearch Copilot</PageTitle>
 
 @if (_loading)
 {
@@ -228,7 +228,7 @@ else
                         <MudButton Variant="Variant.Outlined" OnClick="ScheduleAsync" Disabled="@(_interviewDate is null || _interviewTime is null)">Agendar</MudButton>
                     </MudStack>
                     <MudText Typo="Typo.caption">
-                        Se agrega a la línea de tiempo y al calendario exportado (.ics). Con Google conectado podés agregarla al calendario "JobPilot"; si no, no se crea nada en tu calendario.
+                        Se agrega a la línea de tiempo y al calendario exportado (.ics). Con Google conectado podés agregarla al calendario "JobSearch Copilot"; si no, no se crea nada en tu calendario.
                     </MudText>
                     @foreach (var interview in application.Timeline().Where(e => e.Kind == ApplicationEventKind.InterviewScheduled).OrderBy(e => e.ScheduledAtUtc))
                     {
@@ -237,7 +237,7 @@ else
                             <MudText Typo="Typo.body2">@interview.Text</MudText>
                             @if (interview.ExternalId is not null)
                             {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.Event">En Google Calendar (JobPilot)</MudChip>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.Event">En Google Calendar (JobSearch Copilot)</MudChip>
                                 <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => RemoveFromCalendarAsync(interview)">Quitar de Google Calendar</MudButton>
                             }
                             else if (_googleCalendar)
@@ -369,7 +369,7 @@ else
 
     private async Task DeleteEventAsync(ApplicationEvent item)
     {
-        var question = item.ExternalId is null ? "¿Borrar esta entrada de la línea de tiempo?" : "¿Borrar esta entrevista? También se quita del calendario JobPilot de Google.";
+        var question = item.ExternalId is null ? "¿Borrar esta entrada de la línea de tiempo?" : "¿Borrar esta entrevista? También se quita del calendario JobSearch Copilot de Google.";
         var confirmed = await Dialogs.ShowMessageBoxAsync("Borrar", question, yesText: "Borrar", cancelText: "Cancelar");
         if (confirmed != true)
         {
@@ -394,7 +394,7 @@ else
         }
 
         var error = await Google.AddToCalendarAsync(_detail, interview.Id, CancellationToken.None);
-        Show(error ?? "Entrevista agregada al calendario JobPilot de Google.", error is null ? Severity.Success : Severity.Error);
+        Show(error ?? "Entrevista agregada al calendario JobSearch Copilot de Google.", error is null ? Severity.Success : Severity.Error);
         await LoadAsync();
     }
 

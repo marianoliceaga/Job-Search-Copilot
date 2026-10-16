@@ -51,7 +51,7 @@ public sealed class TransferPanelTests : BunitContext, IAsyncLifetime
         Button(cut, "Exportar y compartir").Click();
         cut.WaitForAssertion(() => Assert.Single(_share.Shared));
         var (_, fileName, contentType, content) = _share.Shared[0];
-        Assert.StartsWith("jobpilot-celular-", fileName, StringComparison.Ordinal);
+        Assert.StartsWith("jobsearch-copilot-celular-", fileName, StringComparison.Ordinal);
         Assert.Equal("application/json", contentType);
 
         // A PC file with one followed company the phone does not have.

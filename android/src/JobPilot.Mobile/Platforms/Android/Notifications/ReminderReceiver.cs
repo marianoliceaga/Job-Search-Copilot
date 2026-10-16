@@ -32,7 +32,7 @@ public sealed class ReminderReceiver : BroadcastReceiver
 
         var generic = new Notification.Builder(context, AndroidNotificationScheduler.ChannelId)
             .SetSmallIcon(Resource.Drawable.ic_stat_jobpilot)
-            .SetContentTitle("JobPilot")
+            .SetContentTitle("JobSearch Copilot")
             .SetContentText("Tenés un recordatorio.")
             .Build();
         var text = intent.GetStringExtra("text") ?? string.Empty;
