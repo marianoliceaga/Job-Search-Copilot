@@ -289,6 +289,7 @@ windows/                     Windows desktop app (WPF + WebView2 host over the w
 | 2026-10-02 | Exports: DOCX with Open XML (single column, real list bullets, styles, no tables/images/text boxes/headers) and PDF with QuestPDF (US Letter, Lato embedded, no tables/images); files are generated on demand and downloaded, not stored | ATS compatibility; nothing personal written to disk besides the local DB. |
 | 2026-10-02 | Cover letter: the model writes body paragraphs only; greeting ("Dear {Company} hiring team,") and sign-off come from the app | Fewer places to invent; consistent format. |
 | 2026-10-02 | HN "Who is hiring?" not implemented in phase 3 | Optional in the plan; can be added as another `IJobSource`. |
+| 2026-10-15 | Sources Get on Board (API, one remote-only query per keyword like Himalayas), Working Nomads (JSON feed) and Jobspresso (RSS) added from the owner's list; the other sites on it were not added (see "Verified external facts") | Only sites with a public API or feed that their terms and robots.txt allow; listed sites with stale, paid or company-less feeds give nothing usable. |
 | 2026-10-02 | `ILlmClient.ChatAsync(request, history)`: the prompt's user message is the first turn, the history alternates model/user and ends with a user turn; `GenerateAsync` = chat with an empty history | One code path for validation, retries and logging in single and multi-turn calls. |
 | 2026-10-02 | Practice sessions (interview and negotiation) store the system instruction and first message they started with; coach turns are structured (`Question`/`FollowUp`/`Closing` + number) and `PracticeSession.Check` enforces one question per message, numbering, the follow-up limit (`Practice:MaxFollowUps`) and closing only after the last question | Conversation rules are deterministic; later turns use the same context even if the CV changes. |
 | 2026-10-02 | Feedback with fixed rubrics (5 criteria for interviews, 5 for negotiation), scores 1-5 validated (`Rubrics.Validate`); the overall 0-100 is computed by the app; model answers cite the CV and are checked by `TraceabilityValidator`; the transcript is sent as untrusted data | The model cannot inflate or skip criteria; score history is comparable. |
@@ -357,6 +358,24 @@ Checked on 2026-10-02:
   legal notice first, Himalayas `jobs[]` with `locationRestrictions`, Jobicy `jobs[]` with `salaryMin/Max`,
   WWR RSS with `<region>`/`<country>`, Greenhouse escaped HTML `content`, Lever `salaryRange`, Ashby
   `compensation.summaryComponents`). Followed companies seed: 11 boards verified with .NET postings.
+
+Checked on 2026-10-15 (sources added from the owner's list):
+
+- Get on Board public API v0 (`getonbrd.com/api/v0/search/jobs?query=&remote=true&per_page=50&expand=["company"]`):
+  "open to anyone", no key, same data as the site without login (`getonbrd.com/user-manual/get-on-board-s-api`). Shape
+  `data[].attributes` (sections with `*_headline`, `countries` as a list, `remote_zone` usually null, `published_at` epoch
+  seconds, `company` only with `expand`) and `links.public_url`; `min/max_salary` are gross USD per month (job page:
+  "Gross salary $X - Y USD/month").
+- Working Nomads `workingnomads.com/api/exposed_jobs/`: linked as "API" in the site footer; robots.txt allows everything;
+  terms forbid resale and competing products. JSON array (`url`, `title`, `company_name`, `category_name`, comma-separated
+  `tags`, `location`, `pub_date`, HTML `description`), ~50 current jobs of every category, no salary.
+- Jobspresso `jobspresso.co/jobs/feed/` (RSS, 20 items; company and location in `dc:creator` as `Company<br>⚲&nbsp;Location`,
+  body in `content:encoded`). robots.txt has `Disallow: /*?`, so `?feed=job_feed` (filterable) is not used. No terms page.
+- Not added: Indeed, LinkedIn, Glassdoor, Monster, ZipRecruiter, Dice, SimplyHired (no allowed feed; plan excludes them);
+  freelance marketplaces (Upwork, Fiverr, Freelancer, Guru, PeoplePerHour, Workana) and talent networks (Toptal, Turing, Arc,
+  Mission.dev, Hire with Near, Hirable, PowerToFly, Aquent); FlexJobs and Virtual Vocations (paid; the RSS hides the company);
+  Torre (API in limited beta); Remote.jobs (RSS of 10 stale items); no job feed found for Remote.co, Hireline, We Remote,
+  WorkRemoto, Remotely, RemoteSpain, The Bridge and others; Coworker is a coworking directory.
 
 Checked on 2026-10-02 (phase 6):
 

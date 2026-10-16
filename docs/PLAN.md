@@ -11,7 +11,7 @@ Changes to the plan must be agreed with the owner and recorded in the decision l
 | UI library | MudBlazor (MIT). |
 | LLM | Gemini API, **paid tier** (free tier allows Google to use prompts to improve its products). Model per use case in configuration: `gemini-3.8-flash` for reasoning-heavy use cases, `gemini-3.5-flash-lite` for cheap extraction. No preview models by default. |
 | Google integration (Gmail/Calendar) | Decided when phase 8 starts. |
-| Job sources | Remotive, Remote OK, Himalayas, Jobicy (APIs); We Work Remotely RSS only after the owner confirms its terms; Greenhouse, Lever and Ashby public job boards per followed company; HN "Who is hiring?" optional. No LinkedIn, Indeed, Glassdoor or Wellfound. |
+| Job sources | Remotive, Remote OK, Himalayas, Jobicy, Get on Board, Working Nomads (APIs); Jobspresso RSS (added 2026-10-15); We Work Remotely RSS only after the owner confirms its terms; Greenhouse, Lever and Ashby public job boards per followed company; HN "Who is hiring?" optional. No LinkedIn, Indeed, Glassdoor or Wellfound. |
 | DOCX / PDF | DocumentFormat.OpenXml (MIT) / QuestPDF (Community license). CV reading: PdfPig (Apache-2.0) and OpenXml; Markdown is read as-is (Markdig turned out unnecessary). |
 | Repository | Treated as public: MIT license, fictional sample data, CI check against personal data. |
 | CV import | PDF, DOCX and Markdown; text extracted locally, then structured by the LLM. |

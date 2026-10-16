@@ -42,7 +42,8 @@ public sealed class JobListService(IDbContextFactory<JobPilotDbContext> dbFactor
     private static readonly HashSet<string> RemoteBoards = new(StringComparer.OrdinalIgnoreCase)
     {
         Sources.RemotiveSource.SourceKey, Sources.RemoteOkSource.SourceKey, Sources.HimalayasSource.SourceKey,
-        Sources.JobicySource.SourceKey, Sources.WeWorkRemotelySource.SourceKey,
+        Sources.JobicySource.SourceKey, Sources.WeWorkRemotelySource.SourceKey, Sources.WorkingNomadsSource.SourceKey,
+        Sources.JobspressoSource.SourceKey,
     };
 
     public async Task<IReadOnlyList<JobListItem>> GetAsync(JobListFilter filter, CancellationToken cancellationToken)

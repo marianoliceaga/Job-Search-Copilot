@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	xmlns:job_listing="https://jobspresso.co"
+	>
+<channel>
+	<title>Jobs Archive | Jobspresso</title>
+	<link>https://jobspresso.co</link>
+	<item>
+		<title>Senior Software Engineer &#8211; Platform &#038; APIs</title>
+		<link>https://jobspresso.co/job/wingtip-toys-latam-senior-software-engineer-platform-apis/</link>
+		<dc:creator><![CDATA[Wingtip Toys<br>⚲&nbsp;Latin America]]></dc:creator>
+		<pubDate>Mon, 12 Oct 2026 15:36:31 +0000</pubDate>
+		<guid isPermaLink="false">https://jobspresso.co/?post_type=job_listing&#038;p=900001</guid>
+		<description><![CDATA[Short teaser.]]></description>
+		<content:encoded><![CDATA[<p>Build APIs in <strong>C#</strong>.</p><ul><li>.NET 10</li></ul>]]></content:encoded>
+	</item>
+	<item>
+		<title>Product Designer</title>
+		<link>https://jobspresso.co/job/northwind-product-designer/</link>
+		<dc:creator><![CDATA[Northwind Traders]]></dc:creator>
+		<pubDate>Sun, 11 Oct 2026 08:00:00 +0000</pubDate>
+		<guid isPermaLink="false">https://jobspresso.co/?post_type=job_listing&#038;p=900002</guid>
+		<description><![CDATA[Design things.]]></description>
+	</item>
+</channel>
+</rss>

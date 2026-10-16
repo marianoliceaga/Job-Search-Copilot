@@ -13,9 +13,11 @@ function Test-JobPilotListening {
     try {
         $client.Connect('127.0.0.1', $Port)
         return $true
-    } catch {
+    }
+    catch {
         return $false
-    } finally {
+    }
+    finally {
         $client.Dispose()
     }
 }
@@ -38,9 +40,10 @@ if (-not (Test-JobPilotListening)) {
     }
 }
 
-$chrome = "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
+$chrome = "$env:ProgramFiles\BraveSoftware\Brave-Browser\Application\brave.exe"
 if (Test-Path $chrome) {
     Start-Process -FilePath $chrome -ArgumentList $url
-} else {
+}
+else {
     Start-Process $url
 }
