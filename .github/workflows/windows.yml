@@ -50,10 +50,13 @@ jobs:
             "/DOutputDir=$env:RUNNER_TEMP\installer" windows\installer\JobSearchCopilot.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # Only on pushes (a pull request run would store the same installer again); kept 14 days because artifact storage
+      # is limited per account.
       - name: Upload the installer
+        if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: JobSearchCopilot-windows-${{ github.run_number }}
           path: ${{ runner.temp }}/installer/JobSearchCopilot-Setup-1.0.${{ github.run_number }}.exe
-          retention-days: 30
+          retention-days: 14
           if-no-files-found: error
