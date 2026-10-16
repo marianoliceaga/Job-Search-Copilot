@@ -106,7 +106,7 @@ public sealed class PipelinePagesTests : BunitContext, IAsyncLifetime
 
         cut.WaitForAssertion(() => Assert.Single(_share.Shared));
         var (_, fileName, contentType, content) = _share.Shared[0];
-        Assert.Equal(("jobpilot-pipeline.ics", "text/calendar"), (fileName, contentType));
+        Assert.Equal(("jobsearch-copilot-pipeline.ics", "text/calendar"), (fileName, contentType));
         Assert.Contains("Follow-up: Senior .NET Engineer — Contoso Cloud", System.Text.Encoding.UTF8.GetString(content), StringComparison.Ordinal);
     }
 

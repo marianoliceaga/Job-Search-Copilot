@@ -1,4 +1,4 @@
-# Starts JobPilot (if it is not already running) and opens it in the browser.
+﻿# Starts JobSearch Copilot (if it is not already running) and opens it in the browser.
 # Used by the desktop shortcut; the server runs in its own console window (Ctrl+C there stops it).
 param(
     [int]$Port = 5080,
@@ -21,16 +21,16 @@ function Test-JobPilotListening {
 }
 
 if (-not (Test-JobPilotListening)) {
-    # dotnet run uses the "JobPilot" launch profile (Development), which serves the static web assets.
+    # dotnet run uses the "JobSearch Copilot" launch profile (Development), which serves the static web assets.
     Start-Process -FilePath 'dotnet' `
         -ArgumentList 'run', '--project', 'src/JobPilot.Web' `
         -WorkingDirectory $repoRoot
 
-    Write-Host "Starting JobPilot on $url ..."
+    Write-Host "Starting JobSearch Copilot on $url ..."
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while (-not (Test-JobPilotListening)) {
         if ((Get-Date) -gt $deadline) {
-            Write-Host "JobPilot did not start within $TimeoutSeconds seconds. Check the server window for errors."
+            Write-Host "JobSearch Copilot did not start within $TimeoutSeconds seconds. Check the server window for errors."
             Read-Host 'Press Enter to close'
             exit 1
         }

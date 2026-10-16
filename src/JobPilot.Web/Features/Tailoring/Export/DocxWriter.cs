@@ -99,7 +99,7 @@ public static class DocxWriter
                 new PageMargin { Top = 1008, Bottom = 1008, Left = 1080, Right = 1080, Header = 720, Footer = 720, Gutter = 0 }));
             main.Document = new Document(body);
             document.PackageProperties.Title = "Curriculum";
-            document.PackageProperties.Creator = "JobPilot";
+            document.PackageProperties.Creator = "JobSearch Copilot";
         }
 
         return stream.ToArray();

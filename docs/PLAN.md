@@ -1,4 +1,4 @@
-# JobPilot — Delivery plan
+# JobSearch Copilot — Delivery plan
 
 Approved on 2026-10-02. This is the reference for scope and acceptance criteria per phase.
 Changes to the plan must be agreed with the owner and recorded in the decision log in `CLAUDE.md`.
@@ -15,7 +15,7 @@ Changes to the plan must be agreed with the owner and recorded in the decision l
 | DOCX / PDF | DocumentFormat.OpenXml (MIT) / QuestPDF (Community license). CV reading: PdfPig (Apache-2.0) and OpenXml; Markdown is read as-is (Markdig turned out unnecessary). |
 | Repository | Treated as public: MIT license, fictional sample data, CI check against personal data. |
 | CV import | PDF, DOCX and Markdown; text extracted locally, then structured by the LLM. |
-| Name | JobPilot (`JobPilot.slnx`). |
+| Name | JobSearch Copilot (`JobPilot.slnx`). |
 | OS | Cross-platform; PDF embeds its own OFL font. |
 | Currency | Manual exchange rates; contractor costs configurable. |
 | Ranking defaults | Compensation 40%, technical fit 30%, eligibility/contract model 20%, red flags 10%. |
@@ -150,13 +150,13 @@ Local-app OAuth with minimal scopes. Gmail: read threads linked to applications 
 create interview events after explicit confirmation.
 
 - Confirmed by the owner on 2026-10-03: scopes `gmail.readonly` + `gmail.compose` (no drafts-only scope exists; the app
-  never sends, enforced by tests) and `calendar.app.created` (a dedicated "JobPilot" calendar, no access to the primary one).
+  never sends, enforced by tests) and `calendar.app.created` (a dedicated "JobSearch Copilot" calendar, no access to the primary one).
 - Tests with a fake Google server: OAuth state, code exchange, refresh, revocation, granular consent, Gmail search/read,
   draft MIME (reply headers, no header injection), calendar creation and events.
 
 ### Phase 9 — Mail inbox and daily brief (from JobSearchDesk)
 Port the job-search parts of the owner's JobSearchDesk ("LinkedMail Job Finder") into JobPilot: rule-based, no LLM, on
-demand, nothing sent. Agreed with the owner on 2026-10-06: the brief lives only inside JobPilot (no e-mail), mail is
+demand, nothing sent. Agreed with the owner on 2026-10-06: the brief lives only inside JobSearch Copilot (no e-mail), mail is
 read only when the owner asks (no scheduler), only job-search mail is classified (no banks, bills or security notices),
 and the owner unenrols from Advanced Protection to use Gmail.
 

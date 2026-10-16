@@ -6,7 +6,7 @@ namespace JobPilot.Mobile.Core.Infrastructure.Google;
 public static class GoogleServiceCollectionExtensions
 {
     /// <summary>
-    /// Optional Google integration (phase A8): Gmail threads and drafts and the JobPilot calendar. The host registers
+    /// Optional Google integration (phase A8): Gmail threads and drafts and the JobSearch Copilot calendar. The host registers
     /// <see cref="IGoogleAuthorizer"/> (Android's authorization API) and <see cref="IAppSigningInfo"/> (the installed app's certificate).
     /// </summary>
     public static IServiceCollection AddGoogle(this IServiceCollection services, IConfiguration configuration)

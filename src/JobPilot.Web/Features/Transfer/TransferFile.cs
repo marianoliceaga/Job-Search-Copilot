@@ -61,7 +61,7 @@ public sealed class TransferFile
         }
         catch (JsonException)
         {
-            return (null, "El archivo no es un JSON válido. Elegí un archivo exportado por JobPilot.");
+            return (null, "El archivo no es un JSON válido. Elegí un archivo exportado por JobSearch Copilot.");
         }
     }
 
@@ -70,12 +70,12 @@ public sealed class TransferFile
         if (root.ValueKind != JsonValueKind.Object
             || !root.TryGetProperty("format", out var format) || format.ValueKind != JsonValueKind.String || format.GetString() != Format)
         {
-            return (null, "El archivo no es una exportación de JobPilot.");
+            return (null, "El archivo no es una exportación de JobSearch Copilot.");
         }
 
         if (!root.TryGetProperty("version", out var version) || !version.TryGetInt32(out var number) || number != TransferSchema.Version)
         {
-            return (null, $"El archivo es de otra versión de JobPilot (formato {Describe(root, "version")}; esta app usa el {TransferSchema.Version}). Actualizá las dos apps y volvé a exportar.");
+            return (null, $"El archivo es de otra versión de JobSearch Copilot (formato {Describe(root, "version")}; esta app usa el {TransferSchema.Version}). Actualizá las dos apps y volvé a exportar.");
         }
 
         var app = root.TryGetProperty("app", out var appElement) && appElement.ValueKind == JsonValueKind.String ? appElement.GetString() : null;
@@ -98,7 +98,7 @@ public sealed class TransferFile
         {
             if (!TransferSchema.Tables.Any(t => t.Name == property.Name))
             {
-                return (null, $"El archivo tiene una tabla desconocida ({property.Name}): es de otra versión de JobPilot.");
+                return (null, $"El archivo tiene una tabla desconocida ({property.Name}): es de otra versión de JobSearch Copilot.");
             }
         }
 
@@ -106,7 +106,7 @@ public sealed class TransferFile
         {
             if (!tables.TryGetProperty(table.Name, out var rows) || rows.ValueKind != JsonValueKind.Array)
             {
-                return (null, $"Al archivo le falta la tabla {table.Name}: es de otra versión de JobPilot o está incompleto.");
+                return (null, $"Al archivo le falta la tabla {table.Name}: es de otra versión de JobSearch Copilot o está incompleto.");
             }
 
             var list = new List<TransferRow>();

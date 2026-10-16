@@ -4,7 +4,7 @@ namespace JobPilot.Web.Infrastructure.Google;
 
 public static class GoogleServiceCollectionExtensions
 {
-    /// <summary>Optional Google integration (phase 8): OAuth, Gmail drafts/threads and the JobPilot calendar.</summary>
+    /// <summary>Optional Google integration (phase 8): OAuth, Gmail drafts/threads and the JobSearch Copilot calendar.</summary>
     public static IServiceCollection AddGoogle(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<GoogleOptions>().Bind(configuration.GetSection(GoogleOptions.SectionName));
@@ -28,7 +28,7 @@ public static class GoogleServiceCollectionExtensions
     /// <summary>OAuth endpoints: start the consent flow and receive Google's redirect.</summary>
     public static IEndpointRouteBuilder MapGoogleEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        // ?alcance=calendario asks only for the JobPilot calendar (accounts where Gmail access is blocked).
+        // ?alcance=calendario asks only for the JobSearch Copilot calendar (accounts where Gmail access is blocked).
         endpoints.MapGet("/google/connect", (string? alcance, GoogleAuthService auth) =>
         {
             var access = alcance == "calendario" ? GoogleAccess.CalendarOnly : GoogleAccess.Full;

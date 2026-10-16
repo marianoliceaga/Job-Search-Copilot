@@ -31,7 +31,7 @@
                     {
                         case 0:
                             <MudText Typo="Typo.body2">
-                                Entrá a Google Cloud con tu cuenta y creá un proyecto, por ejemplo "JobPilot". Si ya tenés uno (por ejemplo el de la clave de
+                                Entrá a Google Cloud con tu cuenta y creá un proyecto, por ejemplo "JobSearch Copilot". Si ya tenés uno (por ejemplo el de la clave de
                                 Gemini) podés usar ese: elegilo arriba a la izquierda en la consola.
                             </MudText>
                             <MudLink Href="https://console.cloud.google.com/projectcreate" Target="_blank" rel="noopener noreferrer">Crear un proyecto en Google Cloud</MudLink>
@@ -50,7 +50,7 @@
                                 y tocá <strong>Get started</strong>:
                             </MudText>
                             <ol>
-                                <li>Nombre de la app: <strong>JobPilot</strong>; correo de soporte: el tuyo.</li>
+                                <li>Nombre de la app: <strong>JobSearch Copilot</strong>; correo de soporte: el tuyo.</li>
                                 <li>Público (<em>Audience</em>): <strong>External</strong>.</li>
                                 <li>Correo de contacto: el tuyo. Aceptá la política y tocá <strong>Create</strong>.</li>
                                 <li>En <em>Audience → Test users</em>, agregá tu cuenta de Google.</li>
@@ -58,7 +58,7 @@
                             <MudAlert Severity="Severity.Info" Dense="true">
                                 Recomendado en la PC: <em>Audience → Publish app → In production</em>, sin pedir verificación (Google lo permite para uso
                                 personal). Si la dejás en <em>Testing</em>, el permiso vence a los 7 días y hay que volver a conectar. Al conectar vas a ver
-                                "Google no verificó esta app": tocá <em>Avanzado → Ir a JobPilot</em>.
+                                "Google no verificó esta app": tocá <em>Avanzado → Ir a JobSearch Copilot</em>.
                             </MudAlert>
                             break;
                         case 3:
@@ -67,7 +67,7 @@
                                 (Google Auth Platform → Clients):
                             </MudText>
                             <ol>
-                                <li>Tipo de aplicación: <strong>Web application</strong>; nombre: <strong>JobPilot PC</strong>.</li>
+                                <li>Tipo de aplicación: <strong>Web application</strong>; nombre: <strong>JobSearch Copilot PC</strong>.</li>
                                 <li>En <em>Authorized redirect URIs</em> agregá exactamente esta dirección:</li>
                             </ol>
                             <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mb-2">
@@ -113,7 +113,7 @@
         "Habilitar Gmail API y Google Calendar API",
         "Pantalla de consentimiento",
         "Cliente OAuth de tipo Web application",
-        "Pegar el cliente en JobPilot",
+        "Pegar el cliente en JobSearch Copilot",
         "Conectar tu cuenta",
     ];
 
@@ -154,7 +154,7 @@
         else if (_status.ClientSource == GoogleClientSource.App && !_replacing)
         {
             <MudAlert Severity="Severity.Success" Dense="true" data-testid="google-client-saved">
-                El cliente está guardado en esta PC, cifrado en la carpeta de datos de JobPilot (no viaja en las exportaciones).
+                El cliente está guardado en esta PC, cifrado en la carpeta de datos de JobSearch Copilot (no viaja en las exportaciones).
             </MudAlert>
             @if (_status.Connected)
             {
@@ -171,7 +171,7 @@
         else
         {
             <MudText Typo="Typo.body2">
-                Pegá el Client ID y el Client secret del cliente que creaste. Se guardan cifrados en la carpeta de datos de JobPilot (nunca en la base
+                Pegá el Client ID y el Client secret del cliente que creaste. Se guardan cifrados en la carpeta de datos de JobSearch Copilot (nunca en la base
                 de datos, el repositorio ni las exportaciones).
             </MudText>
             <MudTextField T="string" @bind-Value="_clientId" Label="Client ID" Variant="Variant.Outlined" Immediate="true" autocomplete="off"

@@ -1,9 +1,9 @@
-# JobPilot
+# JobSearch Copilot
 
 A local, single-user assistant for a remote job search, built with **.NET 10, Blazor (Interactive Server)
 and MudBlazor**, using the **Gemini API** as its only LLM.
 
-JobPilot prepares, analyses and drafts; you approve. It never sends an application, e-mail or message on
+JobSearch Copilot prepares, analyses and drafts; you approve. It never sends an application, e-mail or message on
 your behalf. All data stays on your machine.
 
 > **Status:** all 9 phases delivered (Google integration and the mail brief included). Pending: checks with your own Gemini key and Google account. See [`docs/PLAN.md`](docs/PLAN.md) for the roadmap and
@@ -140,7 +140,7 @@ storing or annotating its results. The profile links to the company's offers.
 a LinkedIn message or an e-mail for a recruiter or hiring manager, in three tones. Claims about you must come from your
 master CV and claims about the company from verified facts or the posting; anything else is flagged. Copy the text, send
 it yourself and mark it as sent (it is added to the offer's timeline). **Perfil de LinkedIn** reviews the headline and
-About you paste and proposes versions that cite your CV. JobPilot never sends messages and never accesses LinkedIn.
+About you paste and proposes versions that cite your CV. JobSearch Copilot never sends messages and never accesses LinkedIn.
 
 ### Interviews
 
@@ -170,22 +170,22 @@ API enabled, an OAuth consent screen (External, your account as test user) and a
 **Web application** with the redirect URI `http://localhost:5080/google/callback` (with a copy button). Paste the
 client's id and secret in the wizard: they are stored encrypted in your data folder (`google-client.bin`, never in the
 database, the repository or an export) and work without restarting. User-secrets (`Google:ClientId`,
-`Google:ClientSecret`) still work and take priority. JobPilot asks for three scopes:
+`Google:ClientSecret`) still work and take priority. JobSearch Copilot asks for three scopes:
 
 - `gmail.readonly`: search and read threads that you link to an application (only the thread id and subject are stored;
   messages are read on demand and never sent to Gemini).
 - `gmail.compose`: create **drafts** of follow-ups and e-mail outreach, optionally as a reply in a linked thread. Google
-  describes this scope as "manage drafts and send emails"; JobPilot never sends (a test fails if any send call appears).
-- `calendar.app.created`: create a separate "JobPilot" calendar and add interviews to it, after you confirm each one.
-  JobPilot cannot see or change your primary calendar.
+  describes this scope as "manage drafts and send emails"; JobSearch Copilot never sends (a test fails if any send call appears).
+- `calendar.app.created`: create a separate "JobSearch Copilot" calendar and add interviews to it, after you confirm each one.
+  JobSearch Copilot cannot see or change your primary calendar.
 
 Choose **Solo Calendar** before connecting to ask only for `calendar.app.created`. Use it when Gmail access is blocked:
-Google's Advanced Protection Program only lets verified third-party apps read Gmail, and JobPilot uses your own
+Google's Advanced Protection Program only lets verified third-party apps read Gmail, and JobSearch Copilot uses your own
 unverified OAuth client, so Google answers "Error 400: policy_enforced". Without Gmail, copy drafts with **Copiar** and
 record replies by hand. **Agregar Gmail** reconnects with all three scopes later.
 
 Every action shows exactly what will be sent to Google first. The token is stored encrypted in your data folder. With
-the consent screen in "Testing" status Google expires the permission after 7 days and JobPilot asks you to reconnect. To
+the consent screen in "Testing" status Google expires the permission after 7 days and JobSearch Copilot asks you to reconnect. To
 avoid that, publish it (Google Auth Platform → Audience → Publish app → "In production") without submitting it for
 verification: Google allows unverified apps for personal use (fewer than 100 users); you click through the "Google hasn't
 verified this app" warning when connecting. Sources: [refresh token expiration](https://developers.google.com/identity/protocols/oauth2#expiration),
@@ -194,7 +194,7 @@ verified this app" warning when connecting. Sources: [refresh token expiration](
 
 ### Mail inbox and daily brief
 
-The **Hoy** section of the Panel is JobSearchDesk's morning brief inside JobPilot. **Actualizar correo** reads your Gmail
+The **Hoy** section of the Panel is JobSearchDesk's morning brief inside JobSearch Copilot. **Actualizar correo** reads your Gmail
 (the `gmail.readonly` permission) since the last check (the last day the first time, at most 4 days back) plus unread
 job-related mail from the last 5 days, and sorts every thread into exactly one bucket:
 
@@ -210,7 +210,7 @@ job-related mail from the last 5 days, and sorts every thread into exactly one b
 - **Filtrados**: everything else, counted by category with example senders, so nothing disappears unseen.
 
 The buckets always add up to the threads read; a check that broke this stops instead of showing a partial brief.
-JobPilot only reads: it never sends, archives, labels or marks mail as read. Only the facts are stored (thread id,
+JobSearch Copilot only reads: it never sends, archives, labels or marks mail as read. Only the facts are stored (thread id,
 sender, subject, dates, which rule matched); message bodies are never stored or sent to Gemini.
 
 **Configuración → Reglas de correo** holds the rules as JSON (seeded from `Seed/mail-rules.seed.json`, which has no
@@ -239,7 +239,7 @@ model, prompt version, tokens, latency and estimated cost: **Configuración → 
 
 ## Job data sources
 
-Job listings belong to their publishers. JobPilot shows the source and the original link for every
+Job listings belong to their publishers. JobSearch Copilot shows the source and the original link for every
 listing and respects each provider's terms and rate limits (for example Remotive, Remote OK, Himalayas
 and Jobicy require attribution and a link back).
 
@@ -252,7 +252,7 @@ own data on the phone and exchanges data with this app through an export/import 
 [`android/docs/PLAY.md`](android/docs/PLAY.md).
 
 **Moving data between the PC and the phone:** Configuración → **Exportar / Importar**. "Exportar" downloads one JSON file
-with all your JobPilot data (never the Gemini key or the Google connection). On the other device, "Importar y combinar"
+with all your JobSearch Copilot data (never the Gemini key or the Google connection). On the other device, "Importar y combinar"
 shows what would change and, after you confirm, adds what is missing, keeps the most recent change when something changed
 on both, takes the file's value for edits without a date and applies what you deleted. Your data is copied to
 `backups/` in the data folder first. The file is not encrypted: keep it private and delete it after importing.

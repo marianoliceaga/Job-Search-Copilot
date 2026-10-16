@@ -12,7 +12,7 @@
     <EnableDefaultCssItems>false</EnableDefaultCssItems>
     <MauiXamlInflator>SourceGen</MauiXamlInflator>
 
-    <ApplicationTitle>JobPilot</ApplicationTitle>
+    <ApplicationTitle>JobSearch Copilot</ApplicationTitle>
     <!-- Permanent: Android only updates an installed app with the same id and signing key. -->
     <ApplicationId>com.vidi.jobpilot</ApplicationId>
     <ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>

@@ -353,7 +353,7 @@ public class GoogleCalendarTests
         Assert.Equal(("ev-1", "ev-1"), (first.Value, second.Value));
         var calendars = host.Handler.Requests.Where(r => r.Method == HttpMethod.Post && r.Url.EndsWith("/calendars", StringComparison.Ordinal)).ToList();
         var created = JsonNode.Parse(Assert.Single(calendars).Body)!;
-        Assert.Equal("JobPilot", (string?)created["summary"]);
+        Assert.Equal("JobSearch Copilot", (string?)created["summary"]);
         var eventBody = JsonNode.Parse(host.Handler.Requests.First(r => r.Url.EndsWith("/events", StringComparison.Ordinal)).Body)!;
         Assert.Equal("2026-10-10T13:00:00Z", (string?)eventBody["start"]!["dateTime"]);
         Assert.Equal("2026-10-10T14:00:00Z", (string?)eventBody["end"]!["dateTime"]);

@@ -1,4 +1,4 @@
-# JobPilot for Android — Delivery plan
+# JobSearch Copilot for Android — Delivery plan
 
 Approved by the owner on 2026-10-06. This is the reference for scope and acceptance criteria of the Android app.
 The web app's plan ([`../../docs/PLAN.md`](../../docs/PLAN.md)) still defines what each feature does; this plan says how
@@ -126,9 +126,9 @@ Needs an Android OAuth client in Google Cloud; the current procedure is verified
   deprecated for mobile apps. Android OAuth client (package `com.vidi.jobpilot` + SHA-1 of the signing keystore) in the
   same Google Cloud project; no client id or secret in the app; no tokens stored on the phone.
 - Same scope as the web app (owner's choice): Gmail threads linked to applications, responses recorded, Gmail drafts
-  (never sent), the "JobPilot" calendar for interviews, and the "Solo Calendar" option.
+  (never sent), the "JobSearch Copilot" calendar for interviews, and the "Solo Calendar" option.
 - Acceptance on the phone (owner): create the Android client, connect, link a thread, record a response, create a
-  follow-up draft in Gmail, add an interview to the JobPilot calendar, and disconnect.
+  follow-up draft in Gmail, add an interview to the JobSearch Copilot calendar, and disconnect.
 
 ### Phase A9 — Mail brief ("Hoy")
 The phase 9 brief on the phone, with the same rules and read-only Gmail access.

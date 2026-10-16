@@ -32,7 +32,7 @@ public class TransferFileTests
 
     [Theory]
     [InlineData("not json", "no es un JSON válido")]
-    [InlineData("""{"format":"other"}""", "no es una exportación de JobPilot")]
+    [InlineData("""{"format":"other"}""", "no es una exportación de JobSearch Copilot")]
     [InlineData("""{"format":"jobpilot-transfer","version":99,"app":"web","exportedAtUtc":"2026-10-07T18:00:00Z","tables":{}}""", "otra versión")]
     [InlineData("""{"format":"jobpilot-transfer","version":1,"app":"web","exportedAtUtc":"2026-10-07T18:00:00Z","tables":{"Secrets":[]}}""", "tabla desconocida")]
     [InlineData("""{"format":"jobpilot-transfer","version":1,"app":"web","exportedAtUtc":"2026-10-07T18:00:00Z","tables":{}}""", "le falta la tabla")]

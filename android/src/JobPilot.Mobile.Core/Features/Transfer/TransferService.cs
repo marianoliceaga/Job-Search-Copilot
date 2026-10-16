@@ -18,7 +18,7 @@ public sealed record TransferPreview(TransferFile File, IReadOnlyList<TransferSu
 public sealed record TransferImportResult(IReadOnlyList<TransferSummaryLine> Lines, string BackupPath);
 
 /// <summary>
-/// Export and "Combinar" import of every JobPilot table, the same file format as the PC (<see cref="TransferFile"/>). Nothing is
+/// Export and "Combinar" import of every JobSearch Copilot table, the same file format as the PC (<see cref="TransferFile"/>). Nothing is
 /// sent anywhere: the owner shares the file (Android's share sheet) and picks it on the other device. Before combining, the
 /// database is copied to the app's data folder. Port of the web service; after combining, the phone's reminders are rescheduled.
 /// </summary>
@@ -41,7 +41,7 @@ public sealed class TransferService(IDbContextFactory<MobileDbContext> dbFactory
         using var stream = new MemoryStream();
         file.Write(stream);
         var local = TimeZoneInfo.ConvertTimeFromUtc(now, time.LocalTimeZone);
-        return ($"jobpilot-celular-{local.ToString("yyyyMMdd-HHmm", CultureInfo.InvariantCulture)}.json", stream.ToArray());
+        return ($"jobsearch-copilot-celular-{local.ToString("yyyyMMdd-HHmm", CultureInfo.InvariantCulture)}.json", stream.ToArray());
     }
 
     /// <summary>Reads the file and computes what combining it would change. Errors are Spanish, for the UI.</summary>
@@ -68,7 +68,7 @@ public sealed class TransferService(IDbContextFactory<MobileDbContext> dbFactory
             await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
             var plan = TransferMerger.Merge(await TransferDatabase.ReadAsync(db, cancellationToken), file.Data);
             var local = TimeZoneInfo.ConvertTimeFromUtc(time.GetUtcNow().UtcDateTime, time.LocalTimeZone);
-            var backup = Path.Combine(BackupDirectory, $"jobpilot-antes-de-combinar-{local.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.db");
+            var backup = Path.Combine(BackupDirectory, $"jobsearch-copilot-antes-de-combinar-{local.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.db");
             await TransferDatabase.BackupAsync(db, backup, cancellationToken);
             PruneBackups();
             await TransferDatabase.ApplyAsync(db, plan, cancellationToken);
@@ -92,7 +92,7 @@ public sealed class TransferService(IDbContextFactory<MobileDbContext> dbFactory
 
     private void PruneBackups()
     {
-        var old = new DirectoryInfo(BackupDirectory).GetFiles("jobpilot-antes-de-combinar-*.db")
+        var old = new DirectoryInfo(BackupDirectory).GetFiles("*-antes-de-combinar-*.db")
             .OrderByDescending(f => f.Name, StringComparer.Ordinal)
             .Skip(BackupsKept);
         foreach (var file in old)

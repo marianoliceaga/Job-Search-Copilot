@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code (and humans) working on **JobPilot**, a local, single-user Blazor app that
+Guidance for Claude Code (and humans) working on **JobSearch Copilot**, a local, single-user Blazor app that
 prepares, analyses and drafts everything for a remote job search using the Gemini API.
 Scope, phases and acceptance criteria: [`docs/PLAN.md`](docs/PLAN.md).
 
@@ -102,7 +102,7 @@ src/JobPilot.Web/
   Infrastructure/Google/     GoogleOptions + GoogleScopes, GoogleTokenStore and GoogleClientStore (Data Protection, data
                              folder), GoogleAuthService (OAuth web flow, refresh, revoke; client from configuration, else
                              from the wizard), GoogleApiClient base, GmailClient (threads, drafts, MIME),
-                             GoogleCalendarClient (JobPilot calendar), DI + /google/connect and /google/callback endpoints
+                             GoogleCalendarClient (JobSearch Copilot calendar), DI + /google/connect and /google/callback endpoints
   Features/Google/           GoogleUi (confirmation dialogs showing exactly what is sent to Google)
   Features/Settings/         GooglePanel (granted scopes, disconnect), GoogleSetupWizard (6 steps: project, APIs, consent
                              screen, web client with the redirect URI to copy, client id/secret, connect)
@@ -228,7 +228,7 @@ docs/PLAN.md                 approved plan
 - Google OAuth for this app is a "Web application" client with the redirect `http://localhost:{port}/google/callback`
   (localhost is exempt from HTTPS). Starting the flow needs a full page load (`NavigateTo(..., forceLoad: true)`).
 - Google accounts in the Advanced Protection Program only allow verified third-party apps to read sensitive data such as
-  Gmail; JobPilot's own unverified client gets "Error 400: policy_enforced" (shown on Google's page, no callback). Use
+  Gmail; JobSearch Copilot's own unverified client gets "Error 400: policy_enforced" (shown on Google's page, no callback). Use
   "Solo Calendar". Sources: `https://support.google.com/accounts/answer/7519408`, `.../answer/7539956`.
 - Google may grant only some scopes (granular consent): check `GoogleStatus` before each feature; calls for a missing
   scope fail locally without reaching Google.
@@ -306,11 +306,12 @@ docs/PLAN.md                 approved plan
 | 2026-10-03 | Google integration over REST (no Google SDK): OAuth web flow with state, `access_type=offline`, `prompt=consent`; scopes `gmail.readonly`, `gmail.compose`, `calendar.app.created`, chosen by the owner | Fewer dependencies, fake-testable; minimal scopes available. |
 | 2026-10-03 | `gmail.compose` is the narrowest scope that creates drafts and Google describes it as "manage drafts and send"; the app only calls `drafts.create`, and `NoSendingTests` fail on any send endpoint or broader scope | Drafts in Gmail without ever sending; the owner accepted the scope knowingly. |
 | 2026-10-03 | "Solo Calendar" connection option (`GoogleAccess.CalendarOnly`, `/google/connect?alcance=calendario`) requests only `calendar.app.created` | Advanced Protection accounts block unverified apps from Gmail (`policy_enforced`); Calendar may still be allowed, to be confirmed by the owner. |
-| 2026-10-03 | Interviews go to a secondary "JobPilot" calendar (`calendar.app.created`), created on first use and recreated if deleted; events only after a confirmation dialog showing the event; the Google event id is stored on the interview so it can be removed | No access to the owner's primary calendar. |
+| 2026-10-03 | Interviews go to a secondary "JobSearch Copilot" calendar (`calendar.app.created`), created on first use and recreated if deleted; events only after a confirmation dialog showing the event; the Google event id is stored on the interview so it can be removed | No access to the owner's primary calendar. |
 | 2026-10-03 | Gmail threads are linked per application (only thread id and subject stored); messages are read on demand, never sent to Gemini; "Registrar como respuesta" stores sender, subject and date only | Privacy; the timeline keeps facts, not mail bodies. |
+| 2026-10-16 | Product name "JobSearch Copilot" (was JobPilot) in everything the owner sees: titles, app bar, Android app label, messages, the Google calendar created from now on, DOCX creator, .ics product id, user agent (`JobSearchCopilot/1.0`), generated file names (`jobsearch-copilot-pc-….json`, `-celular-`, `-pipeline.ics`, `-postulacion.ics`, backups), Play listing graphics and docs. Code names (projects, namespaces, classes) and internal identifiers stay: data folder `JobPilot`, configuration section `JobPilot`, Data Protection application name and purposes, `com.vidi.jobpilot`, export format `jobpilot-transfer`, user-secrets id, notification channel, .ics UIDs, CI artifact names | Asked by the owner (visible text and docs only); internal identifiers kept so existing data, keys, exports, the installed app and Google calendars keep working. A calendar created before keeps its old name in Google. |
 | 2026-10-15 | Google setup wizard in Configuración → Google (PC and phone, asked by the owner): steps in Google Cloud with direct links; on the PC the OAuth client's id and secret are pasted in the wizard and stored in `google-client.bin` (Data Protection, like the token), configuration (user-secrets, environment) still wins; on the phone the wizard shows the installed app's package and signing SHA-1 | Chosen by the owner over keeping user-secrets only; the secret stays out of the repository, the database and export files, and no restart is needed. |
 | 2026-10-03 | Token stored in `google-token.bin` in the data folder, encrypted with ASP.NET Core Data Protection (keys in `{data}/keys`, DPAPI on Windows); `invalid_grant` deletes it and asks to reconnect (7-day refresh tokens for "Testing" apps) | Secrets never in the repo or the database; clear recovery path. |
-| 2026-10-06 | Phase 9 ports the job-search parts of the owner's JobSearchDesk ("LinkedMail Job Finder"): LinkedIn alert parser, role scoring, thread classifier; agreed: brief only inside JobPilot (no e-mail, `gmail.send` still forbidden), mail read only on "Actualizar correo" (no scheduler), job-search mail only (no banks, bills, security notices), primary calendar not read | Keeps "never sends" and "nothing runs unattended"; the owner unenrols from Advanced Protection to use Gmail. |
+| 2026-10-06 | Phase 9 ports the job-search parts of the owner's JobSearchDesk ("LinkedMail Job Finder"): LinkedIn alert parser, role scoring, thread classifier; agreed: brief only inside JobSearch Copilot (no e-mail, `gmail.send` still forbidden), mail read only on "Actualizar correo" (no scheduler), job-search mail only (no banks, bills, security notices), primary calendar not read | Keeps "never sends" and "nothing runs unattended"; the owner unenrols from Advanced Protection to use Gmail. |
 | 2026-10-06 | Mail rules (sets, waiting rules, filter categories, scoring) are a settings document seeded from a generic Spanish `Seed/mail-rules.seed.json` and edited as JSON; saving compiles every rule; pay is compared only with the owner's floor and exchange rates | Same rule language as JobSearchDesk; personal lists (city, companies) stay local; never estimate pay. |
 | 2026-10-06 | Every thread read lands in exactly one bucket (LinkedIn alerts / Te esperan / Filtrados, unreadable threads counted as filtered); an unbalanced result throws instead of being shown | Nothing disappears silently, as in JobSearchDesk. |
 | 2026-10-06 | Mail is read from Gmail's `format=full` JSON (bodies in memory only); stored facts: `MailChecks` (counts, chips, warnings, roles) and `MailWaiting` (one card per thread: sender, subject, dates, rule, timeline, next action); "Listo" hides a card until a new message | Privacy: no bodies stored or sent to Gemini; MimeKit is forbidden by `NoSendingTests`. |

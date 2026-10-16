@@ -65,7 +65,7 @@ public sealed class JobSourceOptions
 {
     public const string SectionName = "JobSources";
 
-    public string UserAgent { get; set; } = "JobPilot/1.0 (personal job search)";
+    public string UserAgent { get; set; } = "JobSearchCopilot/1.0 (personal job search)";
 
     public Dictionary<string, JobSourceSettings> Sources { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 

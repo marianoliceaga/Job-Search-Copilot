@@ -9,7 +9,7 @@
     <MudStack Spacing="2">
         <MudText Typo="Typo.h6" HtmlTag="h2">Exportar</MudText>
         <MudText Typo="Typo.body2">
-            Genera un archivo con todos tus datos de JobPilot para combinarlo en la PC: perfil, CV maestro y sus versiones, ofertas y análisis,
+            Genera un archivo con todos tus datos de JobSearch Copilot para combinarlo en la PC: perfil, CV maestro y sus versiones, ofertas y análisis,
             documentos a medida, pipeline, empresas, outreach, entrevistas, negociación, preferencias, reglas de correo, modelos elegidos,
             historiales y lo que borraste. No incluye la clave de Gemini ni la conexión con Google.
         </MudText>
@@ -84,7 +84,7 @@
         try
         {
             var (fileName, content) = await Transfer.ExportAsync(CancellationToken.None);
-            await Share.ShareFileAsync("Exportación de JobPilot", fileName, TransferService.ContentType, content);
+            await Share.ShareFileAsync("Exportación de JobSearch Copilot", fileName, TransferService.ContentType, content);
         }
         finally
         {
