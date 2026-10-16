@@ -85,5 +85,5 @@ jobs:
         with:
           name: JobPilot-android-${{ github.run_number }}
           path: ${{ runner.temp }}/out/JobPilot-${{ github.run_number }}.apk
-          retention-days: 30
+          retention-days: 14
           if-no-files-found: error
