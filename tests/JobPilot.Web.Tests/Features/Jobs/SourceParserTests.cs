@@ -85,6 +85,58 @@ public class SourceParserTests
     }
 
     [Fact]
+    public void GetOnBoard_reads_the_expanded_company_sections_and_monthly_usd_salary()
+    {
+        var jobs = GetOnBoardSource.Parse(Fixture("getonboard.json"));
+
+        Assert.Equal(2, jobs.Count);
+        var job = jobs[0];
+        Assert.Equal(("getonboard", "Get on Board", "senior-net-developer-fabrikam-remote-1a2b"), (job.SourceKey, job.SourceName, job.SourceJobId));
+        Assert.Equal(("Senior .NET Developer", "Fabrikam Software", "Remote", "fully_remote"), (job.Title, job.Company, job.Location, job.EmploymentType));
+        Assert.Equal("https://www.getonbrd.com/jobs/senior-net-developer-fabrikam-remote-1a2b", job.Url);
+        Assert.Equal((3000m, 4500m, "USD", SalaryPeriod.Month), (job.SalaryMin!.Value, job.SalaryMax!.Value, job.SalaryCurrency, job.SalaryPeriod!.Value));
+        Assert.Equal(["Programming"], job.Tags);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1792094275).UtcDateTime, job.PublishedAtUtc);
+        Assert.Equal("Sobre el equipo\n\nConstruimos APIs con ASP.NET Core.\n\nMigración a .NET 10.\n\nLo que necesitamos:\n\n- 6+ años de C#\n\n- Azure", job.Description);
+
+        // Company without expanded attributes, no salary.
+        Assert.Equal(("(sin empresa)", "Chile · Argentina · Latin America"), (jobs[1].Company, jobs[1].Location));
+        Assert.Null(jobs[1].SalaryCurrency);
+        Assert.Null(jobs[1].SalaryText);
+    }
+
+    [Fact]
+    public void WorkingNomads_splits_tags_and_skips_jobs_without_a_link()
+    {
+        var jobs = WorkingNomadsSource.Parse(Fixture("workingnomads.json"));
+
+        Assert.Equal(2, jobs.Count);
+        var job = jobs[0];
+        Assert.Equal(("Senior C# Engineer", "Litware", "Europe, LATAM"), (job.Title, job.Company, job.Location));
+        Assert.Equal("https://www.workingnomads.com/job/go/900001/", job.Url);
+        Assert.Equal(["Development", "c#", ".net", "azure"], job.Tags);
+        Assert.Equal("Work on our .NET platform.", job.Description);
+        Assert.Equal(new DateTime(2026, 10, 15, 14, 14, 32, DateTimeKind.Utc), job.PublishedAtUtc);
+        Assert.Null(jobs[1].Location);
+        Assert.Equal(["Customer Success"], jobs[1].Tags);
+    }
+
+    [Fact]
+    public void Jobspresso_reads_company_and_location_from_the_creator()
+    {
+        var jobs = JobspressoSource.Parse(Fixture("jobspresso.rss"));
+
+        Assert.Equal(2, jobs.Count);
+        var job = jobs[0];
+        Assert.Equal(("Senior Software Engineer – Platform & APIs", "Wingtip Toys", "Latin America"), (job.Title, job.Company, job.Location));
+        Assert.Equal("https://jobspresso.co/job/wingtip-toys-latam-senior-software-engineer-platform-apis/", job.Url);
+        Assert.Equal("Build APIs in C#.\n\n- .NET 10", job.Description);
+        Assert.Equal(new DateTime(2026, 10, 12, 15, 36, 31, DateTimeKind.Utc), job.PublishedAtUtc);
+        Assert.Equal(("Northwind Traders", "Design things."), (jobs[1].Company, jobs[1].Description));
+        Assert.Null(jobs[1].Location);
+    }
+
+    [Fact]
     public void Greenhouse_decodes_the_escaped_html()
     {
         var jobs = new GreenhouseSource(new HttpClient(), Options).Parse(Fixture("greenhouse.json"), "Woodgrove Bank");

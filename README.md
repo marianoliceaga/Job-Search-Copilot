@@ -99,7 +99,8 @@ database.
 
 ### Job offers
 
-**Ofertas → Buscar** reads the enabled sources (Remotive, Remote OK, Himalayas, Jobicy, We Work Remotely and the
+**Ofertas → Buscar** reads the enabled sources (Remotive, Remote OK, Himalayas, Jobicy, We Work Remotely, Get on Board,
+Working Nomads, Jobspresso and the
 public Greenhouse, Lever and Ashby boards of followed companies). Only offers matching your keywords are kept;
 duplicates across sources are merged and every offer keeps its original link and source. Each source is queried at
 most as often as its terms allow. **Agregar oferta** imports an ATS URL through its public API or extracts the

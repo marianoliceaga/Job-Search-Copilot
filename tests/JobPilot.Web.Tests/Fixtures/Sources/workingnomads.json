@@ -1,0 +1,26 @@
+[
+  {
+    "url": "https://www.workingnomads.com/job/go/900001/",
+    "title": "Senior C# Engineer",
+    "description": "<p>Work on our <strong>.NET</strong> platform.</p>",
+    "company_name": "Litware",
+    "category_name": "Development",
+    "tags": "c#,.net,azure",
+    "location": "Europe, LATAM",
+    "pub_date": "2026-10-15T10:14:32-04:00"
+  },
+  {
+    "url": "https://www.workingnomads.com/job/go/900002/",
+    "title": "Support Specialist",
+    "description": "",
+    "company_name": "Tailspin Toys",
+    "category_name": "Customer Success",
+    "tags": "",
+    "location": "",
+    "pub_date": "2026-10-14T09:00:00-04:00"
+  },
+  {
+    "title": "No link",
+    "company_name": "Nobody"
+  }
+]

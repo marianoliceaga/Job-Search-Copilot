@@ -1,0 +1,60 @@
+{
+  "data": [
+    {
+      "id": "senior-net-developer-fabrikam-remote-1a2b",
+      "type": "job",
+      "attributes": {
+        "title": "Senior .NET Developer",
+        "description_headline": "Sobre el equipo",
+        "description": "<p>Construimos APIs con <strong>ASP.NET Core</strong>.</p>",
+        "projects": "<p>Migración a .NET 10.</p>",
+        "functions_headline": "Lo que necesitamos:",
+        "functions": "<ul><li>6+ años de C#</li><li>Azure</li></ul>",
+        "benefits_headline": "",
+        "benefits": "",
+        "desirable_headline": "",
+        "desirable": "",
+        "remote": true,
+        "remote_modality": "fully_remote",
+        "remote_zone": null,
+        "countries": ["Remote"],
+        "lang": "lang_es",
+        "category_name": "Programming",
+        "perks": "",
+        "min_salary": 3000,
+        "max_salary": 4500,
+        "published_at": 1792094275,
+        "response_time_in_days": { "min": null, "max": null },
+        "applications_count": 0,
+        "tags": { "data": [ { "id": 2, "type": "tag" } ] },
+        "company": {
+          "data": {
+            "id": "fabrikam",
+            "type": "company",
+            "attributes": { "name": "Fabrikam Software", "description": "Software a medida." }
+          }
+        }
+      },
+      "links": { "public_url": "https://www.getonbrd.com/jobs/senior-net-developer-fabrikam-remote-1a2b" }
+    },
+    {
+      "id": "backend-engineer-contoso-santiago-3c4d",
+      "type": "job",
+      "attributes": {
+        "title": "Backend Engineer",
+        "description": "<p>Hybrid role.</p>",
+        "remote": false,
+        "remote_modality": "hybrid",
+        "remote_zone": "Latin America",
+        "countries": ["Chile", "Argentina"],
+        "category_name": "Programming",
+        "min_salary": null,
+        "max_salary": null,
+        "published_at": 1792000000,
+        "company": { "data": { "id": "contoso", "type": "company" } }
+      },
+      "links": { "public_url": "https://www.getonbrd.com/jobs/backend-engineer-contoso-santiago-3c4d" }
+    }
+  ],
+  "meta": { "page": 1, "per_page": 50, "total_pages": 1 }
+}

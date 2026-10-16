@@ -18,6 +18,9 @@ public static class JobsServiceCollectionExtensions
         AddSource<HimalayasSource>(services);
         AddSource<JobicySource>(services);
         AddSource<WeWorkRemotelySource>(services);
+        AddSource<GetOnBoardSource>(services);
+        AddSource<WorkingNomadsSource>(services);
+        AddSource<JobspressoSource>(services);
         AddSource<GreenhouseSource>(services);
         AddSource<LeverSource>(services);
         AddSource<AshbySource>(services);

@@ -59,7 +59,7 @@ public sealed class JobsTestContext : IAsyncDisposable
     public static JobSourceOptions SourceOptions(int minIntervalMinutes = 60)
     {
         var options = new JobSourceOptions();
-        foreach (var key in new[] { "remotive", "remoteok", "himalayas", "jobicy", "weworkremotely", "fake-a", "fake-b" })
+        foreach (var key in new[] { "remotive", "remoteok", "himalayas", "jobicy", "weworkremotely", "getonboard", "workingnomads", "jobspresso", "fake-a", "fake-b" })
         {
             options.Sources[key] = new JobSourceSettings { Urls = [$"https://{key}.test/feed"], MinIntervalMinutes = minIntervalMinutes };
         }
