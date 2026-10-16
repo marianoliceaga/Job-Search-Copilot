@@ -52,6 +52,8 @@ tests/JobPilot.Desktop.Tests/ xUnit v3: navigation rules, ServerHost with a fake
 - The published web app runs in Production from its own folder: `ServerHost` sets the working directory (content root for
   `appsettings.json`, prompts, seeds) and `ASPNETCORE_ENVIRONMENT=Production`. Tests start the build output instead, which
   needs Development for static assets (see the root gotcha about `--no-launch-profile`).
+- `JobPilot.Desktop.slnx` lists `src/JobPilot.Web` and the domain: a project reached only through a `ProjectReference` from
+  outside the solution builds in Debug even with `-c Release`, and `RealServerTests` look for the Release output.
 - The child process's stdout/stderr are redirected and must be drained (`BeginOutputReadLine`), or the server blocks.
 - Google rejects OAuth sign-in from embedded browsers, so `/google/connect` opens in the default browser; the callback lands
   there too (same server on localhost) and the window reloads when it is activated again.
