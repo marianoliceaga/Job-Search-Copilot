@@ -2,6 +2,7 @@ using JobPilot.Domain.Llm;
 using JobPilot.Web.Infrastructure;
 using JobPilot.Web.Infrastructure.Llm;
 using JobPilot.Web.Infrastructure.Persistence;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -63,6 +64,7 @@ public sealed class LlmTestHost : IAsyncDisposable
         services.AddSingleton(TimeProvider.System);
         var paths = new DataPaths(new JobPilotOptions { DataDirectory = directory.Path });
         services.AddSingleton(paths);
+        services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
         services.AddJobPilotPersistence(paths);
         services.AddLlm(configuration, Path.Combine(AppContext.BaseDirectory, "Prompts"));
         services.AddHttpClient<GeminiLlmClient>().ConfigurePrimaryHttpMessageHandler(() => handler);

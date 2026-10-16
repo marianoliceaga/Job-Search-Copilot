@@ -54,8 +54,12 @@ Warnings are treated as errors. Tests use xUnit v3 on Microsoft.Testing.Platform
 
 ### Gemini API key
 
-Store it with [user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) (outside the
-repository), then restart the app:
+Paste it in **Configuración → Conexión con Gemini** and choose **Guardar clave** (create one in
+[Google AI Studio](https://aistudio.google.com/apikey)). It is stored encrypted in the data folder (`gemini-key.bin`), never in
+the database or in export files, and never shown back.
+
+Or store it with [user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) (outside the
+repository), then restart the app (a key in user secrets or the environment takes priority over the pasted one):
 
 ```bash
 dotnet user-secrets set "Gemini:ApiKey" "<your key>" --project src/JobPilot.Web
@@ -167,8 +171,9 @@ follow-ups, upcoming interviews and the estimated LLM cost by use case.
 
 **Configuración → Google** has a step-by-step setup wizard: a Google Cloud project with Gmail API and Google Calendar
 API enabled, an OAuth consent screen (External, your account as test user) and an OAuth client of type
-**Web application** with the redirect URI `http://localhost:5080/google/callback` (with a copy button). Paste the
-client's id and secret in the wizard: they are stored encrypted in your data folder (`google-client.bin`, never in the
+**Web application** with the redirect URI `http://localhost:5080/google/callback` (with a copy button). When Google shows
+the new client, choose **Download JSON** (Google shows the secret only once) and load that file in the wizard, or paste the
+id and secret (both at once works too): they are stored encrypted in your data folder (`google-client.bin`, never in the
 database, the repository or an export) and work without restarting. User-secrets (`Google:ClientId`,
 `Google:ClientSecret`) still work and take priority. JobSearch Copilot asks for three scopes:
 
@@ -242,6 +247,12 @@ model, prompt version, tokens, latency and estimated cost: **Configuración → 
 Job listings belong to their publishers. JobSearch Copilot shows the source and the original link for every
 listing and respects each provider's terms and rate limits (for example Remotive, Remote OK, Himalayas
 and Jobicy require attribution and a link back).
+
+## Windows desktop app
+
+[`windows/`](windows/README.md) holds a Windows version: this same app in its own window (WebView2), with a Start menu
+shortcut and an installer, no browser tab and no .NET SDK needed. It shares the data folder with `dotnet run`. The installer
+is built by `.github/workflows/windows.yml`; download and install steps: [`windows/README.md`](windows/README.md).
 
 ## Android app
 

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <!-- The web app is part of the solution so it builds with the solution's configuration (RealServerTests start it). -->
+    <Project Path="../src/JobPilot.Domain/JobPilot.Domain.csproj" />
+    <Project Path="../src/JobPilot.Web/JobPilot.Web.csproj" />
+    <Project Path="src/JobPilot.Desktop.Core/JobPilot.Desktop.Core.csproj" />
+    <Project Path="src/JobPilot.Desktop/JobPilot.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/JobPilot.Desktop.Tests/JobPilot.Desktop.Tests.csproj" />
+  </Folder>
+</Solution>

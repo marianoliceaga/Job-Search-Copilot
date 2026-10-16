@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows-independent logic of the desktop host (server start, probe, navigation rules), testable on any OS. -->
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="JobPilot.Desktop.Tests" />
+  </ItemGroup>
+
+</Project>

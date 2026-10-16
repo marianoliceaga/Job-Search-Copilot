@@ -10,7 +10,7 @@
 <MudPaper Outlined="true" Class="pa-3" data-testid="google-wizard">
     <MudText Typo="Typo.h6" HtmlTag="h2">Asistente de configuración</MudText>
     <MudText Typo="Typo.body2" Class="mb-2">
-        Una sola vez. Los pasos 1 a 4 se hacen en Google Cloud con tu cuenta (los links abren otra pestaña); después pegás el cliente acá y conectás.
+        Una sola vez. Los pasos 1 a 4 se hacen en Google Cloud con tu cuenta (los links abren otra pestaña); después cargás el cliente acá y conectás.
     </MudText>
 
     @for (var i = 0; i < Steps.Length; i++)
@@ -77,9 +77,14 @@
                                 </MudButton>
                             </MudStack>
                             <MudText Typo="Typo.body2">
-                                Tocá <strong>Create</strong> y dejá abierta la ventana con el <strong>Client ID</strong> y el <strong>Client secret</strong>: los pegás en el
-                                paso siguiente. Google puede tardar unos minutos en aplicar un cliente nuevo.
+                                Tocá <strong>Create</strong>. En la ventana que muestra el cliente creado, tocá <strong>Download JSON</strong>: ese archivo lo
+                                cargás en el paso siguiente y no hay que copiar nada a mano.
                             </MudText>
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                Google muestra el <strong>Client secret</strong> una sola vez, al crear el cliente. Si cerrás esa ventana sin descargar el JSON ni
+                                copiar el secret, vas a tener que crear un secret nuevo en el cliente (<em>Add Secret</em>).
+                            </MudAlert>
+                            <MudText Typo="Typo.body2" Class="mt-2">Google puede tardar unos minutos en aplicar un cliente nuevo.</MudText>
                             break;
                         case 4:
                             @ClientStep()
@@ -113,7 +118,7 @@
         "Habilitar Gmail API y Google Calendar API",
         "Pantalla de consentimiento",
         "Cliente OAuth de tipo Web application",
-        "Pegar el cliente en JobSearch Copilot",
+        "Cargar el cliente en JobSearch Copilot",
         "Conectar tu cuenta",
     ];
 
@@ -124,6 +129,7 @@
     private string? _clientId;
     private string? _clientSecret;
     private string? _clientError;
+    private string? _clientWarning;
     private bool _replacing;
     private string? _copied;
 
@@ -171,19 +177,30 @@
         else
         {
             <MudText Typo="Typo.body2">
-                Pegá el Client ID y el Client secret del cliente que creaste. Se guardan cifrados en la carpeta de datos de JobSearch Copilot (nunca en la base
-                de datos, el repositorio ni las exportaciones).
+                Cargá el archivo JSON que descargaste del cliente (se llama <code>client_secret_….json</code> y suele estar en Descargas). El Client ID y el
+                Client secret se guardan cifrados en la carpeta de datos de JobSearch Copilot (nunca en la base de datos, el repositorio ni las exportaciones).
             </MudText>
-            <MudTextField T="string" @bind-Value="_clientId" Label="Client ID" Variant="Variant.Outlined" Immediate="true" autocomplete="off"
-                          HelperText="Termina en .apps.googleusercontent.com" data-testid="google-client-id" />
-            <MudTextField T="string" @bind-Value="_clientSecret" Label="Client secret" Variant="Variant.Outlined" Immediate="true" autocomplete="off"
-                          InputType="InputType.Password" data-testid="google-client-secret" />
+            <MudFileUpload T="IBrowserFile" FilesChanged="OnClientFileAsync" Accept=".json" MaxFileSize="GoogleClientInput.MaxFileBytes" Class="mt-2">
+                <CustomContent Context="upload">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.UploadFile" OnClick="upload.OpenFilePickerAsync"
+                               data-testid="google-client-file">
+                        Cargar el JSON del cliente
+                    </MudButton>
+                </CustomContent>
+            </MudFileUpload>
+            <MudText Typo="Typo.body2" Class="mt-3">
+                O pegalos a mano. Podés pegar los dos juntos (o el contenido del JSON) en cualquiera de los campos: se reparten solos.
+            </MudText>
+            <MudTextField T="string" Value="_clientId" ValueChanged="OnClientIdChanged" Label="Client ID" Variant="Variant.Outlined" Immediate="true"
+                          autocomplete="off" HelperText="Termina en .apps.googleusercontent.com" data-testid="google-client-id" />
+            <MudTextField T="string" Value="_clientSecret" ValueChanged="OnClientSecretChanged" Label="Client secret" Variant="Variant.Outlined"
+                          Immediate="true" autocomplete="off" InputType="InputType.Password" HelperText="Empieza con GOCSPX-" data-testid="google-client-secret" />
             @if (_clientError is not null)
             {
                 <MudAlert Severity="Severity.Error" Dense="true" data-testid="google-client-error">@_clientError</MudAlert>
             }
             <MudStack Row="true" Class="mt-2">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveClient"
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="SaveClient"
                            Disabled="@(string.IsNullOrWhiteSpace(_clientId) || string.IsNullOrWhiteSpace(_clientSecret))" data-testid="google-client-save">
                     Guardar cliente
                 </MudButton>
@@ -203,6 +220,10 @@
             return;
         }
 
+        @if (_clientWarning is not null)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2" data-testid="google-client-warning">@_clientWarning</MudAlert>
+        }
         <MudText Typo="Typo.subtitle1"><strong>Qué querés conectar</strong></MudText>
         <MudRadioGroup T="GoogleAccess" @bind-Value="_access" data-testid="google-access">
             <MudRadio T="GoogleAccess" Value="GoogleAccess.Full" Color="Color.Primary">Gmail y Calendar</MudRadio>
@@ -223,17 +244,71 @@
         </div>
     };
 
-    private void SaveClient()
+    private void SaveClient() => Save(_clientId, _clientSecret, warning: null);
+
+    private void Save(string? clientId, string? clientSecret, string? warning)
     {
-        _clientError = Clients.Save(_clientId, _clientSecret);
+        _clientError = Clients.Save(clientId, clientSecret);
         if (_clientError is not null)
         {
             return;
         }
 
-        (_clientId, _clientSecret, _replacing) = (null, null, false);
+        (_clientId, _clientSecret, _clientWarning, _replacing) = (null, null, warning, false);
         _status = Auth.Status();
         Go(5);
+    }
+
+    private async Task OnClientFileAsync(IBrowserFile? file)
+    {
+        if (file is null)
+        {
+            return;
+        }
+
+        string json;
+        try
+        {
+            await using var stream = file.OpenReadStream(GoogleClientInput.MaxFileBytes);
+            using var reader = new StreamReader(stream);
+            json = await reader.ReadToEndAsync();
+        }
+        catch (IOException)
+        {
+            _clientError = "No se pudo leer el archivo. El JSON del cliente pesa menos de 1 KB: revisá que sea el que descargaste de Google Cloud.";
+            return;
+        }
+
+        var result = GoogleClientInput.FromJson(json, Auth.RedirectUri);
+        if (result.Error is not null)
+        {
+            _clientError = result.Error;
+            return;
+        }
+
+        Save(result.ClientId, result.ClientSecret, result.Warning);
+    }
+
+    // A paste that holds both values (or the whole JSON) fills both fields.
+    private void OnClientIdChanged(string? value) => (_clientId, _clientSecret) = Split(value, _clientSecret, isId: true);
+
+    private void OnClientSecretChanged(string? value) => (_clientId, _clientSecret) = Split(value, _clientId, isId: false);
+
+    private (string? Id, string? Secret) Split(string? value, string? other, bool isId)
+    {
+        var found = GoogleClientInput.FromText(value, Auth.RedirectUri);
+        if (found.Error is not null)
+        {
+            _clientError = found.Error;
+        }
+        else if (found.HasBoth)
+        {
+            _clientError = null;
+            _clientWarning = found.Warning;
+            return (found.ClientId, found.ClientSecret);
+        }
+
+        return isId ? (value, other) : (other, value);
     }
 
     private void RemoveClient()

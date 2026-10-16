@@ -49,7 +49,7 @@ needs its own client (step 7).
 
 Run **Actions → Android release (Google Play) → Run workflow** with "Upload to Google Play" unchecked, or let the wizard
 do it (`gh workflow run android-release.yml -f upload=false`). The workflow tests the app, builds the signed `.aab` and
-keeps it as the artifact `JobPilot-play-<n>` for 30 days. The version code is the workflow's run number; the version name
+keeps it as the artifact `JobPilot-play-<n>` for 14 days. The version code is the workflow's run number; the version name
 is `0.1.<n>`, or `1.2.3` for a tag `v1.2.3`.
 
 ## 5. Play Console (once, by hand)

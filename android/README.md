@@ -19,7 +19,7 @@ Android 8.0 (API 26) or later. The app is installed from an APK signed with your
 testing track (see [Google Play](#google-play-internal-testing)).
 
 1. Download the APK from the latest successful run of the **Android** workflow (GitHub → Actions → Android → run →
-   Artifacts → `JobPilot-android-<n>`). Artifacts are kept for 30 days. The download is a zip with the `.apk` inside.
+   Artifacts → `JobPilot-android-<n>`). Artifacts are kept for 14 days. The download is a zip with the `.apk` inside.
 2. Copy it to the phone and open it. Android asks to allow installing apps from that source (the browser or file
    manager); allow it for that app only.
 3. Later builds install as updates (CI numbers each build with the run number) as long as they are signed with the same

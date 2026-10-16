@@ -1,25 +1,52 @@
 @using JobPilot.Web.Infrastructure.Llm
-@using Microsoft.Extensions.Options
 @implements IDisposable
-@inject IOptionsMonitor<GeminiOptions> GeminiOptions
+@inject GeminiKeyStore Keys
 @inject ConnectionTestHandler Handler
 @inject LlmSettingsStore Settings
+@inject IDialogService Dialogs
 
 <MudStack Spacing="3">
-    @if (HasApiKey)
+    @switch (Keys.Source)
     {
-        <MudAlert Severity="Severity.Success" data-testid="api-key-status">
-            La API key de Gemini está configurada. Por seguridad no se muestra.
-        </MudAlert>
+        case GeminiKeySource.Configuration:
+            <MudAlert Severity="Severity.Success" data-testid="api-key-status">
+                La API key de Gemini está configurada con user-secrets o una variable de entorno, que tienen prioridad. Por seguridad no se muestra.
+            </MudAlert>
+            break;
+        case GeminiKeySource.App:
+            <MudAlert Severity="Severity.Success" data-testid="api-key-status">
+                La API key de Gemini está guardada en esta PC, cifrada. Por seguridad no se muestra.
+            </MudAlert>
+            break;
+        default:
+            <MudAlert Severity="Severity.Warning" data-testid="api-key-status">
+                No hay API key de Gemini. Creala en <MudLink Href="https://aistudio.google.com/apikey" Target="_blank">Google AI Studio</MudLink>,
+                copiala y pegala acá abajo.
+            </MudAlert>
+            break;
     }
-    else
+
+    @if (Keys.Source != GeminiKeySource.Configuration)
     {
-        <MudAlert Severity="Severity.Warning" data-testid="api-key-status">
-            No hay API key de Gemini configurada. Desde la carpeta del repositorio ejecutá
-            <code>dotnet user-secrets set "Gemini:ApiKey" "TU_API_KEY" --project src/JobPilot.Web</code>
-            y reiniciá la app. También podés usar la variable de entorno <code>GEMINI_API_KEY</code>.
-        </MudAlert>
+        <MudTextField T="string" @bind-Value="_newKey" Label="@(Keys.Source == GeminiKeySource.App ? "Reemplazar la API key" : "API key de Gemini")"
+                      Variant="Variant.Outlined" InputType="InputType.Password" Immediate="true" autocomplete="off" data-testid="api-key-input"
+                      HelperText="Se guarda cifrada en la carpeta de datos de la app, nunca en la base de datos ni en los archivos de exportación." />
+        @if (_keyError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" data-testid="api-key-error">@_keyError</MudAlert>
+        }
+        <MudStack Row="true" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@string.IsNullOrWhiteSpace(_newKey)" OnClick="SaveKey" data-testid="save-key">
+                Guardar clave
+            </MudButton>
+            @if (Keys.Source == GeminiKeySource.App)
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="RemoveKeyAsync" data-testid="remove-key">Borrar clave</MudButton>
+            }
+        </MudStack>
     }
+
+    <MudDivider />
 
     <MudText Typo="Typo.h6">Probar conexión</MudText>
     <MudText>
@@ -72,6 +99,8 @@
 </MudStack>
 
 @code {
+    private string? _newKey;
+    private string? _keyError;
     private PreparedConnectionTest? _test;
     private string? _model;
     private bool _running;
@@ -79,7 +108,7 @@
     private LlmResult<ConnectionTestResponse>? _result;
     private CancellationTokenSource? _cts;
 
-    private bool HasApiKey => GeminiOptions.CurrentValue.HasApiKey;
+    private bool HasApiKey => Keys.Source != GeminiKeySource.None;
 
     protected override async Task OnInitializedAsync() => await PrepareAsync();
 
@@ -87,6 +116,29 @@
     {
         _test = Handler.Prepare();
         _model = (await Settings.ResolveAsync(LlmUseCases.ConnectionTest, CancellationToken.None)).Model;
+    }
+
+    private void SaveKey()
+    {
+        _keyError = Keys.Save(_newKey);
+        if (_keyError is null)
+        {
+            _newKey = null;
+            _result = null;
+        }
+    }
+
+    private async Task RemoveKeyAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Borrar la API key",
+            "Se borra la clave guardada en esta PC. Las funciones con Gemini dejan de andar hasta que cargues otra.",
+            yesText: "Borrar", cancelText: "Cancelar");
+        if (confirmed == true)
+        {
+            Keys.Delete();
+            _result = null;
+        }
     }
 
     private async Task RunAsync()

@@ -1,0 +1,62 @@
+name: Windows
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-installer:
+    runs-on: windows-2025
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore windows/JobPilot.Desktop.slnx
+
+      - name: Build (warnings are errors)
+        run: dotnet build windows/JobPilot.Desktop.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test --solution windows/JobPilot.Desktop.slnx -c Release --no-build
+
+      # The window (self-contained, x64) with the web app (self-contained) in its "server" folder.
+      - name: Publish
+        run: |
+          $publish = Join-Path $env:RUNNER_TEMP "publish"
+          dotnet publish windows/src/JobPilot.Desktop -c Release -r win-x64 --self-contained `
+            -p:Version=1.0.${{ github.run_number }} -p:DebugType=none -o "$publish"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet publish src/JobPilot.Web -c Release -r win-x64 --self-contained -p:DebugType=none -o "$publish\server"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Inno Setup is part of the windows-2025 image; installed with Chocolatey if a future image drops it.
+      - name: Build the installer
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          & $iscc "/DAppVersion=1.0.${{ github.run_number }}" "/DSourceDir=$env:RUNNER_TEMP\publish" `
+            "/DOutputDir=$env:RUNNER_TEMP\installer" windows\installer\JobSearchCopilot.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Only on pushes (a pull request run would store the same installer again); kept 14 days because artifact storage
+      # is limited per account.
+      - name: Upload the installer
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: JobSearchCopilot-windows-${{ github.run_number }}
+          path: ${{ runner.temp }}/installer/JobSearchCopilot-Setup-1.0.${{ github.run_number }}.exe
+          retention-days: 14
+          if-no-files-found: error
