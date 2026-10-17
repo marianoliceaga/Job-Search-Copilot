@@ -3,6 +3,7 @@ name: Windows
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -10,6 +11,9 @@ permissions:
 jobs:
   build-test-installer:
     runs-on: windows-2025
+    # Write access only to publish the installer as a release on main (see the last step).
+    permissions:
+      contents: write
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
     steps:
@@ -50,13 +54,39 @@ jobs:
             "/DOutputDir=$env:RUNNER_TEMP\installer" windows\installer\JobSearchCopilot.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      # Only on pushes (a pull request run would store the same installer again); kept 14 days because artifact storage
-      # is limited per account.
+      # Branch pushes: a 14-day artifact for testing. It counts against the account's artifact storage, so a full quota
+      # does not fail the build (main publishes a release instead).
       - name: Upload the installer
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: JobSearchCopilot-windows-${{ github.run_number }}
           path: ${{ runner.temp }}/installer/JobSearchCopilot-Setup-1.0.${{ github.run_number }}.exe
           retention-days: 14
           if-no-files-found: error
+
+      # main: a GitHub release "windows-v1.0.<run>" with the installer, the download the README points to
+      # (releases/latest). Only the 3 newest Windows releases are kept.
+      - name: Publish the installer as a release
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "1.0.${{ github.run_number }}"
+          $tag = "windows-v$version"
+          $installer = Join-Path $env:RUNNER_TEMP "installer\JobSearchCopilot-Setup-$version.exe"
+          $notes = @"
+          Instalador de JobSearch Copilot para Windows 10 y 11 (64 bits), versión $version.
+
+          1. Descargá ``JobSearchCopilot-Setup-$version.exe`` (abajo, en Assets).
+          2. Ejecutalo. No está firmado: si Windows muestra "Windows protegió su PC", tocá **Más información → Ejecutar de todas formas**.
+          3. Se instala solo para tu usuario, sin permisos de administrador. Para actualizar, ejecutá un instalador más nuevo.
+
+          Tus datos quedan en ``%LocalAppData%\JobPilot`` (los mismos que la app web) y no se borran al desinstalar.
+          Commit: ${{ github.sha }}
+          "@
+          gh release create $tag $installer --target "${{ github.sha }}" --title "JobSearch Copilot para Windows $version" --notes $notes --latest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $old = gh release list --limit 100 --json tagName --jq '.[].tagName' | Where-Object { $_ -like "windows-v*" } | Select-Object -Skip 3
+          foreach ($t in $old) { gh release delete $t --yes --cleanup-tag }

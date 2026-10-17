@@ -6,9 +6,9 @@ needed. Inside, it is the same app as `src/JobPilot.Web` (every feature, the sam
 
 ## Install
 
-1. Open the repository's **Actions** tab, choose the latest green **Windows** run of a push and download the artifact
-   `JobSearchCopilot-windows-<n>` (a zip). Unzip it.
-2. Run `JobSearchCopilot-Setup-1.0.<n>.exe`. The installer is not signed, so Windows SmartScreen says "Windows protegió
+1. Open the latest Windows release, https://github.com/marianoliceaga/Job-Search-Copilot/releases/latest, and download
+   `JobSearchCopilot-Setup-1.0.<n>.exe` from **Assets**.
+2. Run it. The installer is not signed, so Windows SmartScreen says "Windows protegió
    su PC": choose **Más información → Ejecutar de todas formas**.
 3. The app installs for your user only (no administrator rights) in `%LocalAppData%\Programs\JobSearch Copilot`, with a
    Start menu shortcut (and a desktop one if you tick it).
@@ -53,5 +53,6 @@ dotnet publish src/JobPilot.Web -c Release -r win-x64 --self-contained -o publis
 
 The installer lands in `windows\installer\bin` (git-ignored, like `publish`).
 
-CI (`.github/workflows/windows.yml`) does the same on every push and pull request, and uploads the installer as an artifact
-(pushes only) for 14 days.
+CI (`.github/workflows/windows.yml`) does the same on every push and pull request. On `main` (push, or a manual run from
+**Actions → Windows → Run workflow**) it publishes the installer as a release `windows-v1.0.<n>` and keeps the 3 newest; on
+other branches it uploads it as a 14-day artifact, which is skipped when the account's artifact storage is full.
