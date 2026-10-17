@@ -71,6 +71,7 @@ tests/JobPilot.Desktop.Tests/ xUnit v3: navigation rules, ServerHost with a fake
 | 2026-10-16 | Gemini key pasted in Configuración, stored in `gemini-key.bin` (Data Protection, like the Google client); user-secrets and environment still win; never shown back | Chosen by the owner: the installed app has no SDK for user-secrets; the key stays out of the repo, the database and exports. |
 | 2026-10-16 | Third-party pages and the Google connection open in the default browser; the window reloads after the owner comes back | Google's policy against embedded-browser sign-in; untrusted pages never run inside the app's window. |
 | 2026-10-16 | Job object with kill-on-close for the server; single instance by named mutex, also used as the installer's `AppMutex` | No orphan server keeping the port and the database; updates never replace files in use. |
+| 2026-10-17 | The installer from `main` is published as a GitHub release `windows-v1.0.<run>` (3 newest kept; job with `contents: write`); branch pushes keep a 14-day artifact with `continue-on-error` | Chosen by the owner: the account's artifact storage stayed full hours after deleting every artifact, and a release gives a stable download link. |
 | 2026-10-16 | Installer not code-signed | No certificate; the README explains the SmartScreen prompt. |
 
 ## Verified external facts
