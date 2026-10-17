@@ -1,0 +1,13 @@
+name: Delete all artifacts
+on:
+  workflow_dispatch: # Allows manual triggering from the Actions tab
+
+jobs:
+  delete-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            *
+          failOnError: false
