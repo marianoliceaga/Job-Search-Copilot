@@ -1,3 +1,270 @@
+Aquí tienes la traducción al español del archivo "README.md":
+
+# JobSearch Copilot
+
+
+
+Un asistente local de un solo usuario para la búsqueda de empleo remoto, construido con **.NET 10, Blazor (Interactive Server) y MudBlazor**, usando la **API de Gemini** como su único LLM.
+
+JobSearch Copilot prepara, analiza y redacta; tú apruebas. Nunca envía una postulación, correo electrónico o mensaje en tu nombre. Todos los datos permanecen en tu máquina.
+
+> **Estado:** las 9 fases han sido entregadas (integración con Google y resumen de correo incluidos). Pendiente: verificaciones con tu propia clave de Gemini y cuenta de Google. Consulta [`docs/PLAN.md`](https://www.google.com/search?q=docs/PLAN.md) para ver la hoja de ruta y los criterios de aceptación por fase. La interfaz de usuario está en español.
+> 
+> 
+
+## Funciones planificadas
+
+
+
+* **CV Maestro**: importa un CV en PDF, DOCX o Markdown a un modelo estructurado y editable. Es la única fuente de la verdad.
+
+
+* **Ingesta de empleos** desde fuentes cuyos términos lo permiten (API públicas, feeds RSS y portales de empleo ATS públicos), además de entrada manual. Sin web scraping de LinkedIn.
+
+
+* **Análisis y clasificación** de cada oferta (puntuación de idoneidad, requisitos cumplidos o faltantes, compensación solo cuando se publica, modelo de contrato, elegibilidad, banderas rojas o señales de alerta) con pesos configurables.
+
+
+* **CV y carta de presentación adaptados** donde cada viñeta se remonta al CV maestro, exportados a DOCX y PDF amigables para ATS.
+
+
+* **Pipeline** Kanban, recordatorios de seguimiento y exportación `.ics`.
+
+
+* **Investigación de empresas** con fuentes citadas, **borradores de contacto (outreach)**, **práctica de entrevistas** y un asistente de **negociación**.
+
+
+* **Resumen diario de tu correo**: las alertas de empleo de LinkedIn se convierten en ofertas, el correo de los reclutadores y las invitaciones se convierten en tarjetas de "esperando tu respuesta" vinculadas a tus postulaciones. Basado en reglas, de solo lectura, bajo demanda.
+
+
+
+## Requisitos
+
+
+
+* [.NET 10 SDK](https://dotnet.microsoft.com/download) (10.0.100 o posterior).
+
+
+* Una clave de la API de Gemini (de la fase 1). Se recomienda una clave de nivel de pago: en el nivel gratuito, Google puede usar tus prompts, que contienen tu CV, para mejorar sus productos.
+
+
+
+## Ejecución
+
+
+
+```bash
+dotnet run --project src/JobPilot.Web
+
+```
+
+Luego abre [http://localhost:5080](http://localhost:5080). La aplicación escucha únicamente en la interfaz loopback. Cambia el puerto con `JobPilot:Port` en `appsettings.json` o la variable de entorno `JobPilot__Port`.
+
+## Pruebas
+
+
+
+```bash
+dotnet build JobPilot.slnx
+dotnet test --solution JobPilot.slnx
+
+```
+
+Las advertencias se tratan como errores. Las pruebas usan xUnit v3 en Microsoft.Testing.Platform (configurado en `global.json`).
+
+## Configuración
+
+
+
+### Clave de la API de Gemini
+
+
+
+Pégala en **Configuración → Conexión con Gemini** y elige **Guardar clave** (crea una en [Google AI Studio](https://aistudio.google.com/apikey)). Se almacena encriptada en la carpeta de datos (`gemini-key.bin`), nunca en la base de datos o en archivos de exportación, y nunca se vuelve a mostrar.
+
+O guárdala con [secretos de usuario](https://learn.microsoft.com/aspnet/core/security/app-secrets) (fuera del repositorio), luego reinicia la aplicación (una clave en los secretos de usuario o en el entorno tiene prioridad sobre la pegada):
+
+```bash
+dotnet user-secrets set "Gemini:ApiKey" "<tu clave>" --project src/JobPilot.Web
+
+```
+
+Alternativamente, establece la variable de entorno `GEMINI_API_KEY` (o `Gemini__ApiKey`). La clave se envía en un encabezado HTTP y nunca se muestra en la interfaz de usuario ni se escribe en los registros. Compruébala en **Configuración → Conexión con Gemini → Probar conexión**.
+
+### Modelos, parámetros y precios
+
+
+
+`src/JobPilot.Web/appsettings.json`:
+
+* `Llm:DefaultModel` y `Llm:UseCases:<use-case>` (modelo, nivel de razonamiento, temperatura, tokens de salida máximos). Pueden ser anulados desde **Configuración → Modelos por caso de uso** (almacenado en la base de datos local).
+
+
+* `Llm:Pricing:<model>` en USD por millón de tokens, usado para estimaciones de costos. Actualízalo cuando Google cambie sus precios; los modelos sin precio muestran "sin precio configurado".
+
+
+* `Gemini:*`: URL base, reintentos y tiempos de espera. `ConnectTimeoutSeconds` (por defecto 10) limita cuánto tiempo puede tomar abrir la conexión: si tu red no puede alcanzar a Google (IPv6 roto, firewall, VPN, proxy), la acción falla con "No se pudo conectar con Gemini" después de ese tiempo en lugar de esperar el tiempo de espera de respuesta de Gemini (120 s por intento).
+
+
+
+### Datos locales
+
+
+
+La base de datos SQLite se encuentra en `%LocalAppData%\JobPilot` (Windows), `~/.local/share/JobPilot` (Linux) o `~/Library/Application Support/JobPilot` (macOS). Cámbiala con `JobPilot:DataDirectory`. Las migraciones se aplican automáticamente al inicio. Para crear una nueva (desarrolladores):
+
+```bash
+dotnet tool restore
+dotnet ef migrations add <Name> --project src/JobPilot.Web --output-dir Infrastructure/Persistence/Migrations
+
+```
+
+### Perfil y CV maestro
+
+
+
+**Perfil y CV maestro → Perfil** comienza con los valores en `src/JobPilot.Web/Seed/profile.seed.json` y se edita desde la aplicación. **CV maestro → Elegir archivo** importa un CV en PDF, DOCX o Markdown: el texto se extrae localmente, se envía a Gemini solo después de que confirmes (el prompt completo se muestra primero), y vuelve como un borrador. Los valores que no se pueden encontrar en tu documento se marcan; tú revisas y editas todo antes de guardar. Cada guardado crea una versión que puedes restaurar. Tu archivo de CV no se almacena; solo el CV estructurado, en la base de datos local.
+
+### Ofertas de empleo
+
+
+
+**Ofertas → Buscar** lee las fuentes habilitadas (Remotive, Remote OK, Himalayas, Jobicy, We Work Remotely, Get on Board, Working Nomads, Jobspresso y los portales públicos de Greenhouse, Lever y Ashby de las empresas seguidas). Solo se mantienen las ofertas que coinciden con tus palabras clave; los duplicados entre fuentes se fusionan y cada oferta mantiene su enlace y fuente originales. Cada fuente se consulta como máximo con la frecuencia que permiten sus términos. **Agregar oferta** importa una URL de ATS a través de su API pública o extrae los campos de un texto pegado. Abre una oferta y usa **Analizar con Gemini** para obtener la puntuación de idoneidad, requisitos, palabras clave faltantes, compensación (solo cuando se publica), modelo de contrato, elegibilidad desde tu país y banderas rojas. Los pesos de clasificación, el piso/objetivo de compensación y los tipos de cambio se encuentran en **Ofertas → Preferencias**.
+
+### CV y carta de presentación adaptados
+
+
+
+En la página de una oferta, **Postulación** genera una variante del CV y una carta de presentación a partir de tu CV maestro. Cada texto cita los elementos del CV maestro de donde proviene; los números y tecnologías que no se pueden rastrear hasta ellos se marcan (el modelo tiene un reintento con las razones primero). La empresa, los títulos y las fechas siempre provienen del CV maestro. Revisa las diferencias, edita y aprueba; los textos marcados deben ser corregidos, eliminados o confirmados explícitamente por ti. Después de la aprobación puedes descargar archivos **DOCX** amigables para ATS (una columna, sin tablas ni imágenes) y **PDF** (fuente incrustada, texto seleccionable).
+
+### Pipeline y recordatorios
+
+
+
+En la página de una oferta, **Agregar al pipeline** la añade al Kanban del **Pipeline** (Detectada, Interesa, Postulada, Entrevista, Oferta, Rechazada, Descartada). Arrastra las tarjetas entre las columnas o usa su menú; cada cambio se registra en la línea de tiempo de la postulación, junto con notas, contactos, entrevistas y qué CV y carta de presentación aprobados enviaste (se guarda una copia de lo enviado y se puede volver a descargar). Los recordatorios de seguimiento se calculan cuando abres la aplicación (por defecto 7 días sin noticias después de postularte, 3 después de una entrevista, máximo 2 seguimientos por etapa; editable en **Reglas de seguimiento**), o en una fecha que elijas. **Follow-up** (Seguimiento) redacta un correo electrónico corto con Gemini a partir de tu CV y los datos de la postulación; lo revisas, lo copias y lo envías tú mismo, luego lo marcas como enviado. **Exportar calendario (.ics)** descarga las próximas entrevistas y recordatorios para cualquier aplicación de calendario.
+
+### Perfiles de empresas
+
+
+
+**Empresas** mantiene un perfil por empresa, construido solo a partir de fuentes que elijas: URL públicas (Gemini las lee con su herramienta de contexto de URL) y textos que pegues. Cada dato mantiene su URL de origen y una cita literal. Un dato está **verificado** cuando Gemini reporta haber leído su URL o su cita está en tu texto pegado; de lo contrario se muestra como **no verificado** con la razón (incluidos los números que no están en la cita). No se utiliza la verificación (grounding) con la Búsqueda de Google: sus términos no permiten almacenar o anotar sus resultados. El perfil enlaza con las ofertas de la empresa.
+
+### Contacto (Outreach)
+
+
+
+**Outreach → Mensajes** redacta una nota de invitación de LinkedIn (200 caracteres por defecto, `Outreach:ConnectionNoteMaxLength`), un mensaje de LinkedIn o un correo electrónico para un reclutador o gerente de contratación, en tres tonos. Las afirmaciones sobre ti deben provenir de tu CV maestro y las afirmaciones sobre la empresa de hechos verificados o de la publicación; cualquier otra cosa se marca. Copia el texto, envíalo tú mismo y márcalo como enviado (se añade a la línea de tiempo de la oferta). **Perfil de LinkedIn** revisa el titular y el Acerca de que pegues y propone versiones que citan tu CV. JobSearch Copilot nunca envía mensajes y nunca accede a LinkedIn.
+
+### Entrevistas
+
+
+
+**Entrevistas → Preparación**: para una oferta, un banco de posibles preguntas (cada una con la oración de la publicación que la motiva; las citas no encontradas en la publicación se marcan) y las historias STAR construidas solo a partir de tu CV maestro (cada parte cita sus elementos del CV; los números o tecnologías no rastreables se marcan y se pueden editar o confirmar). **Simulacros**: una entrevista simulada en inglés con Gemini como el entrevistador, una pregunta por mensaje y un número limitado de seguimientos (reglas aplicadas por la aplicación). Al final, retroalimentación con rúbrica (estructura, relevancia, evidencia, impacto, comunicación; puntuación general calculada por la aplicación) y respuestas modelo de tu CV. El historial de puntuaciones se grafica.
+
+### Negociación
+
+
+
+**Negociación → Comparador**: ingresa las ofertas que recibiste (base por año, mes u hora, bono, tu propia valoración de beneficios y capital, modelo de contrato). Se normalizan a USD anuales con tus tipos de cambio y tus costos de contratista; no se estima nada. **Guion**: un guion de negociación a partir de tus números y tu CV, con los números no encontrados en ellos marcados. **Simulacro**: un juego de roles con Gemini como el reclutador, partiendo de tu oferta, con retroalimentación por rúbrica.
+
+### Panel
+
+
+
+**Panel** muestra las ofertas detectadas, postulaciones, tasa de respuesta, tiempo promedio hasta la primera respuesta y por etapa, seguimientos pendientes, próximas entrevistas y el costo estimado del LLM por caso de uso.
+
+### Google (opcional)
+
+
+
+**Configuración → Google** tiene un asistente de configuración paso a paso: un proyecto de Google Cloud con la API de Gmail y la API de Google Calendar habilitadas, una pantalla de consentimiento de OAuth (Externa, tu cuenta como usuario de prueba) y un cliente OAuth de tipo **Aplicación web** con el URI de redireccionamiento `http://localhost:5080/google/callback` (con un botón de copiar). Cuando Google muestre el nuevo cliente, elige **Descargar JSON** (Google muestra el secreto solo una vez) y carga ese archivo en el asistente, o pega la identificación y el secreto (ambos a la vez también funciona): se almacenan encriptados en tu carpeta de datos (`google-client.bin`, nunca en la base de datos, el repositorio o una exportación) y funcionan sin reiniciar. Los secretos de usuario (`Google:ClientId`, `Google:ClientSecret`) todavía funcionan y tienen prioridad. JobSearch Copilot solicita tres alcances (scopes):
+
+* `gmail.readonly`: busca y lee hilos que vincules a una postulación (solo se almacena el id del hilo y el asunto; los mensajes se leen bajo demanda y nunca se envían a Gemini).
+
+
+* `gmail.compose`: crea **borradores** de seguimientos y correos electrónicos de contacto, opcionalmente como respuesta en un hilo vinculado. Google describe este alcance como "gestionar borradores y enviar correos electrónicos"; JobSearch Copilot nunca envía (una prueba falla si aparece alguna llamada de envío).
+
+
+* `calendar.app.created`: crea un calendario separado de "JobSearch Copilot" y añade las entrevistas a él, después de que confirmes cada una. JobSearch Copilot no puede ver ni cambiar tu calendario principal.
+
+
+
+Elige **Solo Calendar** antes de conectar para pedir únicamente `calendar.app.created`. Úsalo cuando el acceso a Gmail esté bloqueado: el Programa de Protección Avanzada de Google solo permite a las aplicaciones de terceros verificadas leer Gmail, y JobSearch Copilot usa tu propio cliente OAuth no verificado, por lo que Google responde "Error 400: policy_enforced". Sin Gmail, copia los borradores con **Copiar** y registra las respuestas a mano. **Agregar Gmail** vuelve a conectar con los tres alcances más adelante.
+
+Cada acción muestra exactamente qué se enviará a Google primero. El token se almacena encriptado en tu carpeta de datos. Con la pantalla de consentimiento en estado "Testing", Google expira el permiso después de 7 días y JobSearch Copilot te pide que te vuelvas a conectar. Para evitar eso, publícala (Google Auth Platform → Audience → Publish app → "In production") sin enviarla a verificación: Google permite aplicaciones no verificadas para uso personal (menos de 100 usuarios); haces clic en la advertencia "Google no ha verificado esta aplicación" al conectar. Fuentes: [vencimiento del token de actualización](https://www.google.com/search?q=https://developers.google.com/identity/protocols/oauth2%23expiration), [cuándo no se necesita verificación](https://support.google.com/cloud/answer/13464323). **Desconectar y revocar** revoca el permiso en Google y elimina el token local.
+
+### Bandeja de entrada de correo y resumen diario
+
+
+
+La sección **Hoy** del Panel es el resumen matutino de JobSearchDesk dentro de JobSearch Copilot. **Actualizar correo** lee tu Gmail (el permiso `gmail.readonly`) desde la última comprobación (el último día la primera vez, máximo 4 días atrás) más el correo no leído relacionado con empleos de los últimos 5 días, y clasifica cada hilo en exactamente una categoría:
+
+* **Alertas de LinkedIn**: los roles se leen únicamente del correo de alerta (nunca se extrae de linkedin.com), los duplicados entre ciudades y alertas se fusionan, y cada rol obtiene una idoneidad (Muy buena / Puede ser / Floja) con las reglas que se activaron. Los roles que pasan los filtros se convierten en ofertas de la fuente "LinkedIn (alertas por mail)", con el enlace canónico. La alerta no tiene descripción: abre la oferta, pega el texto en **Descripción** y luego analízalo.
+
+
+* **Te esperan**: correo de reclutadores, InMails y mensajes de LinkedIn, programación de entrevistas, pasos en un sistema de contratación e invitaciones para responder, cada uno con quién escribió, una línea de tiempo basada en hechos y una próxima acción. **Registrar en <empresa>** vincula el hilo a la postulación correspondiente y registra la respuesta en su línea de tiempo; **Listo** oculta la tarjeta hasta que llegue un nuevo mensaje en el hilo. Las invitaciones se evalúan solo a partir del texto del correo electrónico (no se lee tu calendario), así que marca una invitación como lista una vez que hayas respondido.
+
+
+* **Filtrados**: todo lo demás, contado por categoría con remitentes de ejemplo, para que nada desaparezca sin ser visto.
+
+
+
+Las categorías siempre suman el total de hilos leídos; un control que rompa esto se detiene en lugar de mostrar un resumen parcial. JobSearch Copilot solo lee: nunca envía, archiva, etiqueta o marca el correo como leído. Solo se almacenan los hechos (id del hilo, remitente, asunto, fechas, qué regla coincidió); los cuerpos de los mensajes nunca se almacenan ni se envían a Gemini.
+
+**Configuración → Reglas de correo** contiene las reglas en JSON (inicializadas desde `Seed/mail-rules.seed.json`, que no tiene datos personales). Añade tu ciudad a `sets.home`, las empresas que te gustan a `sets.domainCompanies`, y un piso de pago y tipos de cambio bajo `scoring.pay` si quieres que se compare el pago indicado (sin ellos, el pago no se compara; no se estima nada). Las reglas se validan antes de guardar.
+
+### Registro de llamadas LLM
+
+
+
+Cada solicitud enviada a Gemini (incluyendo reintentos, fallas y cancelaciones) se registra con su caso de uso, modelo, versión del prompt, tokens, latencia y costo estimado: **Configuración → Registro de llamadas**.
+
+## Privacidad
+
+
+
+* Tu base de datos, CVs, exportaciones y secretos se almacenan fuera del repositorio y son ignorados por git (git-ignored).
+
+
+* `scripts/check-no-personal-data.sh` se ejecuta en la integración continua (CI) y falla si se está por hacer un commit de una base de datos, un secreto, un documento fuera de los archivos de prueba, una clave API o una dirección de correo electrónico real. Para ejecutarlo antes de cada commit, y para agregar tu propia lista de denegación de cadenas personales en un archivo `.pii-denylist` ignorado por git (una por línea):
+
+
+```bash
+git config core.hooksPath .githooks
+
+```
+
+
+* Antes de cada llamada a Gemini, la interfaz de usuario mostrará lo que se está enviando.
+
+
+
+## Fuentes de datos de empleo
+
+
+
+Los listados de empleo pertenecen a sus publicadores. JobSearch Copilot muestra la fuente y el enlace original para cada listado y respeta los términos y límites de velocidad de cada proveedor (por ejemplo, Remotive, Remote OK, Himalayas y Jobicy requieren atribución y un enlace de retroceso).
+
+## Aplicación de escritorio de Windows
+
+
+
+[`windows/`](https://www.google.com/search?q=windows/README.md) contiene una versión para Windows: esta misma aplicación en su propia ventana (WebView2), con un acceso directo en el menú Inicio y un instalador, sin pestaña en el navegador y sin necesidad del SDK de .NET. Comparte la carpeta de datos con `dotnet run`. El instalador es construido por `.github/workflows/windows.yml`; pasos de descarga e instalación: [`windows/README.md`](https://www.google.com/search?q=windows/README.md).
+
+## Aplicación de Android
+
+
+
+[`android/`](https://www.google.com/search?q=android/README.md) contiene la versión para Android (.NET MAUI Blazor Hybrid, Android 8.0+), construida en fases con su propia solución, pruebas y flujo de trabajo de CI (`.github/workflows/android.yml`). Reutiliza `JobPilot.Domain`, mantiene sus propios datos en el teléfono e intercambia datos con esta aplicación a través de un archivo de exportación/importación. Instalación y firma: [`android/README.md`](https://www.google.com/search?q=android/README.md); Google Play (prueba interna) con un asistente de Windows: [`android/docs/PLAY.md`](https://www.google.com/search?q=android/docs/PLAY.md).
+
+**Mover datos entre la PC y el teléfono:** Configuración → **Exportar / Importar**. "Exportar" descarga un archivo JSON con todos tus datos de JobSearch Copilot (nunca la clave de Gemini ni la conexión con Google). En el otro dispositivo, "Importar y combinar" muestra lo que cambiaría y, luego de confirmar, agrega lo que falta, conserva el cambio más reciente cuando algo se modificó en ambos, toma el valor del archivo para ediciones sin fecha y aplica lo que eliminaste. Tus datos se copian a `backups/` en la carpeta de datos primero. El archivo no está encriptado: mantenlo privado y elimínalo después de importar.
+
+## Licencia
+
+[MIT](https://www.google.com/search?q=LICENSE)
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 # JobSearch Copilot
 
 A local, single-user assistant for a remote job search, built with **.NET 10, Blazor (Interactive Server)
