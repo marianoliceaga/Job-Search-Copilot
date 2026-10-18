@@ -18,8 +18,9 @@ you approve. It never sends an application, e-mail or message on your behalf.
 Android 8.0 (API 26) or later. The app is installed from an APK signed with your own key, or from Google Play's internal
 testing track (see [Google Play](#google-play-internal-testing)).
 
-1. Download the APK from the latest successful run of the **Android** workflow (GitHub → Actions → Android → run →
-   Artifacts → `JobPilot-android-<n>`). Artifacts are kept for 14 days. The download is a zip with the `.apk` inside.
+1. Download `JobSearchCopilot-1.0.<n>.apk` from the newest **JobSearch Copilot para Android** release
+   (https://github.com/marianoliceaga/Job-Search-Copilot/releases). Every push to `main` (or a manual run of the **Android**
+   workflow on `main`) publishes one and keeps the 3 newest; builds of other branches are 14-day artifacts of their run.
 2. Copy it to the phone and open it. Android asks to allow installing apps from that source (the browser or file
    manager); allow it for that app only.
 3. Later builds install as updates (CI numbers each build with the run number) as long as they are signed with the same

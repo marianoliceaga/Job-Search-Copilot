@@ -3,6 +3,7 @@ name: Android
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -10,6 +11,9 @@ permissions:
 jobs:
   build-test-apk:
     runs-on: ubuntu-latest
+    # Write access only to publish the signed APK as a release on main (see the last step).
+    permissions:
+      contents: write
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
     steps:
@@ -49,7 +53,7 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
-          if [ "${{ github.event_name }}" = "push" ] && [ -n "$KEYSTORE_BASE64" ]; then
+          if { [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; } && [ -n "$KEYSTORE_BASE64" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
@@ -79,11 +83,37 @@ jobs:
           mkdir -p "$RUNNER_TEMP/out"
           cp "$RUNNER_TEMP/apk/com.vidi.jobpilot-Signed.apk" "$RUNNER_TEMP/out/JobPilot-${{ github.run_number }}.apk"
 
+      # Branch pushes: a 14-day artifact for testing. It counts against the account's artifact storage, so a full quota
+      # does not fail the build (main publishes a release instead).
       - name: Upload the signed APK
-        if: steps.signing.outputs.enabled == 'true'
+        if: steps.signing.outputs.enabled == 'true' && github.ref != 'refs/heads/main'
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: JobPilot-android-${{ github.run_number }}
           path: ${{ runner.temp }}/out/JobPilot-${{ github.run_number }}.apk
           retention-days: 14
           if-no-files-found: error
+
+      # main: a GitHub release "android-v1.0.<run>" with the signed APK. It is not marked as the latest release, so
+      # releases/latest keeps pointing to the Windows installer. Only the 3 newest Android releases are kept.
+      - name: Publish the APK as a release
+        if: steps.signing.outputs.enabled == 'true' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="1.0.${{ github.run_number }}"
+          tag="android-v$version"
+          apk="$RUNNER_TEMP/out/JobSearchCopilot-$version.apk"
+          cp "$RUNNER_TEMP/out/JobPilot-${{ github.run_number }}.apk" "$apk"
+          notes="APK de JobSearch Copilot para Android 8.0 o superior, versión $version (código ${{ github.run_number }}).
+
+          1. En el teléfono, descargá \`JobSearchCopilot-$version.apk\` (abajo, en Assets).
+          2. Abrilo y permití instalar apps de esta fuente si Android lo pide.
+          3. Se instala como actualización de una APK anterior de GitHub. No reemplaza una instalación de Google Play (usan otra firma): desinstalá esa primero.
+
+          Commit: ${{ github.sha }}"
+          gh release create "$tag" "$apk" --target "${{ github.sha }}" --title "JobSearch Copilot para Android $version" \
+            --notes "$notes" --latest=false
+          gh release list --limit 100 --json tagName --jq '.[].tagName' | grep '^android-v' | tail -n +4 \
+            | while read -r old; do gh release delete "$old" --yes --cleanup-tag; done
