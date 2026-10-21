@@ -315,22 +315,13 @@ public sealed class GeminiLlmClientTests
     [Fact]
     public async Task Does_not_call_gemini_without_an_api_key()
     {
-        var previous = Environment.GetEnvironmentVariable(LlmServiceCollectionExtensions.GeminiApiKeyEnvironmentVariable);
-        Environment.SetEnvironmentVariable(LlmServiceCollectionExtensions.GeminiApiKeyEnvironmentVariable, null);
-        try
-        {
-            await using var host = await LlmTestHost.CreateAsync(new() { ["Gemini:ApiKey"] = "" });
+        await using var host = await LlmTestHost.CreateAsync(new() { ["Gemini:ApiKey"] = "" });
 
-            var result = await host.Client.GenerateAsync(new LlmRequest<Sample>(Prompt), Ct);
+        var result = await host.Client.GenerateAsync(new LlmRequest<Sample>(Prompt), Ct);
 
-            Assert.Equal(LlmErrorKind.Configuration, result.Error?.Kind);
-            Assert.Empty(host.Handler.Requests);
-            Assert.Empty(await host.CallRecordsAsync());
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(LlmServiceCollectionExtensions.GeminiApiKeyEnvironmentVariable, previous);
-        }
+        Assert.Equal(LlmErrorKind.Configuration, result.Error?.Kind);
+        Assert.Empty(host.Handler.Requests);
+        Assert.Empty(await host.CallRecordsAsync());
     }
 
     [Theory]

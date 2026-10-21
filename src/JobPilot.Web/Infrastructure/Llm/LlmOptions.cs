@@ -44,12 +44,6 @@ public sealed class GeminiOptions
 {
     public const string SectionName = "Gemini";
 
-    /// <summary>
-    /// API key. Set it with user-secrets (<c>Gemini:ApiKey</c>) or the <c>Gemini__ApiKey</c> / <c>GEMINI_API_KEY</c>
-    /// environment variables. Never commit it.
-    /// </summary>
-    public string? ApiKey { get; set; }
-
     public Uri BaseUrl { get; set; } = new("https://generativelanguage.googleapis.com/v1beta/");
 
     /// <summary>How the JSON schema is sent. See <see cref="GeminiStructuredOutputMode"/>.</summary>
@@ -70,8 +64,6 @@ public sealed class GeminiOptions
     public double ConnectTimeoutSeconds { get; set; } = 10;
 
     public double TotalTimeoutSeconds { get; set; } = 360;
-
-    public bool HasApiKey => !string.IsNullOrWhiteSpace(ApiKey);
 }
 
 public enum GeminiStructuredOutputMode

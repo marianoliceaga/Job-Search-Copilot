@@ -52,7 +52,6 @@ public sealed class RealServerTests : IDisposable
             {
                 ["JobPilot__Port"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 ["JobPilot__DataDirectory"] = _data,
-                ["Gemini__ApiKey"] = string.Empty,
                 ["Google__ClientId"] = string.Empty,
                 ["Google__ClientSecret"] = string.Empty,
             },

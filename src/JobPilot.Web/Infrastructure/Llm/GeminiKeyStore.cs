@@ -1,22 +1,22 @@
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.Extensions.Options;
 
 namespace JobPilot.Web.Infrastructure.Llm;
 
-/// <summary>Where the Gemini API key in use comes from: configuration (user-secrets or environment) wins over the app.</summary>
+/// <summary>Where the Gemini API key in use comes from: the key saved in the app wins over <c>secrets.json</c>.</summary>
 public enum GeminiKeySource
 {
     None,
-    Configuration,
+    SecretsFile,
     App,
 }
 
 /// <summary>
-/// The Gemini API key pasted in Configuración, kept in <c>gemini-key.bin</c> in the data folder and encrypted with ASP.NET Core
-/// Data Protection like the Google token (never in the repository, the database or an export file). It is used only when
-/// configuration has no key, and it is never shown back in the UI.
+/// The Gemini API key. Two places only, in this order: the key pasted in Configuración, kept in <c>gemini-key.bin</c> in the
+/// data folder and encrypted with ASP.NET Core Data Protection (never in the repository, the database or an export file); then
+/// <c>Gemini:ApiKey</c> in the user-secrets file (<see cref="IGeminiSecretsFile"/>). Environment variables are never read for
+/// the key. It is never shown back in the UI.
 /// </summary>
-public sealed class GeminiKeyStore(DataPaths paths, IDataProtectionProvider protection, IOptionsMonitor<GeminiOptions> options)
+public sealed class GeminiKeyStore(DataPaths paths, IDataProtectionProvider protection, IGeminiSecretsFile secrets)
 {
     private readonly IDataProtector _protector = protection.CreateProtector("JobPilot.GeminiKey.v1");
     private readonly Lock _gate = new();
@@ -25,12 +25,19 @@ public sealed class GeminiKeyStore(DataPaths paths, IDataProtectionProvider prot
 
     public string FilePath => Path.Combine(paths.DataDirectory, "gemini-key.bin");
 
-    public GeminiKeySource Source => options.CurrentValue.HasApiKey ? GeminiKeySource.Configuration
-        : StoredKey() is not null ? GeminiKeySource.App
+    /// <summary>The user-secrets file, for the UI (null when its location cannot be resolved).</summary>
+    public string? SecretsFilePath => secrets.FilePath;
+
+    public bool HasAppKey => StoredKey() is not null;
+
+    public bool HasSecretsFileKey => secrets.ReadKey() is not null;
+
+    public GeminiKeySource Source => HasAppKey ? GeminiKeySource.App
+        : HasSecretsFileKey ? GeminiKeySource.SecretsFile
         : GeminiKeySource.None;
 
-    /// <summary>The key to send: user-secrets or environment first, then the one saved in the app.</summary>
-    public string? ApiKey => options.CurrentValue.HasApiKey ? options.CurrentValue.ApiKey : StoredKey();
+    /// <summary>The key to send: the one saved in the app first, then the one in <c>secrets.json</c>.</summary>
+    public string? ApiKey => StoredKey() ?? secrets.ReadKey();
 
     /// <summary>Validates and stores the key (trimmed). Returns an error message for the UI, or null when it was saved.</summary>
     public string? Save(string? value)

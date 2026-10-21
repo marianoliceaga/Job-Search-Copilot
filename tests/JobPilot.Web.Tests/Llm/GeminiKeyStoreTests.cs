@@ -13,21 +13,20 @@ using MudBlazor.Services;
 
 namespace JobPilot.Web.Tests.Llm;
 
-/// <summary>The Gemini API key pasted in Configuración: stored encrypted, used when configuration has none.</summary>
+/// <summary>The Gemini API key: pasted in Configuración (stored encrypted, wins) or in secrets.json; never from the environment.</summary>
 public sealed class GeminiKeyStoreTests : BunitContext
 {
     private const string PastedKey = "pasted-test-key";
 
     private readonly TempDirectory _data = new();
 
-    private void AddServices(string? configuredKey = null)
+    private void AddServices(string? secretsFileKey = null)
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddMudServices();
         Services.AddLogging();
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["Gemini:ApiKey"] = configuredKey ?? string.Empty,
             ["Llm:DefaultModel"] = "gemini-test-flash",
         }).Build();
         var paths = new DataPaths(new JobPilotOptions { DataDirectory = _data.Path });
@@ -35,6 +34,7 @@ public sealed class GeminiKeyStoreTests : BunitContext
         Services.AddSingleton(TimeProvider.System);
         Services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
         Services.AddJobPilotPersistence(paths);
+        Services.AddSingleton<IGeminiSecretsFile>(new FixedGeminiSecretsFile(secretsFileKey));
         Services.AddLlm(configuration, Path.Combine(AppContext.BaseDirectory, "Prompts"));
         Services.AddTransient<ConnectionTestHandler>();
     }
@@ -74,18 +74,49 @@ public sealed class GeminiKeyStoreTests : BunitContext
     }
 
     [Fact]
-    public void Configuration_wins_over_the_pasted_key()
+    public void The_key_saved_in_the_app_wins_over_secrets_json_and_deleting_it_falls_back()
     {
-        AddServices(configuredKey: "configured-key");
+        AddServices(secretsFileKey: "secrets-file-key");
         var keys = Services.GetRequiredService<GeminiKeyStore>();
+        Assert.Equal((GeminiKeySource.SecretsFile, "secrets-file-key"), (keys.Source, keys.ApiKey));
 
         keys.Save(PastedKey);
+        Assert.Equal((GeminiKeySource.App, PastedKey), (keys.Source, keys.ApiKey));
 
-        Assert.Equal((GeminiKeySource.Configuration, "configured-key"), (keys.Source, keys.ApiKey));
+        keys.Delete();
+        Assert.Equal((GeminiKeySource.SecretsFile, "secrets-file-key"), (keys.Source, keys.ApiKey));
     }
 
     [Fact]
-    public async Task The_gemini_client_sends_the_pasted_key_when_configuration_has_none()
+    public async Task Environment_variables_and_other_configuration_never_supply_the_key()
+    {
+        var previous = (Environment.GetEnvironmentVariable("GEMINI_API_KEY"), Environment.GetEnvironmentVariable("Gemini__ApiKey"));
+        Environment.SetEnvironmentVariable("GEMINI_API_KEY", "from-environment");
+        Environment.SetEnvironmentVariable("Gemini__ApiKey", "from-environment");
+        try
+        {
+            await using var host = await LlmTestHost.CreateAsync(new() { ["Gemini:ApiKey"] = string.Empty });
+            var keys = host.Services.GetRequiredService<GeminiKeyStore>();
+
+            Assert.Equal((GeminiKeySource.None, (string?)null), (keys.Source, keys.ApiKey));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GEMINI_API_KEY", previous.Item1);
+            Environment.SetEnvironmentVariable("Gemini__ApiKey", previous.Item2);
+        }
+    }
+
+    [Fact]
+    public void The_real_secrets_file_reads_only_its_own_json()
+    {
+        using var secrets = new UserSecretsGeminiFile();
+
+        Assert.EndsWith(Path.Combine("jobpilot-web-local", "secrets.json"), secrets.FilePath, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_gemini_client_sends_the_pasted_key()
     {
         await using var host = await LlmTestHost.CreateAsync(new() { ["Gemini:ApiKey"] = string.Empty });
         var keys = host.Services.GetRequiredService<GeminiKeyStore>();
@@ -113,19 +144,29 @@ public sealed class GeminiKeyStoreTests : BunitContext
         cut.Find("[data-testid=save-key]").Click();
 
         Assert.Equal(PastedKey, Services.GetRequiredService<GeminiKeyStore>().ApiKey);
-        Assert.Contains("guardada en esta PC", cut.Find("[data-testid=api-key-status]").TextContent, StringComparison.Ordinal);
+        Assert.Contains("clave guardada desde la app", cut.Find("[data-testid=api-key-status]").TextContent, StringComparison.Ordinal);
         Assert.DoesNotContain(PastedKey, cut.Markup, StringComparison.Ordinal);
         Assert.NotNull(cut.Find("[data-testid=remove-key]"));
     }
 
     [Fact]
-    public async Task With_a_configured_key_the_panel_has_no_key_field()
+    public async Task With_a_key_in_secrets_json_the_panel_says_so_and_still_lets_the_owner_replace_it()
     {
-        AddServices(configuredKey: "configured-key");
+        AddServices(secretsFileKey: "secrets-file-key");
         await Services.InitializeDatabaseAsync(Xunit.TestContext.Current.CancellationToken);
         var cut = Render<GeminiConnectionPanel>();
 
-        Assert.Contains("user-secrets", cut.Find("[data-testid=api-key-status]").TextContent, StringComparison.Ordinal);
-        Assert.Empty(cut.FindAll("[data-testid=api-key-input]"));
+        Assert.Contains("secrets.json", cut.Find("[data-testid=api-key-status]").TextContent, StringComparison.Ordinal);
+        Assert.Contains("jobpilot-web-local", cut.Find("[data-testid=api-key-secrets-path]").TextContent, StringComparison.Ordinal);
+        Assert.Empty(cut.FindAll("[data-testid=remove-key]"));
+
+        cut.Find("input[data-testid=api-key-input]").Input(PastedKey);
+        cut.Find("[data-testid=save-key]").Click();
+
+        var status = cut.Find("[data-testid=api-key-status]").TextContent;
+        Assert.Contains("clave guardada desde la app", status, StringComparison.Ordinal);
+        Assert.Contains("También hay una clave en secrets.json", status, StringComparison.Ordinal);
+        Assert.Equal(PastedKey, Services.GetRequiredService<GeminiKeyStore>().ApiKey);
+        Assert.NotNull(cut.Find("input[data-testid=api-key-input]"));
     }
 }

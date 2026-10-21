@@ -66,6 +66,7 @@ public sealed class LlmTestHost : IAsyncDisposable
         services.AddSingleton(paths);
         services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
         services.AddJobPilotPersistence(paths);
+        services.AddSingleton<IGeminiSecretsFile>(new FixedGeminiSecretsFile(settings["Gemini:ApiKey"]));
         services.AddLlm(configuration, Path.Combine(AppContext.BaseDirectory, "Prompts"));
         services.AddHttpClient<GeminiLlmClient>().ConfigurePrimaryHttpMessageHandler(() => handler);
 
