@@ -80,16 +80,25 @@ Las advertencias se tratan como errores. Las pruebas usan xUnit v3 en Microsoft.
 
 
 
-Pégala en **Configuración → Conexión con Gemini** y elige **Guardar clave** (crea una en [Google AI Studio](https://aistudio.google.com/apikey)). Se almacena encriptada en la carpeta de datos (`gemini-key.bin`), nunca en la base de datos o en archivos de exportación, y nunca se vuelve a mostrar. Podés reemplazarla o borrarla desde la misma pantalla en cualquier momento.
+* **secrets.json sigue funcionando:** La app lee `Gemini:ApiKey` de `%APPDATA%\Microsoft\UserSecrets\jobpilot-web-local\secrets.json`. Si editás ese archivo con la app abierta, el cambio se toma sin reiniciar:
+  ```bash
+  dotnet user-secrets set "Gemini:ApiKey" "<tu clave>" --project src/JobPilot.Web
+  ```
 
-O guárdala con [secretos de usuario](https://learn.microsoft.com/aspnet/core/security/app-secrets) (`%APPDATA%\Microsoft\UserSecrets\jobpilot-web-local\secrets.json`, fuera del repositorio). La clave guardada desde la app tiene prioridad; la de `secrets.json` se usa cuando no hay otra, y la pantalla muestra cuál se está usando:
+* **Ya no lee variables de entorno:** Ni `GEMINI_API_KEY` ni `Gemini__ApiKey`. Hay un test que confirma que la app las ignora aunque existan.
+  > [!IMPORTANT]
+  > Si ya tenés la clave en `GEMINI_API_KEY`, después de este cambio la app deja de verla. Pegala en la pantalla o ponela en `secrets.json`.
 
-```bash
-dotnet user-secrets set "Gemini:ApiKey" "<tu clave>" --project src/JobPilot.Web
+* **La clave guardada desde la app tiene prioridad:** Si hay una guardada ahí, se usa esa; la de `secrets.json` solo se usa cuando no hay otra. Al borrar la de la app, se vuelve a usar la de `secrets.json`. Se almacena encriptada en la carpeta de datos (`gemini-key.bin`), nunca en la base de datos o en archivos de exportación, y nunca se vuelve a mostrar.
 
-```
+* **La pantalla dice de dónde se lee:** En **Configuración → Conexión con Gemini** aparece una de estas tres opciones:
+  * *"Se usa la clave guardada desde la app"*. Si además hay una en `secrets.json`, avisa que esa queda como respaldo.
+  * *"Se usa la clave de secrets.json"*, con la ruta completa del archivo.
+  * *"No hay API key de Gemini"*.
 
-Las variables de entorno (`GEMINI_API_KEY`, `Gemini__ApiKey`) no se leen. La clave se envía en un encabezado HTTP y nunca se muestra en la interfaz de usuario ni se escribe en los registros. Compruébala en **Configuración → Conexión con Gemini → Probar conexión**.
+* **Siempre podés cambiarla desde la app:** El campo **"Nueva API key"** y el botón **Guardar clave** están siempre visibles (crea una en [Google AI Studio](https://aistudio.google.com/apikey)). Si hay una clave guardada desde la app, también aparece **Borrar la clave de la app**.
+
+La clave se envía en un encabezado HTTP y nunca se muestra en la interfaz de usuario ni se escribe en los registros. Compruébala en **Configuración → Conexión con Gemini → Probar conexión**.
 
 ### Modelos, parámetros y precios
 
@@ -321,21 +330,25 @@ Warnings are treated as errors. Tests use xUnit v3 on Microsoft.Testing.Platform
 
 ### Gemini API key
 
-Paste it in **Configuración → Conexión con Gemini** and choose **Guardar clave** (create one in
-[Google AI Studio](https://aistudio.google.com/apikey)). It is stored encrypted in the data folder (`gemini-key.bin`), never in
-the database or in export files, and never shown back. You can replace or delete it from the same screen at any time.
+- **secrets.json continues to work:** The app reads `Gemini:ApiKey` from `%APPDATA%\Microsoft\UserSecrets\jobpilot-web-local\secrets.json`. If you edit that file while the app is open, changes are picked up without restarting:
+  ```bash
+  dotnet user-secrets set "Gemini:ApiKey" "<your key>" --project src/JobPilot.Web
+  ```
 
-Or store it with [user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets)
-(`%APPDATA%\Microsoft\UserSecrets\jobpilot-web-local\secrets.json`, outside the repository). The key saved in the app takes
-priority; the one in `secrets.json` is used when there is no other, and the screen shows which one is in use:
+- **Environment variables are no longer read:** Neither `GEMINI_API_KEY` nor `Gemini__ApiKey`. An automated test confirms that the app ignores them even if they exist.
+  > [!IMPORTANT]
+  > If you already have the key in `GEMINI_API_KEY`, the app stops seeing it after this change. Paste it on the settings screen or put it in `secrets.json`.
 
-```bash
-dotnet user-secrets set "Gemini:ApiKey" "<your key>" --project src/JobPilot.Web
-```
+- **The key saved from the app takes priority:** If one is saved there, it is used; the one in `secrets.json` is only used when there is no other key. Deleting the app key falls back to using `secrets.json`. It is stored encrypted in the data folder (`gemini-key.bin`), never in the database or in export files, and never shown back.
 
-Environment variables (`GEMINI_API_KEY`, `Gemini__ApiKey`) are not read. The key is sent in an HTTP
-header and is never shown in the UI or written to logs. Check it in **Configuración → Conexión con Gemini →
-Probar conexión**.
+- **The screen shows where the key is read from:** In **Configuración → Conexión con Gemini**, one of these three options appears:
+  - *"Se usa la clave guardada desde la app"*. If there is also a key in `secrets.json`, it informs that it remains as a backup.
+  - *"Se usa la clave de secrets.json"*, with the full path of the file.
+  - *"No hay API key de Gemini"*.
+
+- **You can always change it from the app:** The **"Nueva API key"** field and **Guardar clave** button are always visible (create one in [Google AI Studio](https://aistudio.google.com/apikey)). If there is a key saved from the app, **Borrar la clave de la app** also appears.
+
+The key is sent in an HTTP header and is never shown in the UI or written to logs. Check it in **Configuración → Conexión con Gemini → Probar conexión**.
 
 ### Models, parameters and prices
 

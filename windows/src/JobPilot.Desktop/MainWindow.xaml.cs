@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Interop;
 
 using JobPilot.Desktop.Core;
 
@@ -15,6 +17,22 @@ namespace JobPilot.Desktop;
 /// </summary>
 public partial class MainWindow : Window
 {
+    // WM_NCHITTEST return values — needed to restore resize/move when WebView2 swallows mouse messages.
+    private const int WM_NCHITTEST = 0x0084;
+    private const int HTCLIENT = 1;
+    private const int HTCAPTION = 2;
+    private const int HTLEFT = 10;
+    private const int HTRIGHT = 11;
+    private const int HTTOP = 12;
+    private const int HTTOPLEFT = 13;
+    private const int HTTOPRIGHT = 14;
+    private const int HTBOTTOM = 15;
+    private const int HTBOTTOMLEFT = 16;
+    private const int HTBOTTOMRIGHT = 17;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr DefWindowProc(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
     /// <summary>Microsoft's download page for end users (the WebView2 Runtime comes with Windows 11 and most Windows 10 PCs).</summary>
     private static readonly Uri WebView2RuntimeDownload = new("https://developer.microsoft.com/microsoft-edge/webview2/consumer/");
 
@@ -43,10 +61,43 @@ public partial class MainWindow : Window
         Activated += (_, _) => RefreshAfterGoogle();
         Closed += (_, _) =>
         {
+            SaveWindowPosition();
             _server.Dispose();
             _job.Dispose();
             _http.Dispose();
         };
+
+        RestoreWindowPosition();
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        // Hook into the Win32 message loop so we can fix WM_NCHITTEST being swallowed by WebView2's HWND.
+        var source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+        source?.AddHook(WndProc);
+    }
+
+    /// <summary>
+    /// Restores WPF resize and drag behaviour that WebView2's child HWND steals by consuming all mouse messages,
+    /// including those in the non-client resize border. We rerun DefWindowProc for the resize/caption hit areas
+    /// so the OS can handle them normally.
+    /// </summary>
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_NCHITTEST)
+        {
+            var result = DefWindowProc(hwnd, msg, wParam, lParam);
+            int hit = (int)result;
+            if (hit is HTLEFT or HTRIGHT or HTTOP or HTTOPLEFT or HTTOPRIGHT
+                     or HTBOTTOM or HTBOTTOMLEFT or HTBOTTOMRIGHT or HTCAPTION)
+            {
+                handled = true;
+                return result;
+            }
+        }
+
+        return IntPtr.Zero;
     }
 
     public void BringToFront()
@@ -252,5 +303,57 @@ public partial class MainWindow : Window
         _link = link?.Uri;
         LinkButton.Content = link?.Label;
         LinkButton.Visibility = link is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>Saves the current window position, size, and state to user settings.</summary>
+    private void SaveWindowPosition()
+    {
+        if (WindowState == WindowState.Normal)
+        {
+            Properties.Settings.Default.WindowLeft = Left;
+            Properties.Settings.Default.WindowTop = Top;
+            Properties.Settings.Default.WindowWidth = Width;
+            Properties.Settings.Default.WindowHeight = Height;
+        }
+
+        Properties.Settings.Default.WindowState = (int)WindowState;
+        Properties.Settings.Default.Save();
+    }
+
+    /// <summary>Restores window position and size from user settings, ensuring the window is on a visible screen.</summary>
+    private void RestoreWindowPosition()
+    {
+        var s = Properties.Settings.Default;
+        if (s.WindowWidth <= 0 || s.WindowHeight <= 0)
+        {
+            return; // first launch — use XAML defaults
+        }
+
+        // Guard: ensure the saved bounds intersect at least one WPF virtual desktop area.
+        // VirtualScreenLeft/Top/Width/Height cover all monitors in WPF units.
+        var vLeft = SystemParameters.VirtualScreenLeft;
+        var vTop = SystemParameters.VirtualScreenTop;
+        var vRight = vLeft + SystemParameters.VirtualScreenWidth;
+        var vBottom = vTop + SystemParameters.VirtualScreenHeight;
+
+        bool visible = s.WindowLeft < vRight && s.WindowLeft + s.WindowWidth > vLeft
+                    && s.WindowTop < vBottom && s.WindowTop + s.WindowHeight > vTop;
+
+        if (!visible)
+        {
+            return; // screen was disconnected — fall back to XAML defaults
+        }
+
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Left = s.WindowLeft;
+        Top = s.WindowTop;
+        Width = s.WindowWidth;
+        Height = s.WindowHeight;
+
+        var savedState = (WindowState)s.WindowState;
+        if (savedState == WindowState.Maximized)
+        {
+            WindowState = WindowState.Maximized;
+        }
     }
 }
