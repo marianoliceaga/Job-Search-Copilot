@@ -1,6 +1,9 @@
+using JobPilot.Web.Infrastructure.Llm;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace JobPilot.Web.Tests.TestSupport;
 
@@ -12,7 +15,8 @@ public sealed class JobPilotWebFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("JobPilot:DataDirectory", _directory.Path);
-        builder.UseSetting("Gemini:ApiKey", string.Empty);
+        // No Gemini key: the machine's real secrets.json is replaced.
+        builder.ConfigureTestServices(services => services.AddSingleton<IGeminiSecretsFile>(new FixedGeminiSecretsFile()));
     }
 
     protected override void Dispose(bool disposing)

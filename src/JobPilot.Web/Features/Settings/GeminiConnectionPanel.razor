@@ -8,14 +8,19 @@
 <MudStack Spacing="3">
     @switch (Keys.Source)
     {
-        case GeminiKeySource.Configuration:
-            <MudAlert Severity="Severity.Success" data-testid="api-key-status">
-                La API key de Gemini está configurada con user-secrets o una variable de entorno, que tienen prioridad. Por seguridad no se muestra.
-            </MudAlert>
-            break;
         case GeminiKeySource.App:
             <MudAlert Severity="Severity.Success" data-testid="api-key-status">
-                La API key de Gemini está guardada en esta PC, cifrada. Por seguridad no se muestra.
+                Se usa la <strong>clave guardada desde la app</strong> (cifrada en la carpeta de datos de esta PC). Por seguridad no se muestra.
+                @if (Keys.HasSecretsFileKey)
+                {
+                    <br /><span>También hay una clave en <code>secrets.json</code>: se usa solo si borrás la de la app.</span>
+                }
+            </MudAlert>
+            break;
+        case GeminiKeySource.SecretsFile:
+            <MudAlert Severity="Severity.Success" data-testid="api-key-status">
+                Se usa la clave de <strong>secrets.json</strong> (<code data-testid="api-key-secrets-path">@Keys.SecretsFilePath</code>). Por seguridad no se muestra.
+                Si guardás una clave acá abajo, pasa a usarse esa.
             </MudAlert>
             break;
         default:
@@ -26,25 +31,22 @@
             break;
     }
 
-    @if (Keys.Source != GeminiKeySource.Configuration)
+    <MudTextField T="string" @bind-Value="_newKey" Label="@(Keys.Source == GeminiKeySource.None ? "API key de Gemini" : "Nueva API key")"
+                  Variant="Variant.Outlined" InputType="InputType.Password" Immediate="true" autocomplete="off" data-testid="api-key-input"
+                  HelperText="Se guarda cifrada en la carpeta de datos de la app y tiene prioridad sobre secrets.json. Nunca va a la base de datos ni a los archivos de exportación." />
+    @if (_keyError is not null)
     {
-        <MudTextField T="string" @bind-Value="_newKey" Label="@(Keys.Source == GeminiKeySource.App ? "Reemplazar la API key" : "API key de Gemini")"
-                      Variant="Variant.Outlined" InputType="InputType.Password" Immediate="true" autocomplete="off" data-testid="api-key-input"
-                      HelperText="Se guarda cifrada en la carpeta de datos de la app, nunca en la base de datos ni en los archivos de exportación." />
-        @if (_keyError is not null)
-        {
-            <MudAlert Severity="Severity.Error" Dense="true" data-testid="api-key-error">@_keyError</MudAlert>
-        }
-        <MudStack Row="true" Wrap="Wrap.Wrap">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@string.IsNullOrWhiteSpace(_newKey)" OnClick="SaveKey" data-testid="save-key">
-                Guardar clave
-            </MudButton>
-            @if (Keys.Source == GeminiKeySource.App)
-            {
-                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="RemoveKeyAsync" data-testid="remove-key">Borrar clave</MudButton>
-            }
-        </MudStack>
+        <MudAlert Severity="Severity.Error" Dense="true" data-testid="api-key-error">@_keyError</MudAlert>
     }
+    <MudStack Row="true" Wrap="Wrap.Wrap">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@string.IsNullOrWhiteSpace(_newKey)" OnClick="SaveKey" data-testid="save-key">
+            Guardar clave
+        </MudButton>
+        @if (Keys.HasAppKey)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="RemoveKeyAsync" data-testid="remove-key">Borrar la clave de la app</MudButton>
+        }
+    </MudStack>
 
     <MudDivider />
 
@@ -132,7 +134,9 @@
     {
         var confirmed = await Dialogs.ShowMessageBoxAsync(
             "Borrar la API key",
-            "Se borra la clave guardada en esta PC. Las funciones con Gemini dejan de andar hasta que cargues otra.",
+            Keys.HasSecretsFileKey
+                ? "Se borra la clave guardada desde la app. Se vuelve a usar la de secrets.json."
+                : "Se borra la clave guardada desde la app. Las funciones con Gemini dejan de andar hasta que cargues otra.",
             yesText: "Borrar", cancelText: "Cancelar");
         if (confirmed == true)
         {

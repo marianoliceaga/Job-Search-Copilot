@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
 
@@ -5,19 +6,10 @@ namespace JobPilot.Web.Infrastructure.Llm;
 
 public static class LlmServiceCollectionExtensions
 {
-    public const string GeminiApiKeyEnvironmentVariable = "GEMINI_API_KEY";
-
     public static IServiceCollection AddLlm(this IServiceCollection services, IConfiguration configuration, string promptsDirectory)
     {
         services.AddOptions<GeminiOptions>()
             .Bind(configuration.GetSection(GeminiOptions.SectionName))
-            .PostConfigure(options =>
-            {
-                if (!options.HasApiKey)
-                {
-                    options.ApiKey = Environment.GetEnvironmentVariable(GeminiApiKeyEnvironmentVariable);
-                }
-            })
             .Validate(o => o.AttemptTimeoutSeconds > 0 && o.TotalTimeoutSeconds > o.AttemptTimeoutSeconds,
                 "Gemini:TotalTimeoutSeconds must be greater than Gemini:AttemptTimeoutSeconds.")
             .Validate(o => o.ConnectTimeoutSeconds > 0, "Gemini:ConnectTimeoutSeconds must be greater than zero.")
@@ -33,6 +25,8 @@ public static class LlmServiceCollectionExtensions
         services.AddSingleton<DbLlmCallLog>();
         services.AddSingleton<ILlmCallLog>(sp => sp.GetRequiredService<DbLlmCallLog>());
         services.AddSingleton<LlmSettingsStore>();
+        // The key comes only from the app's own file or secrets.json (never from environment variables or other configuration).
+        services.TryAddSingleton<IGeminiSecretsFile, UserSecretsGeminiFile>();
         services.AddSingleton<GeminiKeyStore>();
 
         services.AddHttpClient<GeminiLlmClient>((sp, http) =>

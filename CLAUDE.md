@@ -38,8 +38,8 @@ dotnet run --project src/JobPilot.Web            # http://localhost:5080 (loopba
 bash scripts/check-no-personal-data.sh           # same check CI runs
 git config core.hooksPath .githooks              # optional: run the check on every commit
 
-# Gemini API key (never committed): paste it in Configuración → Conexión con Gemini (stored encrypted in the data folder), or
-dotnet user-secrets set "Gemini:ApiKey" "<key>" --project src/JobPilot.Web   # or env var GEMINI_API_KEY; both win over the app
+# Gemini API key (never committed): paste it in Configuración → Conexión con Gemini (stored encrypted in the data folder; wins), or
+dotnet user-secrets set "Gemini:ApiKey" "<key>" --project src/JobPilot.Web   # secrets.json only; environment variables are not read
 
 # Optional Google integration (OAuth client of type "Web application", redirect http://localhost:5080/google/callback).
 # The setup wizard in Configuración → Google stores the client encrypted in the data folder; user-secrets take priority.
@@ -69,7 +69,7 @@ src/JobPilot.Web/
     JobPilotOptions.cs       port and data directory (DataPaths)
     Persistence/             JobPilotDbContext, migrations, auto-migrate on startup
     Llm/                     ILlmClient, GeminiLlmClient, LlmJson (schema), PromptLibrary, LlmSettingsStore,
-                             DbLlmCallLog, LlmUseCases catalog, GeminiKeyStore (key pasted in the app), DI registration
+                             DbLlmCallLog, LlmUseCases catalog, GeminiKeyStore (app key, then UserSecretsGeminiFile), DI registration
   Prompts/                   <use-case>.v<N>.md, one per use case (copied to the output folder)
   Seed/profile.seed.json     initial profile values (professional context only, no personal identifiers)
   Features/Profile/          ProfilePage (Perfil / CV maestro tabs), ProfileStore, MasterCvStore (versions),
@@ -148,8 +148,9 @@ windows/                     Windows desktop app (WPF + WebView2 host over the w
   (Spanish, user-facing). Never fill gaps with app-made data.
 - **Configuration:** model names, LLM parameters, prices and source settings live in configuration, never
   in code. Secrets via user-secrets (`UserSecretsId=jobpilot-web-local`) or environment variables; the only exceptions are the
-  Google OAuth client entered in the setup wizard (`google-client.bin`) and the Gemini key pasted in Configuración
-  (`gemini-key.bin`), both encrypted with Data Protection in the data folder; configuration wins over both.
+  Google OAuth client entered in the setup wizard (`google-client.bin`; configuration wins over it) and the Gemini key pasted in
+  Configuración (`gemini-key.bin`; it wins over `secrets.json`, the only other source of the key), both encrypted with Data
+  Protection in the data folder.
 - **Local data** (phase 1+): default directory `Environment.SpecialFolder.LocalApplicationData/JobPilot`
   (`%LocalAppData%\JobPilot` on Windows, `~/.local/share/JobPilot` on Linux,
   `~/Library/Application Support/JobPilot` on macOS), overridable via configuration. Never inside the
@@ -314,7 +315,8 @@ windows/                     Windows desktop app (WPF + WebView2 host over the w
 | 2026-10-03 | Gmail threads are linked per application (only thread id and subject stored); messages are read on demand, never sent to Gemini; "Registrar como respuesta" stores sender, subject and date only | Privacy; the timeline keeps facts, not mail bodies. |
 | 2026-10-16 | Product name "JobSearch Copilot" (was JobPilot) in everything the owner sees: titles, app bar, Android app label, messages, the Google calendar created from now on, DOCX creator, .ics product id, user agent (`JobSearchCopilot/1.0`), generated file names (`jobsearch-copilot-pc-….json`, `-celular-`, `-pipeline.ics`, `-postulacion.ics`, backups), Play listing graphics and docs. Code names (projects, namespaces, classes) and internal identifiers stay: data folder `JobPilot`, configuration section `JobPilot`, Data Protection application name and purposes, `com.vidi.jobpilot`, export format `jobpilot-transfer`, user-secrets id, notification channel, .ics UIDs, CI artifact names | Asked by the owner (visible text and docs only); internal identifiers kept so existing data, keys, exports, the installed app and Google calendars keep working. A calendar created before keeps its old name in Google. |
 | 2026-10-16 | Windows desktop app in `windows/`: WPF + WebView2 window over the published web app (child process on localhost, or the one already running), same data folder, per-user Inno Setup installer built by CI; details in `windows/CLAUDE.md` | Chosen by the owner: every web feature in its own window without a browser or the .NET SDK. |
-| 2026-10-16 | Gemini key pasted in Configuración → Conexión con Gemini, stored in `gemini-key.bin` (Data Protection); user-secrets and environment win; never shown back, never in the database or exports | Chosen by the owner for the installed desktop app, which has no `dotnet user-secrets`. |
+| 2026-10-16 | Gemini key pasted in Configuración → Conexión con Gemini, stored in `gemini-key.bin` (Data Protection); never shown back, never in the database or exports | Chosen by the owner for the installed desktop app, which has no `dotnet user-secrets`. |
+| 2026-10-21 | Gemini key sources: the key saved in the app first, then `Gemini:ApiKey` in the user-secrets `secrets.json` (read on its own by `UserSecretsGeminiFile`, reloaded on change); environment variables and other configuration are never read for the key; the panel says which source is in use and always offers to replace the key | Asked by the owner: rotate the key from the app at any time, keep `secrets.json` as an option, ignore system environment variables. |
 | 2026-10-16 | The wizard loads the client from Google Cloud's downloaded JSON (`GoogleClientInput`: `web` clients only, warns when the redirect URI is missing) or from a paste holding both values | Asked by the owner (easier than copying two values); Google shows the client secret only once, at creation. |
 | 2026-10-15 | Google setup wizard in Configuración → Google (PC and phone, asked by the owner): steps in Google Cloud with direct links; on the PC the OAuth client's id and secret are pasted in the wizard and stored in `google-client.bin` (Data Protection, like the token), configuration (user-secrets, environment) still wins; on the phone the wizard shows the installed app's package and signing SHA-1 | Chosen by the owner over keeping user-secrets only; the secret stays out of the repository, the database and export files, and no restart is needed. |
 | 2026-10-03 | Token stored in `google-token.bin` in the data folder, encrypted with ASP.NET Core Data Protection (keys in `{data}/keys`, DPAPI on Windows); `invalid_grant` deletes it and asks to reconnect (7-day refresh tokens for "Testing" apps) | Secrets never in the repo or the database; clear recovery path. |

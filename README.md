@@ -80,16 +80,16 @@ Las advertencias se tratan como errores. Las pruebas usan xUnit v3 en Microsoft.
 
 
 
-Pégala en **Configuración → Conexión con Gemini** y elige **Guardar clave** (crea una en [Google AI Studio](https://aistudio.google.com/apikey)). Se almacena encriptada en la carpeta de datos (`gemini-key.bin`), nunca en la base de datos o en archivos de exportación, y nunca se vuelve a mostrar.
+Pégala en **Configuración → Conexión con Gemini** y elige **Guardar clave** (crea una en [Google AI Studio](https://aistudio.google.com/apikey)). Se almacena encriptada en la carpeta de datos (`gemini-key.bin`), nunca en la base de datos o en archivos de exportación, y nunca se vuelve a mostrar. Podés reemplazarla o borrarla desde la misma pantalla en cualquier momento.
 
-O guárdala con [secretos de usuario](https://learn.microsoft.com/aspnet/core/security/app-secrets) (fuera del repositorio), luego reinicia la aplicación (una clave en los secretos de usuario o en el entorno tiene prioridad sobre la pegada):
+O guárdala con [secretos de usuario](https://learn.microsoft.com/aspnet/core/security/app-secrets) (`%APPDATA%\Microsoft\UserSecrets\jobpilot-web-local\secrets.json`, fuera del repositorio). La clave guardada desde la app tiene prioridad; la de `secrets.json` se usa cuando no hay otra, y la pantalla muestra cuál se está usando:
 
 ```bash
 dotnet user-secrets set "Gemini:ApiKey" "<tu clave>" --project src/JobPilot.Web
 
 ```
 
-Alternativamente, establece la variable de entorno `GEMINI_API_KEY` (o `Gemini__ApiKey`). La clave se envía en un encabezado HTTP y nunca se muestra en la interfaz de usuario ni se escribe en los registros. Compruébala en **Configuración → Conexión con Gemini → Probar conexión**.
+Las variables de entorno (`GEMINI_API_KEY`, `Gemini__ApiKey`) no se leen. La clave se envía en un encabezado HTTP y nunca se muestra en la interfaz de usuario ni se escribe en los registros. Compruébala en **Configuración → Conexión con Gemini → Probar conexión**.
 
 ### Modelos, parámetros y precios
 
@@ -323,16 +323,17 @@ Warnings are treated as errors. Tests use xUnit v3 on Microsoft.Testing.Platform
 
 Paste it in **Configuración → Conexión con Gemini** and choose **Guardar clave** (create one in
 [Google AI Studio](https://aistudio.google.com/apikey)). It is stored encrypted in the data folder (`gemini-key.bin`), never in
-the database or in export files, and never shown back.
+the database or in export files, and never shown back. You can replace or delete it from the same screen at any time.
 
-Or store it with [user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) (outside the
-repository), then restart the app (a key in user secrets or the environment takes priority over the pasted one):
+Or store it with [user secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets)
+(`%APPDATA%\Microsoft\UserSecrets\jobpilot-web-local\secrets.json`, outside the repository). The key saved in the app takes
+priority; the one in `secrets.json` is used when there is no other, and the screen shows which one is in use:
 
 ```bash
 dotnet user-secrets set "Gemini:ApiKey" "<your key>" --project src/JobPilot.Web
 ```
 
-Alternatively set the `GEMINI_API_KEY` (or `Gemini__ApiKey`) environment variable. The key is sent in an HTTP
+Environment variables (`GEMINI_API_KEY`, `Gemini__ApiKey`) are not read. The key is sent in an HTTP
 header and is never shown in the UI or written to logs. Check it in **Configuración → Conexión con Gemini →
 Probar conexión**.
 

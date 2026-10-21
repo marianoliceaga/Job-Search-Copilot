@@ -33,7 +33,8 @@ deletes that folder; delete it yourself if you want to remove your data.
 
 - **Gemini API key:** Configuración → Conexión con Gemini → paste the key from
   [Google AI Studio](https://aistudio.google.com/apikey) → **Guardar clave**. It is stored encrypted in the data folder.
-  A key in user-secrets or the `GEMINI_API_KEY` environment variable takes priority.
+  It takes priority over a key in `secrets.json` (user-secrets); the screen shows which one is in use and lets you replace
+  it at any time. Environment variables are not read.
 - **Google (optional):** Configuración → Google, same wizard and OAuth client as the web app (redirect URI
   `http://localhost:5080/google/callback`). When you connect, the window opens your default browser: Google does not allow
   signing in from embedded browsers. Finish there and come back to the window, which refreshes by itself.
