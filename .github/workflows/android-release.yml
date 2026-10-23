@@ -134,7 +134,7 @@ jobs:
         with:
           name: JobPilot-play-${{ steps.version.outputs.code }}
           path: ${{ runner.temp }}/out/JobPilot-${{ steps.version.outputs.name }}.aab
-          retention-days: 14
+          retention-days: 3
           if-no-files-found: error
 
       - name: Decide whether to upload

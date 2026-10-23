@@ -63,7 +63,7 @@ jobs:
         with:
           name: JobSearchCopilot-windows-${{ github.run_number }}
           path: ${{ runner.temp }}/installer/JobSearchCopilot-Setup-1.0.${{ github.run_number }}.exe
-          retention-days: 14
+          retention-days: 3
           if-no-files-found: error
 
       # main: a GitHub release "windows-v1.0.<run>" with the installer, the download the README points to

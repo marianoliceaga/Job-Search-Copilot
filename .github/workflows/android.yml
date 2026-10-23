@@ -92,7 +92,7 @@ jobs:
         with:
           name: JobPilot-android-${{ github.run_number }}
           path: ${{ runner.temp }}/out/JobPilot-${{ github.run_number }}.apk
-          retention-days: 14
+          retention-days: 3
           if-no-files-found: error
 
       # main: a GitHub release "android-v1.0.<run>" with the signed APK. It is not marked as the latest release, so
